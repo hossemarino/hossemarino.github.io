@@ -1,7 +1,7 @@
 body{
 	background: #E0C9A6;
 	color: black;
-	width: 800px;
+	max-width: 800px;
 }
 body *{
 	margin-left: 5px;
@@ -18,7 +18,7 @@ ul{
 
 .audio-player,
 .main-table{
-	width: 800px;
+	width: 100%;
 }
 
 
