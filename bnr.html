@@ -19,7 +19,9 @@
   <script src="jquery-ui-1.12.1/jquery-ui.js" type="text/javascript"></script>
   <script src="jquery-ui-1.12.1/datepicker-bg.js" type="text/javascript"></script>
   <script src="jonthornton-jquery-timepicker/jquery.timepicker.min.js" type="text/javascript"></script>
+  <script src="hls.min.js" type="text/javascript"></script> 
   <script src="functioning.js" type="text/javascript"></script> 
+  
 </head>
 
 <body>
@@ -30,7 +32,6 @@
 		Включете си интернедите
 	</marquee>
 </div>
-
 
 <table class="main-table">
 <tr>
@@ -71,21 +72,12 @@ Your browser does not support the audio element.
 <table class="main-table">
 	<tr>
 		<td>
-			<audio class="audio-player-лиже" controls="" autoplay="off" name="media">
-				<source src="https://lb-hls.cdn.bg/2032/fls/Horizont.stream/playlist.m3u8" type="audio/mpeg"/>
-				Your browser does not support the audio element.
+			<video class="audio-player-live" controls>
+				<source src="https://lb-hls.cdn.bg/2032/fls/Horizont.stream/playlist.m3u8" type="application/vnd.apple.mpegurl">
+			</video>
 		</td>
 	</tr>
 </table>
-
-
-
-
-
-
-
-
-
 
 <hr>
 <p>София, България 2021-09-27</p>

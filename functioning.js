@@ -1,3 +1,5 @@
+import("./node_modules/hls.js/dist/hls.js")
+
 function generateAudioClip(){
 	let d = $ ("#datepicker").val();
 	let t = $ ("#timepicker").val();
@@ -78,4 +80,24 @@ $ (document).ready(function(){
 		player.load(); //just start buffering (preload)
 		player.play(); //start playing
 	});
+
+
+
+	var video = $ (".audio-player-live");
+	var videoSrc = 'https://lb-hls.cdn.bg/2032/fls/Horizont.stream/playlist.m3u8';
+	if (Hls.isSupported()) {
+		var hls = new Hls();
+		hls.loadSource(videoSrc);
+		hls.attachMedia(video);
+	}
+	// HLS.js is not supported on platforms that do not have Media Source
+	// Extensions (MSE) enabled.
+	//
+	// When the browser has built-in HLS support (check using `canPlayType`),
+	// we can provide an HLS manifest (i.e. .m3u8 URL) directly to the video
+	// element through the `src` property. This is using the built-in support
+	// of the plain video element, without using HLS.js.
+	else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+	  video.src = videoSrc;
+	}
 });
