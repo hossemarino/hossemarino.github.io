@@ -1,4 +1,4 @@
-//import("./node_modules/hls.js/dist/hls.js")
+import("./hls.js")
 
 function generateAudioClip(){
 	let d = $ ("#datepicker").val();
