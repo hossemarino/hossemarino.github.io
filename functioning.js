@@ -81,8 +81,6 @@ $ (document).ready(function(){
 		player.play(); //start playing
 	});
 
-
-
 	var video = $ (".audio-player-live");
 	var videoSrc = 'https://lb-hls.cdn.bg/2032/fls/Horizont.stream/playlist.m3u8';
 	if (Hls.isSupported()) {
