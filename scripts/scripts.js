@@ -10,15 +10,33 @@ document.addEventListener("DOMContentLoaded", () => {
     let commandSuggestions = document.getElementById("commandSuggestions");
 
     const surveyLanguageDropdown = document.getElementById("surveyLanguage");
+    const controlElements = document.getElementById("controlElements");
     const questionTypes = document.getElementById("questionTypes");
     const questionElements = document.getElementById("questionElements");
     const questionAttroibutes = document.getElementById("attributesCommands");
     const miscelaneousCommands = document.getElementById("miscellaneousCommands");
 
+    const standardsTab = document.getElementById("standardQuestions");
+    const copyProtection = document.getElementById("standardCopyProtection");
+    const stylesTab = document.getElementById("styleCreation");
+
     const increaseFontButton = document.getElementById("increaseFont");
     const decreaseFontButton = document.getElementById("decreaseFont");
 
     const commandGroups = {
+        control: {
+            "add term": addTerm,
+            "add quota": addQuota,
+            "validate tag": validateTag,
+            "exec tag": execTag,
+            "resource tag": makeRes,
+            "block tag": wrapInBlock,
+            "block tag (randomize children)": wrapInBlockRandomize,
+            "loop tag": addLoopBlock,
+            "make looprows": makeLooprows,
+            "make markers": makeMarker,
+            "make condition": makeCondition,
+        },
         elements: {
             "make rows": makeRows,
             "make rows (rating l-h)": makeRowsLow,
@@ -77,14 +95,34 @@ document.addEventListener("DOMContentLoaded", () => {
             "ol": makeOl,
             "ul": makeUl,
             "make link href": makeHref,
-        }
+        },
+        standards: {
+            "us states": makeStateOnly,
+            "us states + region recode": makeStateWithRecode,
+            "us states checkbox": makeStateCheckbox,
+            "countries": makeCountrySelectISO,
+
+        },
+        copyprotection: {
+            "add survey copy protection": addCopyProtection,
+            "make unselectable (span)": makeUnselectableSpan,
+            "make unselectable (div)": makeUnselectableDiv,
+            "add unselectable attributes": addUnselectableAttributes
+
+        },
+        styles: {}
+
     };
 
     const containers = {
+        control: controlElements,
         types: questionTypes,
         elements: questionElements,
         attr: questionAttroibutes,
-        misc: miscelaneousCommands
+        misc: miscelaneousCommands,
+        standards: standardsTab,
+        copyprotection: copyProtection,
+        styles: stylesTab
     };
 
     document.getElementById("addTabButton").onclick = () => openModal("tab");
@@ -209,7 +247,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     window.setSurveyLanguage = setSurveyLanguage;
 
-    // populates commands in the command pallatte box according to the definition of the const commandGroups
+    // populates commands in the toolbox according to the definition of the const commandGroups
     function populateCommands() {
         commandSuggestions.innerHTML = "";
 
@@ -436,18 +474,16 @@ document.addEventListener("DOMContentLoaded", () => {
     function processCommand(command) {
         const normalized = command.toLowerCase();
 
-        const fn =
-            commandGroups.elements[normalized] ||
-            commandGroups.types[normalized] ||
-            commandGroups.attr[normalized] ||
-            commandGroups.misc[normalized];
-
-        if (fn) {
-            fn();
-        } else {
-            console.error("Unknown command:", command);
-            alert(`Unknown command: "${command}"`);
+        // Search across all groups in commandGroups
+        for (const group of Object.values(commandGroups)) {
+            if (group[normalized]) {
+                group[normalized]();
+                return;
+            }
         }
+
+        console.error("Unknown command:", command);
+        alert(`Unknown command: "${command}"`);
     }
 
     //confirm delete tab
@@ -641,6 +677,63 @@ document.addEventListener("DOMContentLoaded", () => {
         localStorage.setItem("ihutCheckboxRecode", val);
         recodeToggleToolbar.value = val;
     });
+
+    const toggleBtn = document.getElementById("toggleToolbox");
+    toggleBtn.onclick = () => {
+        const wrapper = document.getElementById("toolboxWrapper");
+        wrapper.classList.toggle("collapsed");
+        toggleBtn.textContent = wrapper.classList.contains("collapsed") ? "›" : "‹";
+    };
+
+    document.getElementById("toggleToolbarBtn").onclick = function () {
+        const toolbar = document.querySelector(".editor-toolbar");
+        toolbar.classList.toggle("collapsed");
+
+        this.textContent = toolbar.classList.contains("collapsed") ? "▼" : "▲";
+        if (targetSelector.includes("toolbar") && window.editor?.refresh) {
+            setTimeout(() => window.editor.refresh(), 310);
+        }
+
+    };
+
+    //resize
+    function makeResizable(wrapperId, direction = "vertical") {
+        const wrapper = document.getElementById(wrapperId);
+        const handle = wrapper.querySelector(".resize-handle." + direction);
+        let isResizing = false;
+
+        handle.addEventListener("mousedown", e => {
+            isResizing = true;
+            document.body.style.cursor = handle.style.cursor;
+            e.preventDefault();
+        });
+
+        document.addEventListener("mousemove", e => {
+            if (!isResizing)
+                return;
+
+            if (direction === "vertical") {
+                const newHeight = e.clientY - wrapper.getBoundingClientRect().top;
+                wrapper.style.height = newHeight + "px";
+            } else {
+                const newWidth = e.clientX - wrapper.getBoundingClientRect().left;
+                wrapper.style.width = newWidth + "px";
+            }
+
+            if (window.editor?.refresh)
+                window.editor.refresh(); // for CodeMirror
+        });
+
+        document.addEventListener("mouseup", () => {
+            if (isResizing) {
+                isResizing = false;
+                document.body.style.cursor = "default";
+            }
+        });
+    }
+
+    makeResizable("toolbarWrapper", "vertical");
+    makeResizable("toolboxWrapper", "horizontal");
 });
 
 function validateFormAndGenerateXML(mode) {
@@ -1219,7 +1312,7 @@ ${redirects}
 ${redirecrts_contd}
 </samplesources>
 
-${SAGO_CSS}
+${IHUT_CSS}
 
 ${ihutCSS}
 

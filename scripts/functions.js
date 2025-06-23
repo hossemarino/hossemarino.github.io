@@ -328,11 +328,264 @@ function wrapSelection(tag) {
 }
 
 function toTitleCase(str) {
+    const acronyms = ["us", "uk", "eu", "xml", "id", "qa"]; // Add more as needed
+
     return str
     .toLowerCase()
-    .split(/(\s|-)/) // keep spaces and hyphens as separators
-    .map(part => /^[a-z]/.test(part) ? part.charAt(0).toUpperCase() + part.slice(1) : part)
+    .split(/(\s|-)/) // keep spaces and hyphens
+    .map(part => {
+        if (acronyms.includes(part))
+            return part.toUpperCase();
+        return /^[a-z]/.test(part) ? part.charAt(0).toUpperCase() + part.slice(1) : part;
+    })
     .join("");
+}
+
+// CONTROL ELEMENTS
+// termination
+function addTerm() {
+    const selectedText = window.editor.getSelection();
+    const html = `<term label="term_" cond="${selectedText.trim()}"></term>`;
+    window.editor.replaceSelection(html);
+}
+
+// quota tag
+function addQuota() {
+    const selectedText = window.editor.getSelection();
+    const html = `<quota label="quota_${selectedText.trim()}" sheet="${selectedText.trim()}" overquota="noqual"/>`;
+    window.editor.replaceSelection(html);
+}
+
+// validate tag
+function validateTag() {
+    const selectedText = window.editor.getSelection();
+
+    const html = `
+  <validate>
+${selectedText.trim()}
+
+  <validate>`;
+    window.editor.replaceSelection(html);
+}
+
+// validate tag
+function execTag() {
+    const selectedText = window.editor.getSelection();
+
+    const html = `
+  <exec>
+${selectedText.trim()}
+
+  <exec>`;
+    window.editor.replaceSelection(html);
+}
+
+// res
+function makeRes() {
+    const selectedText = window.editor.getSelection();
+
+    try {
+        if (!selectedText.trim()) {
+            alert("No text selected!");
+            return;
+        }
+
+        let input = selectedText;
+
+        // Replace tabs with spaces
+        input = input.replace(/\t+/g, " ");
+
+        // Remove spaces-only lines
+        input = input.replace(/\n +\n/g, "\n\n");
+
+        // Collapse multiple line breaks to a single one
+        input = input.replace(/\n{2,}/g, "\n");
+
+        // Split and clean lines
+        const lines = input.trim().split("\n").map(line =>
+                line.replace(/^[a-zA-Z0-9]{1,2}[.:)]\s+/, "").trim());
+
+        // Output wrapped <res> blocks
+        return lines
+        .filter(Boolean)
+        .map(line => `<res label="">${line}</res>`)
+        .join("\n");
+
+    } catch (err) {
+        console.error("makeRes() failed:", err);
+        return "";
+    }
+}
+
+// block tag
+function wrapInBlock() {
+    try {
+        const editor = window.editor;
+        const input = editor.getSelection().trim();
+
+        if (!input) {
+            alert("No content selected.");
+            return;
+        }
+
+        const xml = `<block label="" cond="1">
+${input}
+</block>`;
+
+        editor.replaceSelection(xml);
+    } catch (err) {
+        console.error("wrapInBlock() failed:", err);
+        alert("Could not wrap content in <block>.");
+    }
+}
+
+// block tag randomizeChildren
+function wrapInBlockRandomize() {
+    try {
+        const editor = window.editor;
+        const input = editor.getSelection().trim();
+
+        if (!input) {
+            alert("No content selected.");
+            return;
+        }
+
+        const xml = `<block label="" cond="1" randomizeChildren="1">
+${input}
+</block>`;
+
+        editor.replaceSelection(xml);
+    } catch (err) {
+        console.error("wrapInBlock() failed:", err);
+        alert("Could not wrap content in <block>.");
+    }
+}
+
+// LOOP tag
+function addLoopBlock() {
+    try {
+        const editor = window.editor;
+        const selection = editor.getSelection().trim();
+
+        if (!selection) {
+            alert("No content selected.");
+            return;
+        }
+
+        const tagPattern = /(radio|checkbox|text|textarea|block|number|float|select|html)/;
+
+        // Extract existing <looprow> elements
+        const looprowRegex = /<looprow[\s\S]*?<\/looprow>/gi;
+        const matchedLoopRows = selection.match(looprowRegex) || [];
+        const loopRows = matchedLoopRows
+            .map(row => `  ${row.trim()}\n`)
+            .join("\n");
+        const mainBlock = selection.replace(looprowRegex, "").trim();
+
+        // Extract all loopvar names
+        const loopVarNames = [];
+        const varMatchRegex = /<loopvar\s+name="([^"]+)"/gi;
+        let match;
+        while ((match = varMatchRegex.exec(loopRows))) {
+            const varName = match[1].trim();
+            if (varName && !loopVarNames.includes(varName)) {
+                loopVarNames.push(varName);
+            }
+        }
+
+        const varsAttr = loopVarNames.join(", ");
+
+        const hasAltLabel = mainBlock.includes("altlabel");
+
+        const updated = hasAltLabel
+             ? mainBlock.replace(
+                new RegExp(
+`<${tagPattern.source}([\\s\\S]*?)label="([^"]+)"([\\s\\S]*?)altlabel="([^"]+)"`,
+                    "g"),
+                (_match, tag, pre, label, between, alt) =>
+`<${tag}${pre}label="${label.trim()}_[loopvar: label]"${between}altlabel="${alt.trim()}_[loopvar:label]"`)
+             : mainBlock.replace(
+                new RegExp(`<${tagPattern.source}([\\s\\S]*?)label="([^"]+)"`, "g"),
+                (_match, tag, pre, label) =>
+`<${tag}${pre}label="${label.trim()}_[loopvar: label]"`);
+
+        const wrapped = `<loop label="" vars="${varsAttr}" title=" " suspend="0">
+  <block label="">
+
+${updated}
+
+  </block>
+
+${loopRows || `  <looprow label="" cond="">
+    <loopvar name=""></loopvar>
+  </looprow>`}
+
+</loop>`;
+
+        editor.replaceSelection(wrapped);
+    } catch (err) {
+        console.error("addLoopBlock() failed:", err);
+        alert("Could not process loop template.");
+    }
+}
+
+// make looprows
+function makeLooprows() {
+    try {
+        const editor = window.editor;
+        const rawInput = editor.getSelection().trim();
+
+        if (!rawInput) {
+            alert("No content selected.");
+            return;
+        }
+
+        // Clean tabs and normalize spacing
+        let cleaned = rawInput
+            .replace(/\t+/g, " ")
+            .replace(/\n +\n/g, "\n\n")
+            .replace(/\n{2,}/g, "\n")
+            .trim()
+            .split("\n")
+            .map(line => line.replace(/^[a-zA-Z0-9]{1,2}[.:)\s]+\s*/, "").trim())
+            .filter(line => line.length > 0);
+
+        const result = cleaned
+            .map((line, i) => `  <looprow label="${i + 1}">\n    <loopvar name="var">${line}</loopvar>\n  </looprow>`)
+            .join("\n");
+
+        editor.replaceSelection(result);
+    } catch (err) {
+        console.error("makeLooprows() failed:", err);
+        alert("Could not generate looprow XML.");
+    }
+}
+// make markers
+function makeMarker() {
+    let selectedText = window.editor.getSelection();
+    if (!selectedText.trim()) {
+        alert("No text selected!");
+        return;
+    }
+
+    let lines = selectedText.split("\n").map(line => line.trim()).filter(line => line);
+    let xmlItems = lines.map((line, index) => `<marker name="${line}" cond=""/>`).join("\n");
+
+    window.editor.replaceSelection(xmlItems);
+}
+
+// make markers
+function makeCondition() {
+    let selectedText = window.editor.getSelection();
+    if (!selectedText.trim()) {
+        alert("No text selected!");
+        return;
+    }
+
+    let lines = selectedText.split("\n").map(line => line.trim()).filter(line => line);
+    let xmlItems = lines.map((line, index) => `<condition label="" cond="">${line}</condition >`).join("\n");
+
+    window.editor.replaceSelection(xmlItems);
 }
 
 // FUNCTIONS FOR ROWS
@@ -777,7 +1030,6 @@ function makeHref() {
     }
 }
 
-
 //make lis
 function lis() {
     let selectedText = window.editor.getSelection();
@@ -854,4 +1106,166 @@ function makeUl() {
         alert("An error occurred while generating the <ul> tag.");
         return "";
     }
+}
+
+function makeStateSelect({
+    addRecode = false
+} = {}) {
+    try {
+        const editor = window.editor;
+        const inputText = editor.getSelection().trim();
+
+        const match = inputText.match(/^([a-zA-Z0-9-_]+)([.:)\s])([\s\S]*)$/);
+        if (!match) {
+            alert("Input should start with a label and punctuation (e.g. 'Q1. Question...')");
+            return;
+        }
+
+        let label = match[1];
+        let title = match[3].trim().replace(/\n{2,}/g, "\n");
+
+        if (/^\d/.test(label))
+            label = "Q" + label;
+
+        const choicesXml = US_STATES
+            .map(([code, name]) => `  <choice label="${code}">${name}</choice>`)
+            .join("\n");
+
+        let xml = `<select label="${label}" optional="0">
+  <title>${title}</title>
+${choicesXml}
+</select>
+<suspend/>`;
+
+        if (addRecode) {
+            xml += `
+
+<exec>
+if ${label}.choices[${label}.ival].label in ["ME", "NH", "VT", "MA", "RI", "CT", "NY", "NJ", "PA"]:
+\thRegion.val = 0
+elif ${label}.choices[${label}.ival].label in ["WI", "IL", "MI", "IN", "OH", "ND", "SD", "NE", "KS", "MN", "IA", "MO"]:
+\thRegion.val = 1
+elif ${label}.any and ${label}.choices[${label}.ival].label in ["KY", "TN", "MS", "AL", "FL", "GA", "SC", "NC", "VA", "WV", "DC", "MD", "DE", "TX", "OK", "AR", "LA"]:
+\thRegion.val = 2
+elif ${label}.choices[${label}.ival].label in ["MT", "ID", "WY", "NV", "UT", "CO", "AZ", "NM", "WA", "OR", "CA", "AK", "HI"]:
+\thRegion.val = 3
+</exec>
+
+<radio label="hRegion" optional="1" where="execute" sst="0">
+  <title>Hidden Question: Region recode</title>
+  <row label="r1">Northeast (ME, NH, VT, MA, RI, CT, NY, NJ, PA)</row>
+  <row label="r2">Midwest (WI, IL, MI, IN, OH, ND, SD, NE, KS, MN, IA, MO)</row>
+  <row label="r3">South (KY, TN, MS, AL, FL, GA, SC, NC, VA, WV, DC, MD, DE, TX, OK, AR, LA)</row>
+  <row label="r4">West (MT, ID, WY, NV, UT, CO, AZ, NM, WA, OR, CA, AK, HI)</row>
+</radio>
+
+<suspend/>`;
+        }
+
+        editor.replaceSelection(xml);
+    } catch (err) {
+        console.error("makeStateSelect() failed:", err);
+        alert("Error generating select question.");
+    }
+}
+
+function makeStateOnly() {
+    makeStateSelect({
+        addRecode: false
+    });
+}
+
+function makeStateWithRecode() {
+    makeStateSelect({
+        addRecode: true
+    });
+}
+
+function makeStateCheckbox() {
+    try {
+        const editor = window.editor;
+        const inputText = editor.getSelection().trim();
+
+        const match = inputText.match(/^([a-zA-Z0-9-_]+)([.:)\s])([\s\S]*)$/);
+        if (!match) {
+            alert("Input should start with a label and punctuation (e.g. 'Q1. Select your states...')");
+            return;
+        }
+
+        let label = match[1];
+        let title = match[3].trim().replace(/\n{2,}/g, "\n");
+        if (/^\d/.test(label))
+            label = "Q" + label;
+
+        const rows = US_STATES
+            .map(([code, name]) => `  <row label="${code}">${name}</row>`)
+            .join("\n");
+
+        const xml = `<checkbox label="${label}" optional="0">
+  <title>${title}</title>
+${rows}
+</checkbox>
+<suspend/>`;
+
+        editor.replaceSelection(xml);
+    } catch (err) {
+        console.error("makeStateCheckbox() failed:", err);
+        alert("Could not generate checkbox state list.");
+    }
+}
+
+function makeCountrySelectISO() {
+    try {
+        const editor = window.editor;
+        const inputText = editor.getSelection().trim();
+
+        const match = inputText.match(/^([a-zA-Z0-9-_]+)([.:)\s])([\s\S]*)$/);
+        if (!match) {
+            alert("Expected format: Label. Question title...");
+            return;
+        }
+
+        let label = match[1];
+        let title = match[3].trim().replace(/\n{2,}/g, "\n");
+        if (/^\d/.test(label))
+            label = "Q" + label;
+
+        const choices = COUNTRIES
+            .map(([code, name]) => `  <choice label="${code}">${name}</choice>`)
+            .join("\n");
+
+        const xml = `<select label="${label}" optional="0">
+  <title>${title}</title>
+${choices}
+</select>
+<suspend/>`;
+
+        editor.replaceSelection(xml);
+    } catch (err) {
+        console.error("makeCountrySelectISO() failed:", err);
+        alert("Could not generate country dropdown.");
+    }
+}
+
+// Add Survey Copy Protection
+function addCopyProtection() {
+    xmlItems = COPY_PROTECTION;
+    window.editor.replaceSelection(xmlItems);
+}
+
+function makeUnselectableSpan() {
+    const selectedText = window.editor.getSelection();
+    const html = `<span style="-moz-user-select: none;-webkit-user-select: none;-ms-user-select: none;" unselectable="on" ondragstart="return false" oncontextmenu="return false">${selectedText.trim()}</span>`;
+    window.editor.replaceSelection(html);
+}
+
+function makeUnselectableDiv() {
+    const selectedText = window.editor.getSelection();
+    const html = `<div style="-moz-user-select: none;-webkit-user-select: none;-ms-user-select: none;" unselectable="on" ondragstart="return false" oncontextmenu="return false">${selectedText.trim()}</div>`;
+    window.editor.replaceSelection(html);
+}
+
+function addUnselectableAttributes() {
+    const attrs = ` style="-moz-user-select: none;-webkit-user-select: none;-ms-user-select: none;" unselectable="on" ondragstart="return false" oncontextmenu="return false"`;
+    window.editor.replaceSelection(attrs);
 }
