@@ -244,11 +244,180 @@ const IHUT_OTS_CSS = `
 </style>
 ]]></style>`;
 
+const IHUT_CSS = `
+<style mode="after" name="respview.client.css"><![CDATA[
+<style type="text/css">
+.autosave-restart {
+	display: none;
+}
+
+.answers-table {
+	background-color: white; //must match foregound-color
+}
+
+input[type="number"][disabled],
+input[type="text"][disabled],
+select[disabled],
+textarea[disabled] {
+	background-color: #efefef !important;
+	cursor: default !important;
+}
+
+.pseudo-col-legend {
+	background-color: #ededed;
+	padding: 0.4em 0.5em;
+	text-align: center;
+}
+
+.noRows.noCols .answers {
+	min-width: 1px;
+}
+
+.noRows.noCols .grid {
+	width: auto;
+}
+
+.flexGrid .element {
+	min-width: 80px !important;
+}
+
+.flexGrid .row-legend {
+	min-width: 80px;
+	padding-right: 1.4em;
+}
+
+/* Custom pop-ups and tooltips */
+.self-tooltip {
+	border-bottom-color: #5b7f2b;
+}
+
+.self-popup {
+	color: #5b7f2b;
+}
+
+/* adds the bullet points/numbers in listed items in pop-up windows */
+.popup-content li {
+    list-style-type: inherit;
+    list-style-position: inherit;
+    margin-left: 20px;
+    line-height: normal;   
+}
+
+.logo{
+	padding-top: 20px;
+	padding-left: 20px;
+	margin-bottom: 50px;
+}
+
+/* Chrome, Safari, Edge, Opera */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+	-webkit-appearance: none;
+	margin: 0;
+}
+
+/* Firefox */
+input[type=number] {
+	-moz-appearance: textfield;
+}
+
+
+/*** clarity of images ***/
+img {
+	transform: translateZ(0);
+	image-rendering: -webkit-optimize-contrast;
+}
+.tbd {
+	font-weight: bold;
+	color: red;
+	background-color: yellow;
+}
+
+.explanation {
+	margin: 0 auto 20px;
+	max-width: 960px;
+	width: 90%;
+	font-size: 1.4em;
+	line-height: 1.25em;
+ 	border: 1px solid #81B73D;
+	-webkit-box-shadow: 3px 3px 5px 0px rgba(89,96,77,1);
+	-moz-box-shadow: 3px 3px 5px 0px rgba(89,96,77,1);
+	box-shadow: 3px 3px 5px 0px rgba(89,96,77,1);
+	padding: 5px;
+}
+
+.exit-message-text {
+	font-size: 1.5rem;
+}
+
+.survey-page.non-touch {
+	overflow: scroll !important;
+	overflow-y: scroll !important;
+}
+
+.batman {
+	display: none;
+}
+
+/* ========================= */
+/* INSERT NEW CSS BELOW THIS */
+
+
+
+</style>
+]]></style>
+
+<themevars>
+  <themevar name="background-color">#FFF</themevar>
+  <themevar name="foreground-color">#FFF</themevar>
+  <themevar name="contemporary-foreground-shadow-color">#FFF</themevar>
+  <themevar name="text-color">rgb(47, 70, 80)</themevar>
+  <themevar name="color-1">#efefef</themevar>
+  <themevar name="color-2">#ffffff</themevar>
+  <themevar name="color-3">#454545</themevar>
+  <themevar name="color-4">#fdfffd</themevar>
+  <themevar name="color-5">rgb(107,193,116)</themevar>
+  <themevar name="color-6">#d8d8d8</themevar>
+  <themevar name="progress-fill-color">@color-4</themevar>
+  <themevar name="table-cell-hover-color">#f1f7e8</themevar>
+  <themevar name="survey-info-bg-color">@color-5</themevar>
+  <themevar name="survey-error-bg-color">#e50000</themevar>
+  <themevar name="link-color">@color-5</themevar>
+  <themevar name="link-hover-color">@link-color</themevar>
+  <themevar name="button-text-color">@color-3</themevar>
+  <themevar name="button-text-hover-color">@color-3</themevar>
+  <themevar name="button-text-selected-color">@color-3</themevar>
+  <themevar name="primary-button-bg-color">@color-6</themevar>
+  <themevar name="primary-button-bg-color-hover">spin(@color-5, -20)</themevar>
+  <themevar name="primary-button-border-color">#000000</themevar>
+  <themevar name="primary-button-border-color-hover">@color-5</themevar>
+  <themevar name="primary-button-border-radius">4px</themevar>
+  <themevar name="secondary-button-bg-color">@color-6</themevar>
+  <themevar name="secondary-button-bg-color-hover">spin(@color-5, -20)</themevar>
+  <themevar name="secondary-button-border-color">#000000</themevar>
+  <themevar name="secondary-button-border-color-hover">@color-5</themevar>
+  <themevar name="secondary-button-border-radius">4px</themevar>
+  <themevar name="dq-button-border-color">@primary-button-border-color</themevar>
+  <themevar name="dq-button-border-color-selected">@primary-button-border-color</themevar>
+  <themevar name="dq-button-bg-color">@color-2</themevar>
+  <themevar name="dq-button-bg-color-hover">spin(@color-5, -20)</themevar>
+  <themevar name="dq-button-bg-selected">@primary-button-border-color</themevar>
+  <themevar name="fir-inner-hover">spin(@color-5, -20)</themevar>
+  <themevar name="fir-inner-selected">@color-5</themevar>
+  <themevar name="primary-font-family">Arial, sans-serif</themevar>
+  <themevar name="secondary-font-family">Arial, sans-serif</themevar>
+  <themevar name="desktop-font-size">0.750em</themevar>
+  <themevar name="large-text">1.5rem</themevar>
+  <themevar name="normal-text">1.4rem</themevar>
+  <themevar name="small-text">1.2rem</themevar></themevars>
+<note>LESS variables KB article:
+https://forstasurveys.zendesk.com/hc/en-us/articles/4409469885339-The-Less-Styles-System</note>`;
+
 const UI_DIALOG_CLOSE = `
 <style name="global.page.head" wrap="ready"> <![CDATA[
 /* Make the pop-up "Close" button translateable */
 setTimeout(function() {
-	Survey.uidialog.assets.btn_close.text = "\${res.dialogClose.replace('"','\\\\\"')}"
+	Survey.uidialog.assets.btn_close.text = "\${res.dialogClose.replace('"', '\\\\\"')}"
 }, 50);
 ]]></style>
 `;
@@ -421,7 +590,7 @@ const CONSENT_QUESTION = `
 
 const RESDEF = `
 <block label="ResearchDefender_Search" cond="gv.request.variables.get('api') != '0'">
-  <logic label="ResearchDefender" researchdefender_search:participant_id="\${uuid}" researchdefender_search:private_key="607b1eca-a3e5-4808-ad3e-565fbf6e0ba5" researchdefender_search:publishable_key="9ed35863-39a4-41b0-a30e-0de31b4e672b" researchdefender_search:survey_id="\${gv.survey.path.split('/', 1)[1].replace('/','')}" uses="researchdefender_search.2">
+  <logic label="ResearchDefender" researchdefender_search:participant_id="\${uuid}" researchdefender_search:private_key="607b1eca-a3e5-4808-ad3e-565fbf6e0ba5" researchdefender_search:publishable_key="9ed35863-39a4-41b0-a30e-0de31b4e672b" researchdefender_search:survey_id="\${gv.survey.path.split('/', 1)[1].replace('/', '')}" uses="researchdefender_search.2">
     <title>Research Defender SEARCH Integration</title></logic>
   <suspend/>
 
@@ -765,36 +934,36 @@ data.val = vSTL_.flag.val
 
 //QUESTION COMMENTS
 const comments = {
-	english: {
-		radio: `Select one`,
-		radio2d: `Select one in each row`,
-		checkbox: `Select all that apply`,
-		number: `Please enter a whole number`,
-		float: `Please enter a number`,
-		autosumPercent: `Please enter a whole number. Your answers should total 100%`,
-		text: `Please be as specific as possible`,
-		slidernumber: `Drag each slider to a point on the scale`
-	},
-	german: {
-		radio: `Bitte w&amp;#228;hlen Sie nur eine Antwort aus.`,
-		radio2d: `Bitte w&amp;#228;hlen Sie in jeder Zeile eine Antwort aus.`,
-		checkbox: `Bitte w&amp;#228;hlen Sie alle passenden Antworten aus.`,
-		number: `Bitte geben Sie eine ganze Zahl an.`,
-		float: `Bitte geben Sie eine Zahl an.`,
-		autosumPercent: `Bitte geben Sie ganze Zahlen an. Die Summe muss 100% betragen.`,
-		text: `Bitte seien Sie so konkret wie m&amp;#246;glich.`,
-		slidernumber: `Drag each slider to a point on the scale`
-	},
-	french: {
-		radio: `Veuillez s&amp;eacute;lectionner l&amp;#039;une de ces r&amp;eacute;ponses`,
-		radio2d: `Veuillez s&amp;eacute;lectionner l&amp;rsquo;une de ces r&amp;eacute;ponses pour chaque ligne`,
-		checkbox: `Plusieurs r&amp;eacute;ponses possibles`,
-		number: `Veuillez entrer un nombre entier`,
-		float: `Veuillez entrer un nombre`,
-		autosumPercent: `Veuillez entrer un nombre entier. Le total de vos r&amp;eacute;ponses doit &amp;ecirc;tre de 100%.`,
-		text: `Veuillez &amp;ecirc;tre le plus pr&amp;eacute;cis possible`,
-		slidernumber: `Drag each slider to a point on the scale`
-	}
+  english: {
+    radio: `Select one`,
+    radio2d: `Select one in each row`,
+    checkbox: `Select all that apply`,
+    number: `Please enter a whole number`,
+    float: `Please enter a number`,
+    autosumPercent: `Please enter a whole number. Your answers should total 100%`,
+    text: `Please be as specific as possible`,
+    slidernumber: `Drag each slider to a point on the scale`
+  },
+  german: {
+    radio: `Bitte w&amp;#228;hlen Sie nur eine Antwort aus.`,
+    radio2d: `Bitte w&amp;#228;hlen Sie in jeder Zeile eine Antwort aus.`,
+    checkbox: `Bitte w&amp;#228;hlen Sie alle passenden Antworten aus.`,
+    number: `Bitte geben Sie eine ganze Zahl an.`,
+    float: `Bitte geben Sie eine Zahl an.`,
+    autosumPercent: `Bitte geben Sie ganze Zahlen an. Die Summe muss 100% betragen.`,
+    text: `Bitte seien Sie so konkret wie m&amp;#246;glich.`,
+    slidernumber: `Drag each slider to a point on the scale`
+  },
+  french: {
+    radio: `Veuillez s&amp;eacute;lectionner l&amp;#039;une de ces r&amp;eacute;ponses`,
+    radio2d: `Veuillez s&amp;eacute;lectionner l&amp;rsquo;une de ces r&amp;eacute;ponses pour chaque ligne`,
+    checkbox: `Plusieurs r&amp;eacute;ponses possibles`,
+    number: `Veuillez entrer un nombre entier`,
+    float: `Veuillez entrer un nombre`,
+    autosumPercent: `Veuillez entrer un nombre entier. Le total de vos r&amp;eacute;ponses doit &amp;ecirc;tre de 100%.`,
+    text: `Veuillez &amp;ecirc;tre le plus pr&amp;eacute;cis possible`,
+    slidernumber: `Drag each slider to a point on the scale`
+  }
 };
 
 const defaultComments = JSON.parse(JSON.stringify(comments)); // deep clone at startup
@@ -1084,8 +1253,8 @@ You will need this to log in so please take a screenshot or jot it down on a pie
   <suspend/>
 `;
 
-function OTS_SCREENER_PART_2(snumber){
-	return `
+function OTS_SCREENER_PART_2(snumber) {
+  return `
  <block label="bOTS_API" cond="not gv.isSST()">
     <textarea 
     label="QualMobile_DATA"
@@ -1227,7 +1396,7 @@ This is just a placeholder saying you AGREE to participate in the study.</html>
 `;
 }
 
-const VERITY_API = `<textarea 
+const VERITY_API = `<textarea
   label="Verity_DATA"
   where="execute,survey,report">
   <title>Hidden: Verity Request Data.</title>
@@ -1439,3 +1608,72 @@ for erow in Verity_response_lines.rows:
 </text>
 
 <suspend/>`;
+
+const US_STATES = [
+  ["AL", "Alabama"], ["AK", "Alaska"], ["AZ", "Arizona"], ["AR", "Arkansas"],
+  ["CA", "California"], ["CO", "Colorado"], ["CT", "Connecticut"], ["DE", "Delaware"],
+  ["DC", "District of Columbia"], ["FL", "Florida"], ["GA", "Georgia"], ["HI", "Hawaii"],
+  ["ID", "Idaho"], ["IL", "Illinois"], ["IN", "Indiana"], ["IA", "Iowa"],
+  ["KS", "Kansas"], ["KY", "Kentucky"], ["LA", "Louisiana"], ["ME", "Maine"],
+  ["MD", "Maryland"], ["MA", "Massachusetts"], ["MI", "Michigan"], ["MN", "Minnesota"],
+  ["MS", "Mississippi"], ["MO", "Missouri"], ["MT", "Montana"], ["NE", "Nebraska"],
+  ["NV", "Nevada"], ["NH", "New Hampshire"], ["NJ", "New Jersey"], ["NM", "New Mexico"],
+  ["NY", "New York"], ["NC", "North Carolina"], ["ND", "North Dakota"], ["OH", "Ohio"],
+  ["OK", "Oklahoma"], ["OR", "Oregon"], ["PA", "Pennsylvania"], ["RI", "Rhode Island"],
+  ["SC", "South Carolina"], ["SD", "South Dakota"], ["TN", "Tennessee"], ["TX", "Texas"],
+  ["UT", "Utah"], ["VT", "Vermont"], ["VA", "Virginia"], ["WA", "Washington"],
+  ["WV", "West Virginia"], ["WI", "Wisconsin"], ["WY", "Wyoming"]
+];
+
+const COUNTRIES = [
+      ["AF", "Afghanistan"], ["AL", "Albania"], ["DZ", "Algeria"], ["AD", "Andorra"],
+      ["AO", "Angola"], ["AG", "Antigua and Barbuda"], ["AR", "Argentina"], ["AM", "Armenia"],
+      ["AU", "Australia"], ["AT", "Austria"], ["AZ", "Azerbaijan"], ["BS", "Bahamas"],
+      ["BH", "Bahrain"], ["BD", "Bangladesh"], ["BB", "Barbados"], ["BY", "Belarus"],
+      ["BE", "Belgium"], ["BZ", "Belize"], ["BJ", "Benin"], ["BT", "Bhutan"],
+      ["BO", "Bolivia"], ["BA", "Bosnia Herzegovina"], ["BW", "Botswana"], ["BR", "Brazil"],
+      ["BN", "Brunei"], ["BG", "Bulgaria"], ["BF", "Burkina"], ["BI", "Burundi"],
+      ["KH", "Cambodia"], ["CM", "Cameroon"], ["CA", "Canada"], ["CV", "Cape Verde"],
+      ["CF", "Central African Republic"], ["TD", "Chad"], ["CL", "Chile"], ["CN", "China"],
+      ["CO", "Colombia"], ["KM", "Comoros"], ["CG", "Congo"], ["CD", "Congo (Democratic Republic)"],
+      ["CR", "Costa Rica"], ["HR", "Croatia"], ["CU", "Cuba"], ["CY", "Cyprus"],
+      ["CZ", "Czech Republic"], ["DK", "Denmark"], ["DJ", "Djibouti"], ["DM", "Dominica"],
+      ["DO", "Dominican Republic"], ["TL", "East Timor"], ["EC", "Ecuador"], ["EG", "Egypt"],
+      ["SV", "El Salvador"], ["GQ", "Equatorial Guinea"], ["ER", "Eritrea"], ["EE", "Estonia"],
+      ["ET", "Ethiopia"], ["FJ", "Fiji"], ["FI", "Finland"], ["FR", "France"],
+      ["GA", "Gabon"], ["GM", "Gambia"], ["GE", "Georgia"], ["DE", "Germany"],
+      ["GH", "Ghana"], ["GR", "Greece"], ["GD", "Grenada"], ["GT", "Guatemala"],
+      ["GN", "Guinea"], ["GW", "Guinea-Bissau"], ["GY", "Guyana"], ["HT", "Haiti"],
+      ["HN", "Honduras"], ["HU", "Hungary"], ["IS", "Iceland"], ["IN", "India"],
+      ["ID", "Indonesia"], ["IR", "Iran"], ["IQ", "Iraq"], ["IE", "Ireland"],
+      ["IL", "Israel"], ["IT", "Italy"], ["CI", "Ivory Coast"], ["JM", "Jamaica"],
+      ["JP", "Japan"], ["JO", "Jordan"], ["KZ", "Kazakhstan"], ["KE", "Kenya"],
+      ["KI", "Kiribati"], ["KP", "Korea North"], ["KR", "Korea South"], ["XK", "Kosovo"],
+      ["KW", "Kuwait"], ["KG", "Kyrgyzstan"], ["LA", "Laos"], ["LV", "Latvia"],
+      ["LB", "Lebanon"], ["LS", "Lesotho"], ["LR", "Liberia"], ["LY", "Libya"],
+      ["LI", "Liechtenstein"], ["LT", "Lithuania"], ["LU", "Luxembourg"], ["MK", "Macedonia"],
+      ["MG", "Madagascar"], ["MW", "Malawi"], ["MY", "Malaysia"], ["MV", "Maldives"],
+      ["ML", "Mali"], ["MT", "Malta"], ["MH", "Marshall Islands"], ["MR", "Mauritania"],
+      ["MU", "Mauritius"], ["MX", "Mexico"], ["FM", "Micronesia"], ["MD", "Moldova"],
+      ["MC", "Monaco"], ["MN", "Mongolia"], ["ME", "Montenegro"], ["MA", "Morocco"],
+      ["MZ", "Mozambique"], ["MM", "Myanmar"], ["NA", "Namibia"], ["NR", "Nauru"],
+      ["NP", "Nepal"], ["NL", "Netherlands"], ["NZ", "New Zealand"], ["NI", "Nicaragua"],
+      ["NE", "Niger"], ["NG", "Nigeria"], ["NO", "Norway"], ["OM", "Oman"],
+      ["PK", "Pakistan"], ["PW", "Palau"], ["PA", "Panama"], ["PG", "Papua New Guinea"],
+      ["PY", "Paraguay"], ["PE", "Peru"], ["PH", "Philippines"], ["PL", "Poland"],
+      ["PT", "Portugal"], ["QA", "Qatar"], ["RO", "Romania"], ["RU", "Russia"],
+      ["RW", "Rwanda"], ["KN", "St Kitts and Nevis"], ["LC", "St Lucia"],
+      ["VC", "Saint Vincent and the Grenadines"], ["WS", "Samoa"], ["SM", "San Marino"],
+      ["ST", "Sao Tome and Principe"], ["SA", "Saudi Arabia"], ["SN", "Senegal"],
+      ["RS", "Serbia"], ["SC", "Seychelles"], ["SL", "Sierra Leone"], ["SG", "Singapore"],
+      ["SK", "Slovakia"], ["SI", "Slovenia"], ["SB", "Solomon Islands"], ["SO", "Somalia"],
+      ["ZA", "South Africa"], ["ES", "Spain"], ["LK", "Sri Lanka"], ["SD", "Sudan"],
+      ["SR", "Suriname"], ["SZ", "Swaziland"], ["SE", "Sweden"], ["CH", "Switzerland"],
+      ["SY", "Syria"], ["TW", "Taiwan"], ["TJ", "Tajikistan"], ["TZ", "Tanzania"],
+      ["TH", "Thailand"], ["TG", "Togo"], ["TO", "Tonga"], ["TT", "Trinidad and Tobago"],
+      ["TN", "Tunisia"], ["TR", "Turkey"], ["TM", "Turkmenistan"], ["TV", "Tuvalu"],
+      ["UG", "Uganda"], ["UA", "Ukraine"], ["AE", "United Arab Emirates"], ["GB", "United Kingdom"],
+      ["US", "United States"], ["UY", "Uruguay"], ["UZ", "Uzbekistan"], ["VU", "Vanuatu"],
+      ["VA", "Vatican City"], ["VE", "Venezuela"], ["VN", "Vietnam"], ["YE", "Yemen"],
+      ["ZM", "Zambia"], ["ZW", "Zimbabwe"]
+    ];

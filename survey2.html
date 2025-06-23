@@ -54,137 +54,174 @@
             </ul>
 
             <!-- Left Toolbox -->
-            <div class="col-3 bg-dark text-white p-3 toolbox">
-                <ul class="nav nav-tabs mb-3" id="toolboxTabs" role="tablist">
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link active" id="main-tab" data-bs-toggle="tab" data-bs-target="#main-tools"
-                            type="button" role="tab">Main Survey</button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="standards-tab" data-bs-toggle="tab"
-                            data-bs-target="#standard-tools" type="button" role="tab">Standards</button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="styles-tab" data-bs-toggle="tab" data-bs-target="#styles-tools"
-                            type="button" role="tab">Styles</button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="styles-tab" data-bs-toggle="tab" data-bs-target="#custom-tools"
-                            type="button" role="tab">Question Comments</button>
-                    </li>
-                </ul>
+            <div id="toolboxWrapper">
+                <button id="toggleToolbox" class="toolbox-toggle" title="collapse toolbox">‹</button>
+                <!-- Your toolbox contents here -->
+                <div class="col-3 bg-dark text-white p-3 toolbox resizable horizontal">
+                    <ul class="nav nav-tabs mb-3" id="toolboxTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="main-tab" data-bs-toggle="tab"
+                                data-bs-target="#main-tools" type="button" role="tab">Main Survey</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="standards-tab" data-bs-toggle="tab"
+                                data-bs-target="#standard-tools" type="button" role="tab">Standards</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="styles-tab" data-bs-toggle="tab" data-bs-target="#styles-tools"
+                                type="button" role="tab">Styles</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="styles-tab" data-bs-toggle="tab" data-bs-target="#custom-tools"
+                                type="button" role="tab">Question Comments</button>
+                        </li>
+                    </ul>
 
-
-                <div class="tab-content" id="toolboxTabContent">
-                    <div class="tab-pane fade show active" id="main-tools" role="tabpanel">
-                        <div class="commands-header">New Survey</div>
-                        <div class="survey-commands">
-                            <a href="#" onclick="openModal('new-survey')">New Sago Survey</a>
-                            <a href="#" onclick="openModal('new-ihut')">New Sago IHUT Survey</a>
+                    <div class="tab-content" id="toolboxTabContent">
+                        <div class="tab-pane fade show active" id="main-tools" role="tabpanel">
+                            <div class="commands-header">New Survey</div>
+                            <div class="survey-commands">
+                                <a href="#" onclick="openModal('new-survey')">New Sago Survey</a>
+                                <a href="#" onclick="openModal('new-ihut')">New Sago IHUT Survey</a>
+                            </div>
+                            <hr>
+                            <div class="commands-header">Control Elements:</div>
+                            <div id="controlElements" class="survey-commands"></div>
+                            <hr>
+                            <div class="commands-header">Question Types</div>
+                            <div id="questionTypes" class="survey-commands"></div>
+                            <hr>
+                            <div class="commands-header">Question Elements</div>
+                            <div id="questionElements" class="survey-commands"></div>
+                            <hr>
+                            <div class="commands-header">Question Attributes</div>
+                            <div id="attributesCommands" class="survey-commands"></div>
+                            <hr>
+                            <div class="commands-header">Miscellaneous</div>
+                            <div id="miscellaneousCommands" class="survey-commands"></div>
                         </div>
-                        <hr>
-                        <div class="commands-header">Question Types</div>
-                        <div id="questionTypes" class="survey-commands"></div>
-                        <hr>
-                        <div class="commands-header">Question Elements</div>
-                        <div id="questionElements" class="survey-commands"></div>
-                        <hr>
-                        <div class="commands-header">Question Attributes</div>
-                        <div id="attributesCommands" class="survey-commands"></div>
-                        <hr>
-                        <div class="commands-header">Miscellaneous</div>
-                        <div id="miscellaneousCommands" class="survey-commands"></div>
+
+                        <div class="tab-pane fade" id="standard-tools" role="tabpanel">
+                            <div class="commands-header">Standard Questions</div>
+                            <div class="survey-commands" id="standardQuestions"></div>
+                            <hr>
+                            <div class="commands-header">Copy Protection</div>
+                            <div class="survey-commands" id="standardCopyProtection"></div>
+                            <hr>
+                            <div class="commands-header">Mouseover & pop-up</div>
+                            <div class="survey-commands" id="standardMouseover"></div>
+                            <hr>
+                            <div class="commands-header">Miscellaneous</div>
+                            <div class="survey-commands" id="standardMiscellaneousCommands"></div>
+                        </div>
+
+                        <div class="tab-pane fade" id="styles-tools" role="tabpanel">
+                            <div class="commands-header">Style Creation</div>
+                            <div class="survey-commands" id="styleCreation"></div>
+                            <hr>
+                            <div class="commands-header">Style Creation</div>
+                            <div class="survey-commands" id="styleCreationXML"></div>
+                            <hr>
+                            <div class="commands-header">pretext and posttext</div>
+                            <div class="survey-commands" id="prePostText"></div>
+                            <hr>
+                            <div class="commands-header">Ready to Use styles (XML)</div>
+                            <div class="survey-commands" id="readyToUse"></div>
+                            <hr>
+                            <div class="commands-header">Style Components</div>
+                            <div class="survey-commands" id="sstyleComponents"></div>
+                        </div>
+                        <div class="tab-pane fade" id="custom-tools" role="tabpanel">
+                            <div class="commands-header">Custom Questions Comment Texts</div>
+                            <div id="commentInputs"></div>
+
+                        </div>
+
+
                     </div>
-
-                    <div class="tab-pane fade" id="standard-tools" role="tabpanel">
-                        <div class="commands-header">Standards</div>
-                        <div class="survey-commands">Coming soon...</div>
-                    </div>
-
-                    <div class="tab-pane fade" id="styles-tools" role="tabpanel">
-                        <div class="commands-header">Styles</div>
-                        <div class="survey-commands">Coming soon...</div>
-                    </div>
-                    <div class="tab-pane fade" id="custom-tools" role="tabpanel">
-                        <div class="commands-header">Custom Questions Comment Texts</div>
-                        <div id="commentInputs"></div>
-
-                    </div>
-
-
                 </div>
+                <div class="resize-handle horizontal"></div>
+
             </div>
 
             <!-- Right Editor (CodeMirror) -->
             <div class="col-9 p-3 editor-container">
-                <div class="editor-toolbar">
-                    <div class="right-side">
-                        <!-- Display Controls -->
-                        <div>
-                            <label for="wordWrapToggle">Word Wrap</label>
-                            <input type="checkbox" id="wordWrapToggle">
+                <div id="toolbarWrapper" class="editor-toolbar">
+                    <button id="toggleToolbarBtn" class="toolbar-toggle" title="collapse the menu">▲</button>
+                    <div class="editor-toolbar-body resizeable vertical">
+
+                        <div class="right-side">
+                            <!-- Display Controls -->
+                            <div>
+                                <label for="wordWrapToggle">Word Wrap</label>
+                                <input type="checkbox" id="wordWrapToggle">
+                            </div>
+
+                            <!-- Survey Settings Group -->
+                            <div class="survey-settings">
+                                <label for="surveyLanguage">Survey Language (for question comments):</label>
+                                <select id="surveyLanguage">
+                                    <option value="english">English</option>
+                                    <option value="german">German</option>
+                                    <option value="french">French</option>
+                                </select>
+                            </div>
+                            <div class="checkbox_recode">
+                                <label for="recodeToggleToolbar">IHUT Checkbox Recode:</label>
+                                <select id="recodeToggleToolbar">
+                                    <option value="Yes">Yes</option>
+                                    <option value="No" selected>No</option>
+                                </select>
+                            </div>
+
+                            <!-- Formatting Tools -->
+                            <div class="formatting-tools">
+                                <label>Formatting:</label>
+                                <button title="bold" onclick="wrapSelection('b')" id="boldBtn"><b>B</b></button>
+                                <button title="italic" onclick="wrapSelection('i')" id="italicBtn"><i>I</i></button>
+                                <button title="underline" onclick="wrapSelection('u')"
+                                    id="underlineBtn"><u>U</u></button>
+                                <button title="superscript" onclick="wrapSelection('sup')"
+                                    id="superscriptBtn">X<sup>2</sup></button>
+                                <button title="subscript" onclick="wrapSelection('sub')"
+                                    id="subscriptBtn">X<sub>2</sub></button>
+                                <button id="toggleFoldBtn" class="btn btn-secondary btn-sm me-2">Fold/Unfold
+                                    All</button>
+                            </div>
+
+
                         </div>
 
-                        <!-- Survey Settings Group -->
-                        <div class="survey-settings">
-                            <label for="surveyLanguage">Survey Language (for question comments):</label>
-                            <select id="surveyLanguage">
-                                <option value="english">English</option>
-                                <option value="german">German</option>
-                                <option value="french">French</option>
-                            </select>
-                        </div>
-                        <div class="checkbox_recode">
-                            <label for="recodeToggleToolbar">IHUT Checkbox Recode:</label>
-                            <select id="recodeToggleToolbar">
-                                <option value="Yes">Yes</option>
-                                <option value="No" selected>No</option>
-                            </select>
-                        </div>
+                        <div class="right-side">
+                            <!-- Font Size -->
+                            <div>
+                                <label>Current font size: <span class="fsize"></span></label>
+                                <button id="increaseFont" title="Increase Font">A+</button>
+                                <button id="decreaseFont" title="Decrease Font">A-</button>
+                            </div>
 
-                        <!-- Formatting Tools -->
-                        <div class="formatting-tools">
-                            <label>Formatting:</label>
-                            <button title="bold" onclick="wrapSelection('b')" id="boldBtn"><b>B</b></button>
-                            <button title="italic" onclick="wrapSelection('i')" id="italicBtn"><i>I</i></button>
-                            <button title="underline" onclick="wrapSelection('u')" id="underlineBtn"><u>U</u></button>
-                            <button title="superscript" onclick="wrapSelection('sup')"
-                                id="superscriptBtn">X<sup>2</sup></button>
-                            <button title="subscript" onclick="wrapSelection('sub')"
-                                id="subscriptBtn">X<sub>2</sub></button>
-                            <button id="toggleFoldBtn" class="btn btn-secondary btn-sm me-2">Fold/Unfold All</button>
+                            <!-- Theme Selector -->
+                            <div>
+                                <label for="themeSelector">Theme:</label>
+                                <select id="themeSelector">
+                                    <option value="default">Default</option>
+                                    <option value="monokai">Monokai</option>
+                                    <option value="dracula">Dracula</option>
+                                    <option value="material">Material</option>
+                                    <option value="eclipse">Eclipse</option>
+                                </select>
+                            </div>
+
+                            <!-- Save / Download Buttons -->
+                            <div class="save-buttons">
+                                <button class="btn btn-primary btn-sm" onclick="manualSaveEditorContent()">Save
+                                    Code</button>
+                                <button id="downloadTabBtn" class="btn btn-primary btn-sm">Download Tab</button>
+                            </div>
                         </div>
-
-
                     </div>
+                    <div class="resize-handle vertical"></div>
 
-                    <div class="right-side">
-                        <!-- Font Size -->
-                        <div>
-                            <label>Current font size: <span class="fsize"></span></label>
-                            <button id="increaseFont" title="Increase Font">A+</button>
-                            <button id="decreaseFont" title="Decrease Font">A-</button>
-                        </div>
-
-                        <!-- Theme Selector -->
-                        <div>
-                            <label for="themeSelector">Theme:</label>
-                            <select id="themeSelector">
-                                <option value="default">Default</option>
-                                <option value="monokai">Monokai</option>
-                                <option value="dracula">Dracula</option>
-                                <option value="material">Material</option>
-                                <option value="eclipse">Eclipse</option>
-                            </select>
-                        </div>
-
-                        <!-- Save / Download Buttons -->
-                        <div class="save-buttons">
-                            <button class="btn btn-primary btn-sm" onclick="manualSaveEditorContent()">Save
-                                Code</button>
-                            <button id="downloadTabBtn" class="btn btn-primary btn-sm">Download Tab</button>
-                        </div>
-                    </div>
                 </div>
 
                 <div id="tabContainer">
@@ -204,6 +241,7 @@
                 <div id="copyNotification">Contents copied</div>
 
             </div>
+
         </div>
         <div class="modal fade" id="surveyModal" tabindex="-1">
             <div class="modal-dialog">
