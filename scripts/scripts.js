@@ -304,6 +304,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         }
     });
+
     commandInput.addEventListener("blur", () => {
         // Optional safeguard if needed
         setTimeout(() => {
@@ -344,6 +345,13 @@ document.addEventListener("DOMContentLoaded", () => {
                 commandInput.value = items[selectedIndex].textContent;
             }
             validateAndExecuteCommand(commandInput.value.trim());
+            commandBox.style.display = "none";
+            commandInput.value = "";
+            selectedIndex = -1;
+            window.editor.focus();
+            break;
+        case "Escape":
+            event.preventDefault();
             commandBox.style.display = "none";
             commandInput.value = "";
             selectedIndex = -1;
