@@ -1,7 +1,7 @@
 // make radio
 function makeRadio() {
     let surveyLanguage = localStorage.getItem("surveyLanguage");
-    let selectedText = window.editor.getSelection();
+    let selectedText = getInputOrLine();
     if (!selectedText.trim()) {
         alert("No text selected!");
         return;
@@ -67,7 +67,7 @@ function makeRadio() {
 
 //make rating
 function makeRating() {
-    let selectedText = window.editor.getSelection();
+    let selectedText = getInputOrLine();
     let surveyLanguage = localStorage.getItem("surveyLanguage");
 
     if (!selectedText.trim()) {
@@ -131,7 +131,7 @@ function makeRating() {
 
 // make checkbox
 function makeCheckbox() {
-    let selectedText = window.editor.getSelection();
+    let selectedText = getInputOrLine();
     let surveyLanguage = localStorage.getItem("surveyLanguage");
     const shouldRecode = document.getElementById("ihut_chckbox_recode")?.value === "Yes";
 
@@ -208,7 +208,7 @@ chkbox_recode(thisQuestion)
 
 // make Starrating
 function makeStarrating() {
-    let selectedText = window.editor.getSelection();
+    let selectedText = getInputOrLine();
     let surveyLanguage = localStorage.getItem("surveyLanguage");
 
     if (!selectedText.trim()) {
@@ -255,7 +255,7 @@ function makeStarrating() {
 
 // make Select
 function makeSelect() {
-    let selectedText = window.editor.getSelection();
+    let selectedText = getInputOrLine();
     let surveyLanguage = localStorage.getItem("surveyLanguage");
 
     if (!selectedText.trim()) {
@@ -302,7 +302,7 @@ function makeSelect() {
 
 // make Sliderpoints
 function makeSliderpoints() {
-    let selectedText = window.editor.getSelection();
+    let selectedText = getInputOrLine();
     let surveyLanguage = localStorage.getItem("surveyLanguage");
 
     if (!selectedText.trim()) {
@@ -350,7 +350,7 @@ function makeSliderpoints() {
 // make text
 function makeText() {
     let surveyLanguage = localStorage.getItem("surveyLanguage");
-    let selectedText = window.editor.getSelection();
+    let selectedText = getInputOrLine();
     if (!selectedText.trim()) {
         alert("No text selected!");
         return;
@@ -412,7 +412,7 @@ function makeText() {
 // make textarea
 function makeTextarea() {
     let surveyLanguage = localStorage.getItem("surveyLanguage");
-    let selectedText = window.editor.getSelection();
+    let selectedText = getInputOrLine();
     if (!selectedText.trim()) {
         alert("No text selected!");
         return;
@@ -474,7 +474,7 @@ function makeTextarea() {
 // make number
 function makeNumber() {
     let surveyLanguage = localStorage.getItem("surveyLanguage");
-    let selectedText = window.editor.getSelection();
+    let selectedText = getInputOrLine();
     if (!selectedText.trim()) {
         alert("No text selected!");
         return;
@@ -537,7 +537,7 @@ function makeNumber() {
 // make slidernumber
 function makeSlidernumber() {
     let surveyLanguage = localStorage.getItem("surveyLanguage");
-    let selectedText = window.editor.getSelection();
+    let selectedText = getInputOrLine();
     if (!selectedText.trim()) {
         alert("No text selected!");
         return;
@@ -601,7 +601,7 @@ function makeSlidernumber() {
 // make float
 function makeFloat() {
     let surveyLanguage = localStorage.getItem("surveyLanguage");
-    let selectedText = window.editor.getSelection();
+    let selectedText = getInputOrLine();
     if (!selectedText.trim()) {
         alert("No text selected!");
         return;
@@ -664,7 +664,7 @@ function makeFloat() {
 //make autosum
 function makeAutosum() {
     let surveyLanguage = localStorage.getItem("surveyLanguage");
-    let selectedText = window.editor.getSelection();
+    let selectedText = getInputOrLine();
 
     if (!selectedText.trim()) {
         alert("No text selected!");
@@ -748,7 +748,7 @@ function makeAutosum() {
 //make autosum percent
 function makeAutosumPercent() {
     let surveyLanguage = localStorage.getItem("surveyLanguage");
-    let selectedText = window.editor.getSelection();
+    let selectedText = getInputOrLine();
 
     if (!selectedText.trim()) {
         alert("No text selected!");
@@ -831,7 +831,7 @@ function makeAutosumPercent() {
 
 // make comment (<html>)
 function makeSurveyComment() {
-    let selectedText = window.editor.getSelection();
+    let selectedText = getInputOrLine();
 
     if (!selectedText.trim()) {
         alert("No text selected!");
@@ -860,7 +860,7 @@ function makeSurveyComment() {
 
 //make pipe
 function makePipe() {
-    const selectedText = window.editor.getSelection();
+    const selectedText = getInputOrLine();
     if (!selectedText.trim()) {
         alert("No text selected!");
         return;
@@ -890,7 +890,7 @@ function makePipe() {
 
 // make comment (<html>)
 function makeNote() {
-    let selectedText = window.editor.getSelection();
+    let selectedText = getInputOrLine();
 
     if (!selectedText.trim()) {
         alert("No text selected!");
