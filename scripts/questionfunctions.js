@@ -847,7 +847,7 @@ function makeSurveyComment() {
         let label = labelMatch ? labelMatch[1] : "Unknown";
         input = input.replace(/^([a-zA-Z0-9-_]+)(\.|:|\)|\s)/, "");
 
-        let xmlItems = `<html label="${label.trim()}">${input}</html>`;
+        let xmlItems = `<html label="${label.trim()}" where="survey">${input}</html>`;
 
         window.editor.replaceSelection(xmlItems);
         return xmlItems;
