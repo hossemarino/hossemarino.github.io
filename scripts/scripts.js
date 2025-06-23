@@ -438,34 +438,58 @@ document.addEventListener("DOMContentLoaded", () => {
     // common autosuggest - if command name is with the name currently being entered, show them, hide the rest
     function updateSuggestions(input = "") {
         commandSuggestions.innerHTML = "";
-        selectedIndex = -1; // reset
+        selectedIndex = -1;
 
         const query = input.trim().toLowerCase();
-        const suggestions = [];
+        const results = [];
 
         Object.entries(commandGroups).forEach(([group, commands]) => {
             Object.keys(commands).forEach(cmd => {
                 const label = toTitleCase(cmd);
-                if (!query || cmd.toLowerCase().startsWith(query) || label.toLowerCase().startsWith(query)) {
-                    const suggestion = document.createElement("li");
-                    suggestion.textContent = label;
+                const cmdLower = cmd.toLowerCase();
+                const labelLower = label.toLowerCase();
 
-                    suggestion.addEventListener("click", () => {
-                        commandInput.value = cmd;
-                        validateAndExecuteCommand(cmd);
-                        commandBox.style.display = "none";
-                        commandInput.value = "";
+                let matchScore = 0;
+
+                if (cmdLower.startsWith(query))
+                    matchScore = 3;
+                else if (labelLower.startsWith(query))
+                    matchScore = 2;
+                else if (cmdLower.includes(query) || labelLower.includes(query))
+                    matchScore = 1;
+
+                if (matchScore > 0 || !query) {
+                    results.push({
+                        cmd,
+                        label,
+                        matchScore
                     });
-
-                    commandSuggestions.appendChild(suggestion);
-                    suggestions.push(suggestion);
                 }
             });
         });
 
-        if (suggestions.length > 0) {
+        results
+        .sort((a, b) => b.matchScore - a.matchScore || a.label.localeCompare(b.label))
+        .forEach(({
+                cmd,
+                label
+            }, index) => {
+            const suggestion = document.createElement("li");
+            suggestion.textContent = label;
+
+            suggestion.addEventListener("click", () => {
+                commandInput.value = cmd;
+                validateAndExecuteCommand(cmd);
+                commandBox.style.display = "none";
+                commandInput.value = "";
+            });
+
+            commandSuggestions.appendChild(suggestion);
+        });
+
+        if (results.length > 0) {
             selectedIndex = 0;
-            highlightSelection(); // <-- Highlights the first match visually
+            highlightSelection();
         }
     }
     // highlight the command in the command pallette that's on focus rn
