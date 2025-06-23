@@ -32,6 +32,11 @@ function openModal(purpose, tabName = "") {
     modal.show();
 }
 
+// editor selection
+function getInputOrLine() {
+    const sel = editor.getSelection();
+    return sel.trim() || editor.getLine(editor.getCursor().line)?.trim() || "";
+}
 // download files
 function sanitizeFilename(name) {
     return name
@@ -124,7 +129,7 @@ function requestTabDeletion(tabName) {
     openModal("delete-tab", tabName);
 }
 
-function truncateLabel(label, max = 24) {
+function truncateLabel(label, max = 4) {
     return label.length > max ? label.slice(0, max) + "…" : label;
 }
 
@@ -154,7 +159,7 @@ function renderTabs() {
         if (tabName !== "default") {
             const tabElement = document.createElement("div");
             tabElement.className = "tab";
-            tabElement.dataset.tab = tabName;
+            tabElement.dataset.tab = truncateLabel(tabName);
             tabElement.style.position = "relative";
 
             const tabText = document.createElement("span");
@@ -192,7 +197,8 @@ function renderTabs() {
     // "Add Tab" button
     const addTabButton = document.createElement("button");
     addTabButton.id = "addTabButton";
-    addTabButton.textContent = "➕ Add Tab";
+    addTabButton.title = "Add New Tab";
+    addTabButton.textContent = "➕";
     addTabButton.onclick = () => openModal("tab");
     tabsContainer.appendChild(addTabButton);
 
@@ -294,7 +300,7 @@ function closeTab(tabName) {
 //FORMATTING STUFF:
 function wrapSelection(tag) {
     let editor = window.editor;
-    let selection = editor.getSelection();
+    let selection = getInputOrLine();
 
     if (selection) {
         let tagRegex = new RegExp(`^<${tag}>.*</${tag}>$`);
@@ -328,7 +334,7 @@ function wrapSelection(tag) {
 }
 
 function toTitleCase(str) {
-    const acronyms = ["us", "uk", "eu", "xml", "id", "qa"]; // Add more as needed
+    const acronyms = ["us", "uk", "eu", "xml", "id", "qa", "br", "brbr", "li", "ol", "ul"]; // Add more as needed
 
     return str
     .toLowerCase()
@@ -344,22 +350,34 @@ function toTitleCase(str) {
 // CONTROL ELEMENTS
 // termination
 function addTerm() {
-    const selectedText = window.editor.getSelection();
+    const selectedText = getInputOrLine();
+    if (!selectedText) {
+        alert("No content selected.");
+        return;
+    }
+
     const html = `<term label="term_" cond="${selectedText.trim()}"></term>`;
     window.editor.replaceSelection(html);
 }
 
 // quota tag
 function addQuota() {
-    const selectedText = window.editor.getSelection();
+    const selectedText = getInputOrLine();
+    if (!selectedText) {
+        alert("No content selected.");
+        return;
+    }
     const html = `<quota label="quota_${selectedText.trim()}" sheet="${selectedText.trim()}" overquota="noqual"/>`;
     window.editor.replaceSelection(html);
 }
 
 // validate tag
 function validateTag() {
-    const selectedText = window.editor.getSelection();
-
+    const selectedText = getInputOrLine();
+    if (!selectedText) {
+        alert("No content selected.");
+        return;
+    }
     const html = `
   <validate>
 ${selectedText.trim()}
@@ -370,7 +388,7 @@ ${selectedText.trim()}
 
 // validate tag
 function execTag() {
-    const selectedText = window.editor.getSelection();
+    const selectedText = getInputOrLine();
 
     const html = `
   <exec>
@@ -382,7 +400,8 @@ ${selectedText.trim()}
 
 // res
 function makeRes() {
-    const selectedText = window.editor.getSelection();
+    const editor = window.editor;
+    const selectedText = getInputOrLine();
 
     try {
         if (!selectedText.trim()) {
@@ -392,36 +411,30 @@ function makeRes() {
 
         let input = selectedText;
 
-        // Replace tabs with spaces
         input = input.replace(/\t+/g, " ");
-
-        // Remove spaces-only lines
         input = input.replace(/\n +\n/g, "\n\n");
-
-        // Collapse multiple line breaks to a single one
         input = input.replace(/\n{2,}/g, "\n");
 
-        // Split and clean lines
         const lines = input.trim().split("\n").map(line =>
                 line.replace(/^[a-zA-Z0-9]{1,2}[.:)]\s+/, "").trim());
 
-        // Output wrapped <res> blocks
-        return lines
-        .filter(Boolean)
-        .map(line => `<res label="">${line}</res>`)
-        .join("\n");
+        const result = lines
+            .filter(Boolean)
+            .map(line => `<res label="">${line}</res>`)
+            .join("\n");
+
+        editor.replaceSelection(result); // ✅ Output applied here
 
     } catch (err) {
         console.error("makeRes() failed:", err);
-        return "";
+        alert("Could not process RES tags.");
     }
 }
-
 // block tag
 function wrapInBlock() {
     try {
         const editor = window.editor;
-        const input = editor.getSelection().trim();
+        const input = getInputOrLine().trim();
 
         if (!input) {
             alert("No content selected.");
@@ -443,7 +456,7 @@ ${input}
 function wrapInBlockRandomize() {
     try {
         const editor = window.editor;
-        const input = editor.getSelection().trim();
+        const input = getInputOrLine().trim();
 
         if (!input) {
             alert("No content selected.");
@@ -465,7 +478,7 @@ ${input}
 function addLoopBlock() {
     try {
         const editor = window.editor;
-        const selection = editor.getSelection().trim();
+        const selection = getInputOrLine().trim();
 
         if (!selection) {
             alert("No content selected.");
@@ -533,7 +546,7 @@ ${loopRows || `  <looprow label="" cond="">
 function makeLooprows() {
     try {
         const editor = window.editor;
-        const rawInput = editor.getSelection().trim();
+        const rawInput = getInputOrLine().trim();
 
         if (!rawInput) {
             alert("No content selected.");
@@ -562,7 +575,7 @@ function makeLooprows() {
 }
 // make markers
 function makeMarker() {
-    let selectedText = window.editor.getSelection();
+    let selectedText = getInputOrLine();
     if (!selectedText.trim()) {
         alert("No text selected!");
         return;
@@ -576,7 +589,7 @@ function makeMarker() {
 
 // make markers
 function makeCondition() {
-    let selectedText = window.editor.getSelection();
+    let selectedText = getInputOrLine();
     if (!selectedText.trim()) {
         alert("No text selected!");
         return;
@@ -590,7 +603,7 @@ function makeCondition() {
 
 // FUNCTIONS FOR ROWS
 function makeRows() {
-    let selectedText = window.editor.getSelection();
+    let selectedText = getInputOrLine();
     if (!selectedText.trim()) {
         alert("No text selected!");
         return;
@@ -603,7 +616,7 @@ function makeRows() {
 }
 
 function makeRowsLow() {
-    let selectedText = window.editor.getSelection();
+    let selectedText = getInputOrLine();
     if (!selectedText.trim()) {
         alert("No text selected!");
         return;
@@ -616,7 +629,7 @@ function makeRowsLow() {
 }
 
 function makeRowsHigh() {
-    let selectedText = window.editor.getSelection();
+    let selectedText = getInputOrLine();
     if (!selectedText.trim()) {
         alert("No text selected!");
         return;
@@ -633,7 +646,7 @@ function makeRowsHigh() {
 
 // FUNCTIONS FOR COLUMNS
 function makeCols() {
-    let selectedText = window.editor.getSelection();
+    let selectedText = getInputOrLine();
     if (!selectedText.trim()) {
         alert("No text selected!");
         return;
@@ -646,7 +659,7 @@ function makeCols() {
 }
 
 function makeColsLow() {
-    let selectedText = window.editor.getSelection();
+    let selectedText = getInputOrLine();
     if (!selectedText.trim()) {
         alert("No text selected!");
         return;
@@ -659,7 +672,7 @@ function makeColsLow() {
 }
 
 function makeColsHigh() {
-    let selectedText = window.editor.getSelection();
+    let selectedText = getInputOrLine();
     if (!selectedText.trim()) {
         alert("No text selected!");
         return;
@@ -676,7 +689,7 @@ function makeColsHigh() {
 
 // FUNCTIONS FOR CHOICES
 function makeChoices() {
-    let selectedText = window.editor.getSelection();
+    let selectedText = getInputOrLine();
     if (!selectedText.trim()) {
         alert("No text selected!");
         return;
@@ -689,7 +702,7 @@ function makeChoices() {
 }
 
 function makeChoicesLow() {
-    let selectedText = window.editor.getSelection();
+    let selectedText = getInputOrLine();
     if (!selectedText.trim()) {
         alert("No text selected!");
         return;
@@ -702,7 +715,7 @@ function makeChoicesLow() {
 }
 
 function makeChoicesHigh() {
-    let selectedText = window.editor.getSelection();
+    let selectedText = getInputOrLine();
     if (!selectedText.trim()) {
         alert("No text selected!");
         return;
@@ -719,7 +732,7 @@ function makeChoicesHigh() {
 
 // NOANSWER
 function makeNoAnswer() {
-    let selectedText = window.editor.getSelection();
+    let selectedText = getInputOrLine();
     if (!selectedText.trim()) {
         alert("No text selected!");
         return;
@@ -733,7 +746,7 @@ function makeNoAnswer() {
 
 // GROUPS
 function makeGroups() {
-    let selectedText = window.editor.getSelection();
+    let selectedText = getInputOrLine();
     if (!selectedText.trim()) {
         alert("No text selected!");
         return;
@@ -747,7 +760,7 @@ function makeGroups() {
 
 // QUESTION COMMENT
 function addCommentQuestion() {
-    let selection = window.editor.getSelection();
+    let selection = getInputOrLine();
 
     if (selection) {
         let xmlItems = `  <comment>${selection}</comment>`;
@@ -760,7 +773,7 @@ function addCommentQuestion() {
 
 // CASES for pipe
 function makeCase() {
-    let selectedText = window.editor.getSelection();
+    let selectedText = getInputOrLine();
 
     if (!selectedText.trim()) {
         alert("No text selected!");
@@ -781,7 +794,7 @@ function makeCase() {
 
 // Autofill rows for pipe
 function makeAutoFillRows() {
-    let selectedText = window.editor.getSelection();
+    let selectedText = getInputOrLine();
 
     if (!selectedText.trim()) {
         alert("No text selected!");
@@ -879,7 +892,7 @@ function addGroupingRows() {
 function addGroups() {
     try {
         const editor = window.editor;
-        const selectedText = editor.getSelection();
+        const selectedText = getInputOrLine();
 
         if (!selectedText.trim()) {
             alert("Please select one or more lines to apply groups=\"\".");
@@ -914,7 +927,7 @@ function addGroups() {
 // add values
 function addValues() {
     const editor = window.editor;
-    const selected = editor.getSelection();
+    const selected = getInputOrLine();
     const targetTags = ["row", "col", "choice"];
     let changed = false;
 
@@ -937,7 +950,7 @@ function addValues() {
 // add values L-H
 function addValuesLow() {
     const editor = window.editor;
-    const selected = editor.getSelection();
+    const selected = getInputOrLine();
     const targetTags = ["row", "col", "choice"];
     let count = 1;
 
@@ -956,7 +969,7 @@ function addValuesLow() {
 // add values H-L
 function addValuesHigh() {
     const editor = window.editor;
-    const selected = editor.getSelection();
+    const selected = getInputOrLine();
     const targetTags = ["row", "col", "choice"];
     let matches = [...selected.matchAll(/<(\w+)([^>]*?)>/g)];
     let total = matches.filter(([_, tag]) => targetTags.includes(tag)).length;
@@ -979,7 +992,7 @@ function addValuesHigh() {
 function swapRowCol() {
     try {
         const editor = window.editor;
-        const selected = editor.getSelection();
+        const selected = getInputOrLine();
 
         if (!selected.trim()) {
             alert("Please select some <row> or <col> tags to swap.");
@@ -1015,7 +1028,7 @@ function swapRowCol() {
 function makeHref() {
     try {
         const editor = window.editor;
-        const input = editor.getSelection().trim();
+        const input = getInputOrLine().trim();
 
         if (!input) {
             alert("Please select or enter a URL.");
@@ -1032,7 +1045,7 @@ function makeHref() {
 
 //make lis
 function lis() {
-    let selectedText = window.editor.getSelection();
+    let selectedText = getInputOrLine();
 
     if (!selectedText.trim()) {
         alert("No text selected!");
@@ -1050,7 +1063,7 @@ function lis() {
 }
 // make ordered list (<ol>)
 function makeOl() {
-    const selectedText = window.editor.getSelection();
+    const selectedText = getInputOrLine();
     if (!selectedText.trim()) {
         alert("No text selected!");
         return;
@@ -1080,7 +1093,7 @@ function makeOl() {
 
 // make unordered list (<ul>)
 function makeUl() {
-    const selectedText = window.editor.getSelection();
+    const selectedText = getInputOrLine();
     if (!selectedText.trim()) {
         alert("No text selected!");
         return;
@@ -1113,7 +1126,7 @@ function makeStateSelect({
 } = {}) {
     try {
         const editor = window.editor;
-        const inputText = editor.getSelection().trim();
+        const inputText = getInputOrLine().trim();
 
         const match = inputText.match(/^([a-zA-Z0-9-_]+)([.:)\s])([\s\S]*)$/);
         if (!match) {
@@ -1184,7 +1197,7 @@ function makeStateWithRecode() {
 function makeStateCheckbox() {
     try {
         const editor = window.editor;
-        const inputText = editor.getSelection().trim();
+        const inputText = getInputOrLine().trim();
 
         const match = inputText.match(/^([a-zA-Z0-9-_]+)([.:)\s])([\s\S]*)$/);
         if (!match) {
@@ -1217,7 +1230,7 @@ ${rows}
 function makeCountrySelectISO() {
     try {
         const editor = window.editor;
-        const inputText = editor.getSelection().trim();
+        const inputText = getInputOrLine().trim();
 
         const match = inputText.match(/^([a-zA-Z0-9-_]+)([.:)\s])([\s\S]*)$/);
         if (!match) {
@@ -1254,13 +1267,13 @@ function addCopyProtection() {
 }
 
 function makeUnselectableSpan() {
-    const selectedText = window.editor.getSelection();
+    const selectedText = getInputOrLine();
     const html = `<span style="-moz-user-select: none;-webkit-user-select: none;-ms-user-select: none;" unselectable="on" ondragstart="return false" oncontextmenu="return false">${selectedText.trim()}</span>`;
     window.editor.replaceSelection(html);
 }
 
 function makeUnselectableDiv() {
-    const selectedText = window.editor.getSelection();
+    const selectedText = getInputOrLine();
     const html = `<div style="-moz-user-select: none;-webkit-user-select: none;-ms-user-select: none;" unselectable="on" ondragstart="return false" oncontextmenu="return false">${selectedText.trim()}</div>`;
     window.editor.replaceSelection(html);
 }

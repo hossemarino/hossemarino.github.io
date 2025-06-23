@@ -231,10 +231,17 @@ html {
     padding: 5px;
     border-bottom: 2px solid #ccc;
 }
+#addTabButton{
+    width: 50px;
+    font-size: 12px;
+    height: 25px;
 
+}
 .tab {
-    width: 85px;
-    max-width: 100px;
+    width: 65px;
+    max-width: 70px;
+    height: 25px;
+    font-size: 12px;
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
@@ -285,7 +292,7 @@ html {
     right: 6px;
     top: 50%;
     transform: translateY(-50%);
-    font-size: 12px;
+    font-size: 6px;
     background: none;
     border: none;
     color: #888;
