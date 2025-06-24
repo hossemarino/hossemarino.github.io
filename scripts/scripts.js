@@ -1,11 +1,20 @@
+
+let savedTheme;
+let savedWordWrap;
+let savedFontSize
+let savedLanguage
+function getActiveEditor() {
+    return tabs[activeTab]?.editor;
+}
+
 document.addEventListener("DOMContentLoaded", () => {
-    let savedTheme = localStorage.getItem("editorTheme") || "default";
-    let savedWordWrap = localStorage.getItem("wordWrap") === "true";
-    let savedLanguage = localStorage.getItem("surveyLanguage") || "english";
-    let savedFontSize = localStorage.getItem("fontSize") || 14;
-    let textarea = document.querySelector(".xml-container");
+    editorArea = document.getElementById("editorArea");
+    savedTheme = localStorage.getItem("editorTheme") || "default";
+    savedWordWrap = localStorage.getItem("wordWrap") === "true";
+    savedLanguage = localStorage.getItem("surveyLanguage") || "english";
+    savedFontSize = localStorage.getItem("fontSize") || 14;
+
     let commandInput = document.getElementById("commandInput");
-    let editorElement = document.getElementById("editor");
     let commandBox = document.getElementById("commandBox");
     let commandSuggestions = document.getElementById("commandSuggestions");
 
@@ -22,6 +31,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const increaseFontButton = document.getElementById("increaseFont");
     const decreaseFontButton = document.getElementById("decreaseFont");
+
+    editor = getActiveEditor();
 
     const commandGroups = {
         control: {
@@ -128,30 +139,14 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("addTabButton").onclick = () => openModal("tab");
     document.getElementById("createTabBtn").onclick = confirmTabCreation;
 
-    const commands = Object.values(commandGroups).flatMap(group => Object.keys(group)).map(toTitleCase);
-
     let selectedIndex = -1;
 
-    if (!commandBox || !commandSuggestions || !commandInput || !questionTypes || !questionElements || !questionAttroibutes || !miscelaneousCommands || !increaseFontButton || !decreaseFontButton) {
-        console.error("Missing elements!");
-        return;
-    }
-    if (!surveyLanguageDropdown) {
-        console.error("Survey language dropdown missing!");
-        return;
-    }
+    // Create & append default textarea
+    const defaultTextArea = document.createElement("textarea");
+    editorArea.appendChild(defaultTextArea);
 
-    if (!editorElement || !commandBox || !commandInput || !commandSuggestions) {
-        console.error("Missing elements!");
-        return;
-    }
-
-    if (!textarea) {
-        console.error("Textarea not found!");
-        return;
-    }
-
-    let editor = CodeMirror.fromTextArea(textarea, {
+    // Initialize CodeMirror
+    const defaultEditor = CodeMirror.fromTextArea(defaultTextArea, {
         mode: "application/xml",
         theme: savedTheme,
         lineNumbers: true,
@@ -177,26 +172,35 @@ document.addEventListener("DOMContentLoaded", () => {
             "Ctrl-U": () => wrapSelection("u"),
         }
     });
+    tabs["default"] = {
+        editor: defaultEditor,
+        textarea: defaultTextArea
+    };
 
-    window.editor = editor;
+    initTabs(editorArea);
+
+    // Register fold helpers
     CodeMirror.registerHelper("fold", "custom", customTagRangeFinder);
 
-    window.editor.setOption("foldOptions", {
+    defaultEditor.setOption("foldOptions", {
         widget: (from, to) => {
-            const startLine = window.editor.getLine(from.line);
+            const startLine = defaultEditor.getLine(from.line);
             const tagMatch = startLine.match(/<([a-zA-Z0-9_-]+)/);
             const tagName = tagMatch ? tagMatch[1] : "…";
             return `<${tagName}><--></${tagName}>`;
         }
     });
 
-    window.editor.on("change", saveEditorContent);
+    defaultEditor.on("change", () => {
+        saveEditorContent();
+        saveAllTabs();
+    });
+    const editorInput = defaultEditor.getInputField();
 
-    window.addEventListener("load", loadEditorContent);
-
-    editor.operation(() => {
-        for (let line = editor.firstLine(); line <= editor.lastLine(); line++) {
-            editor.foldCode({
+    // Initial fold
+    defaultEditor.operation(() => {
+        for (let line = defaultEditor.firstLine(); line <= defaultEditor.lastLine(); line++) {
+            defaultEditor.foldCode({
                 line,
                 ch: 0
             }, null, "fold");
@@ -207,19 +211,28 @@ document.addEventListener("DOMContentLoaded", () => {
     let isFolded = false;
 
     document.getElementById("toggleFoldBtn").onclick = () => {
-        const totalLines = window.editor.lineCount();
+        const totalLines = editor.lineCount();
+
         for (let i = 0; i < totalLines; i++) {
-            window.editor.foldCode(CodeMirror.Pos(i, 0), null, isFolded ? "unfold" : "fold");
+            editor.foldCode(CodeMirror.Pos(i, 0), null, isFolded ? "unfold" : "fold");
         }
         isFolded = !isFolded;
     };
 
     // editor font size edit. Saves and loads the custom setting in the localstorage
+    let fontSize = parseInt(localStorage.getItem("fontSize") || 14); // Initialize at top
+
     function updateFontSize(size) {
         fontSize = Math.max(10, Math.min(24, size));
-        localStorage.setItem("fontSize", fontSize)
-        document.querySelector(".CodeMirror").style.fontSize = `${fontSize}px`;
-        document.querySelector(".fsize").innerHTML = `${fontSize}px`;
+        localStorage.setItem("fontSize", fontSize);
+
+        Object.values(tabs).forEach(({
+                editor
+            }) => {
+            editor.getWrapperElement().style.fontSize = `${fontSize}px`;
+        });
+
+        document.querySelector(".fsize").textContent = `${fontSize}px`;
     }
 
     increaseFontButton.addEventListener("click", () => {
@@ -230,9 +243,12 @@ document.addEventListener("DOMContentLoaded", () => {
         updateFontSize(fontSize - 1);
     });
 
-    updateFontSize(savedFontSize);
+    // Apply initial font size on load
+    updateFontSize(fontSize);
+
     // on change of the dropdown, sets and saves the survey language
     surveyLanguageDropdown.value = savedLanguage;
+
     surveyLanguageDropdown.addEventListener("change", () => {
         const selectedLang = surveyLanguageDropdown.value.toLowerCase();
         localStorage.setItem("surveyLanguage", selectedLang);
@@ -279,9 +295,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // defines different behaviours for command pallette box - navigating with arrow keys, cycling with tab and shift-tab
     // escape button calls the command pallette box when the editor is on focus
-    const editorInput = window.editor.getInputField();
+
 
     editorInput.addEventListener("keydown", (event) => {
+        editor = getActiveEditor();
         if (event.key === "Escape") {
             const isBoxVisible = commandBox.style.display !== "none";
 
@@ -290,7 +307,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 commandBox.style.display = "none";
                 commandInput.value = "";
                 selectedIndex = -1;
-                window.editor.focus();
+                editor.focus();
             } else {
                 event.preventDefault();
                 positionCommandBox();
@@ -316,6 +333,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     // executes a valid command on enter
     commandInput.addEventListener("keydown", (event) => {
+        editor = getActiveEditor();
         let items = commandSuggestions.querySelectorAll("li");
 
         switch (event.key) {
@@ -348,14 +366,14 @@ document.addEventListener("DOMContentLoaded", () => {
             commandBox.style.display = "none";
             commandInput.value = "";
             selectedIndex = -1;
-            window.editor.focus();
+            editor.focus();
             break;
         case "Escape":
             event.preventDefault();
             commandBox.style.display = "none";
             commandInput.value = "";
             selectedIndex = -1;
-            window.editor.focus();
+            editor.focus();
             break;
         case "Tab":
             event.preventDefault();
@@ -377,12 +395,13 @@ document.addEventListener("DOMContentLoaded", () => {
     // hide the command pallette box when clicked outside of it
     document.addEventListener("click", (event) => {
         let commandBox = document.getElementById("commandBox");
+        editor = getActiveEditor();
 
         if (commandBox.style.display !== "none" && !commandBox.contains(event.target)) {
             commandBox.style.display = "none";
             commandInput.value = "";
             selectedIndex = -1;
-            window.editor.focus();
+            editor.focus();
         }
     });
 
@@ -393,6 +412,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // define the editor theme and save it in the localstorage
     document.getElementById("themeSelector").addEventListener("change", function () {
+        editor = getActiveEditor();
         let selectedTheme = this.value;
         editor.setOption("theme", selectedTheme);
         localStorage.setItem("editorTheme", selectedTheme);
@@ -400,6 +420,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // toggle word wrap and save it in the localstorage
     document.getElementById("wordWrapToggle").addEventListener("change", function () {
+        editor = getActiveEditor();
         let isChecked = this.checked;
         editor.setOption("lineWrapping", isChecked);
         localStorage.setItem("wordWrap", isChecked);
@@ -513,7 +534,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     // positioning of the command pallette box
     function positionCommandBox() {
-        let cursor = window.editor.cursorCoords();
+        editor = getActiveEditor();
+        let cursor = editor.cursorCoords();
         commandBox.style.left = `${cursor.left}px`;
         commandBox.style.top = `${cursor.top - 30}px`;
     }
@@ -522,13 +544,14 @@ document.addEventListener("DOMContentLoaded", () => {
     let lastCommand = "";
 
     function validateAndExecuteCommand(command) {
+        editor = getActiveEditor();
         if (!command) {
             alert("Command cannot be empty!");
             return;
         }
         lastCommand = command; // ✅ Remember it
         processCommand(command);
-        window.editor.focus();
+        editor.focus();
 
     }
     //process the command
@@ -552,14 +575,13 @@ document.addEventListener("DOMContentLoaded", () => {
         if (tabPendingDeletion) {
             closeTab(tabPendingDeletion);
             tabPendingDeletion = null;
-
-            const modal = bootstrap.Modal.getInstance(document.getElementById("surveyModal"));
-            modal.hide();
+            bootstrap.Modal.getInstance(document.getElementById("surveyModal")).hide();
         }
     };
 
     document.getElementById("downloadTabBtn").onclick = () => {
-        const content = window.editor.getValue();
+        editor = getActiveEditor();
+        const content = editor.getValue();
         const rawName = activeTab || "untitled";
         const safeName = sanitizeFilename(rawName) || "untitled";
         const filename = `${safeName}.xml`;
@@ -643,12 +665,14 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     // drag and drop event
-    window.editor.getWrapperElement().addEventListener("dragover", (event) => {
+    editor = getActiveEditor();
+    editor.getWrapperElement().addEventListener("dragover", (event) => {
         event.preventDefault(); // Prevent default browser behavior
         event.dataTransfer.dropEffect = "copy";
     });
 
-    window.editor.getWrapperElement().addEventListener("drop", (event) => {
+    editor.getWrapperElement().addEventListener("drop", (event) => {
+        editor = getActiveEditor();
         event.preventDefault();
 
         const file = event.dataTransfer.files[0];
@@ -657,18 +681,20 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const reader = new FileReader();
         reader.onload = (e) => {
-            window.editor.setValue(e.target.result);
+            editor.setValue(e.target.result);
         };
 
         reader.readAsText(file);
     });
 
-    window.editor.getWrapperElement().addEventListener("dragenter", () => {
-        window.editor.getWrapperElement().classList.add("dragging");
+    editor.getWrapperElement().addEventListener("dragenter", () => {
+        editor = getActiveEditor();
+        editor.getWrapperElement().classList.add("dragging");
     });
 
-    window.editor.getWrapperElement().addEventListener("dragleave", () => {
-        window.editor.getWrapperElement().classList.remove("dragging");
+    editor.getWrapperElement().addEventListener("dragleave", () => {
+        editor = getActiveEditor();
+        editor.getWrapperElement().classList.remove("dragging");
     });
 
     // custom tools - question comments
@@ -751,14 +777,15 @@ document.addEventListener("DOMContentLoaded", () => {
         toolbar.classList.toggle("collapsed");
 
         this.textContent = toolbar.classList.contains("collapsed") ? "▼" : "▲";
-        if (targetSelector.includes("toolbar") && window.editor?.refresh) {
-            setTimeout(() => window.editor.refresh(), 310);
+        if (targetSelector.includes("toolbar") && editor?.refresh) {
+            setTimeout(() => editor.refresh(), 310);
         }
 
     };
 
     //resize
     function makeResizable(wrapperId, direction = "vertical") {
+        editor = getActiveEditor();
         const wrapper = document.getElementById(wrapperId);
         const handle = wrapper.querySelector(".resize-handle." + direction);
         let isResizing = false;
@@ -777,12 +804,13 @@ document.addEventListener("DOMContentLoaded", () => {
                 const newHeight = e.clientY - wrapper.getBoundingClientRect().top;
                 wrapper.style.height = newHeight + "px";
             } else {
-                const newWidth = e.clientX - wrapper.getBoundingClientRect().left;
+                const maxWidth = 500;
+                const minWidth = 200;
+                const newWidth = Math.min(Math.max(e.clientX - wrapper.getBoundingClientRect().left, minWidth), maxWidth);
                 wrapper.style.width = newWidth + "px";
             }
-
-            if (window.editor?.refresh)
-                window.editor.refresh(); // for CodeMirror
+            if (editor.refresh)
+                editor.refresh(); // for CodeMirror
         });
 
         document.addEventListener("mouseup", () => {
@@ -792,9 +820,12 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         });
     }
+    const toolbox = document.getElementById("toolbox");
+    toolbox.style.width = "350px"; // or your default width
 
-    makeResizable("toolbarWrapper", "vertical");
-    makeResizable("toolboxWrapper", "horizontal");
+    makeResizable("toolbar", "vertical");
+    makeResizable("toolbox", "horizontal");
+
 });
 
 function validateFormAndGenerateXML(mode) {
@@ -840,8 +871,9 @@ function validateFormAndGenerateXML(mode) {
 }
 
 function setCursorAfterLastNote() {
+    editor = getActiveEditor();
     editor.setCursor({
-        line: 507,
+        line: 513,
         ch: 0
     });
 }
@@ -1015,15 +1047,15 @@ ${RESDEF}
 
 
 
-
+${REVIEW_QUESTION}
 ${s2sText}
 ${stlwftext}
 </survey>`;
-
-    if (window.editor) {
-        window.editor.setValue(xmlContent);
+    editor = getActiveEditor();
+    if (editor) {
+        editor.setValue(xmlContent);
         setTimeout(() => {
-            window.editor.focus();
+            editor.focus();
             setCursorAfterLastNote();
         }, 100);
     } else {
@@ -1412,9 +1444,10 @@ ${consentQ}
 / ********************************************************************* /
 /</note>
 
-${cltNote}
 
-${QualBoardAPI}
+
+
+${cltNote}
 
 ${restOfSurvey_1}
 
@@ -1424,10 +1457,10 @@ ${restOfSurvey_2}
 
 ${restOfSurvey_3}
 
-
+${QualBoardAPI}
 </survey>`.trim();
-
-    window.editor.setValue(xml);
+    editor = getActiveEditor();
+    editor.setValue(xml);
     let modal = bootstrap.Modal.getInstance(document.getElementById("surveyModal"));
     if (modal) {
         modal.hide();
