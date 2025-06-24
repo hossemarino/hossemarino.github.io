@@ -636,7 +636,7 @@ thisQuestion.val = lS2S.r
 
 </block>`;
 
-const STL_WF_TEXT = `
+const REVIEW_QUESTION = `
 <note>/
 / ********************************************************************* /
 / ********************************************************************* /
@@ -645,9 +645,9 @@ const STL_WF_TEXT = `
 / ********************************************************************* /
 /</note>
 
+<block label="bQ00" cond="gv.request.variables.get('api') != '0'">
 <textarea 
   label="Q00"
-  cond="gv.request.variables.get('api') != '0'"
   optional="0">
   <title>
   Thank you for participating in this survey today. 
@@ -657,21 +657,22 @@ const STL_WF_TEXT = `
   <comment>Please be as specific as possible</comment>
 </textarea>
 
-<logic label="Q00_REVIEW" 
-  cond="Q00.val not in ['', None]" 
+<logic label="Q00_REVIEW"
+  researchdefender_review:private_key="607b1eca-a3e5-4808-ad3e-565fbf6e0ba5"
+  researchdefender_review:publishable_key="9ed35863-39a4-41b0-a30e-0de31b4e672b"
+  researchdefender_review:s_text_length="25"
+  researchdefender_review:survey_id="\${gv.survey.path.split('/',1)[1].replace('/','')}"
   researchdefender_review:targets="Q00"
-  researchdefender_review:private_key="607b1eca-a3e5-4808-ad3e-565fbf6e0ba5" 
-  researchdefender_review:publishable_key="9ed35863-39a4-41b0-a30e-0de31b4e672b" 
-  researchdefender_review:s_text_length="25" 
-  researchdefender_review:survey_id="\${gv.survey.path.split('/', 1)[1].replace('/', '')}"  
   uses="researchdefender_review.1">
-  <title>Q00 Research Defender REVIEW Integration</title>
-</logic>
+  <title>Q00 Research Defender REVIEW Integration</title></logic>
+  <suspend/>
+</block>
 
 <logic label="OE_FLAG" uses="oe_check.2">
   <title>OE Flag</title>
-</logic>
+</logic>`;
 
+const STL_WF_TEXT = `
 <exec when="virtualInit">
 vl_systemQuestions = ["qtime","vbrowser","vos","vmobiledevice","vmobileos","vlist","status","vdropout","vterm","start_date","vco","vdecLang","vWF_","vWF","vSTL_","vSTL","pagetime","pageQ","RelevantID"]
 vl_qTags = ["Radio","Checkbox","Select","Number","Float","Text","Textarea"]

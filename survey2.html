@@ -34,6 +34,7 @@
     <link rel="stylesheet" href="./styles/bootstrap-theme.css">
     <link rel="stylesheet" href="./styles/foldgutter.css">
     <script src="./scripts/vars.js"></script>
+    <script src="./scripts/tabs.js"></script>
     <script src="./scripts/scripts.js"></script>
     <script src="./scripts/functions.js"></script>
     <script src="./scripts/questionfunctions.js"></script>
@@ -57,7 +58,7 @@
             <div id="toolboxWrapper">
                 <button id="toggleToolbox" class="toolbox-toggle" title="collapse toolbox">‹</button>
                 <!-- Your toolbox contents here -->
-                <div class="col-3 bg-dark text-white p-3 toolbox resizable horizontal">
+                <div id="toolbox" class="col-3 bg-dark text-white p-3 toolbox resizable horizontal">
                     <ul class="nav nav-tabs mb-3" id="toolboxTabs" role="tablist">
                         <li class="nav-item" role="presentation">
                             <button class="nav-link active" id="main-tab" data-bs-toggle="tab"
@@ -139,100 +140,105 @@
 
 
                     </div>
+                    <div class="resize-handle horizontal"></div>
                 </div>
-                <div class="resize-handle horizontal"></div>
+
 
             </div>
 
             <!-- Right Editor (CodeMirror) -->
-            <div class="col-9 p-3 editor-container">
+            <div id="mainEditorWrapper" class="col-9 p-3 editor-container">
                 <div id="toolbarWrapper" class="editor-toolbar">
                     <button id="toggleToolbarBtn" class="toolbar-toggle" title="collapse the menu">▲</button>
-                    <div class="editor-toolbar-body resizeable vertical">
+                    <div id="toolbar" class="editor-toolbar-body resizable vertical">
+                        <div class="toolbar-inner">
+                            <div class="left-side">
+                                <!-- Display Controls -->
+                                <div>
+                                    <label for="wordWrapToggle">Word Wrap</label>
+                                    <input type="checkbox" id="wordWrapToggle">
+                                </div>
 
-                        <div class="right-side">
-                            <!-- Display Controls -->
-                            <div>
-                                <label for="wordWrapToggle">Word Wrap</label>
-                                <input type="checkbox" id="wordWrapToggle">
+                                <!-- Survey Settings Group -->
+                                <div class="survey-settings">
+                                    <label for="surveyLanguage">Survey Language (for question comments):</label>
+                                    <select id="surveyLanguage">
+                                        <option value="english">English</option>
+                                        <option value="german">German</option>
+                                        <option value="french">French</option>
+                                    </select>
+                                </div>
+                                <div class="checkbox_recode">
+                                    <label for="recodeToggleToolbar">IHUT Checkbox Recode:</label>
+                                    <select id="recodeToggleToolbar">
+                                        <option value="Yes">Yes</option>
+                                        <option value="No" selected>No</option>
+                                    </select>
+                                </div>
+
+                                <!-- Formatting Tools -->
+                                <div class="formatting-tools">
+                                    <label>Formatting:</label>
+                                    <button title="bold" class="btn btn-secondary btn-sm" onclick="wrapSelection('b')"
+                                        id="boldBtn"><b>B</b></button>
+                                    <button title="italic" class="btn btn-secondary btn-sm" onclick="wrapSelection('i')"
+                                        id="italicBtn"><i>I</i></button>
+                                    <button title="underline" class="btn btn-secondary btn-sm"
+                                        onclick="wrapSelection('u')" id="underlineBtn"><u>U</u></button>
+                                    <button title="superscript" class="btn btn-secondary btn-sm"
+                                        onclick="wrapSelection('sup')" id="superscriptBtn">X<sup>2</sup></button>
+                                    <button title="subscript" class="btn btn-secondary btn-sm"
+                                        onclick="wrapSelection('sub')" id="subscriptBtn">X<sub>2</sub></button>
+                                    <button id="toggleFoldBtn" class="btn btn-secondary btn-sm">Fold/Unfold All</button>
+                                </div>
+
+
                             </div>
 
-                            <!-- Survey Settings Group -->
-                            <div class="survey-settings">
-                                <label for="surveyLanguage">Survey Language (for question comments):</label>
-                                <select id="surveyLanguage">
-                                    <option value="english">English</option>
-                                    <option value="german">German</option>
-                                    <option value="french">French</option>
-                                </select>
-                            </div>
-                            <div class="checkbox_recode">
-                                <label for="recodeToggleToolbar">IHUT Checkbox Recode:</label>
-                                <select id="recodeToggleToolbar">
-                                    <option value="Yes">Yes</option>
-                                    <option value="No" selected>No</option>
-                                </select>
-                            </div>
+                            <div class="right-side">
+                                <!-- Font Size -->
+                                <div>
+                                    <label>Current font size: <span class="fsize"></span></label>
+                                    <button id="increaseFont" class="btn btn-secondary btn-sm"
+                                        title="Increase Font">A+</button>
+                                    <button id="decreaseFont" class="btn btn-secondary btn-sm"
+                                        title="Decrease Font">A-</button>
+                                </div>
 
-                            <!-- Formatting Tools -->
-                            <div class="formatting-tools">
-                                <label>Formatting:</label>
-                                <button title="bold" onclick="wrapSelection('b')" id="boldBtn"><b>B</b></button>
-                                <button title="italic" onclick="wrapSelection('i')" id="italicBtn"><i>I</i></button>
-                                <button title="underline" onclick="wrapSelection('u')"
-                                    id="underlineBtn"><u>U</u></button>
-                                <button title="superscript" onclick="wrapSelection('sup')"
-                                    id="superscriptBtn">X<sup>2</sup></button>
-                                <button title="subscript" onclick="wrapSelection('sub')"
-                                    id="subscriptBtn">X<sub>2</sub></button>
-                                <button id="toggleFoldBtn" class="btn btn-secondary btn-sm me-2">Fold/Unfold
-                                    All</button>
+                                <!-- Theme Selector -->
+                                <div>
+                                    <label for="themeSelector">Theme:</label>
+                                    <select id="themeSelector">
+                                        <option value="default">Default</option>
+                                        <option value="monokai">Monokai</option>
+                                        <option value="dracula">Dracula</option>
+                                        <option value="material">Material</option>
+                                        <option value="eclipse">Eclipse</option>
+                                    </select>
+                                </div>
+
+                                <!-- Save / Download Buttons -->
+                                <div class="save-buttons">
+                                    <button class="btn btn-primary btn-sm" onclick="manualSaveEditorContent()">Save
+                                        Code</button>
+                                    <button id="downloadTabBtn" class="btn btn-primary btn-sm">Download Tab</button>
+                                </div>
                             </div>
-
-
                         </div>
-
-                        <div class="right-side">
-                            <!-- Font Size -->
-                            <div>
-                                <label>Current font size: <span class="fsize"></span></label>
-                                <button id="increaseFont" title="Increase Font">A+</button>
-                                <button id="decreaseFont" title="Decrease Font">A-</button>
-                            </div>
-
-                            <!-- Theme Selector -->
-                            <div>
-                                <label for="themeSelector">Theme:</label>
-                                <select id="themeSelector">
-                                    <option value="default">Default</option>
-                                    <option value="monokai">Monokai</option>
-                                    <option value="dracula">Dracula</option>
-                                    <option value="material">Material</option>
-                                    <option value="eclipse">Eclipse</option>
-                                </select>
-                            </div>
-
-                            <!-- Save / Download Buttons -->
-                            <div class="save-buttons">
-                                <button class="btn btn-primary btn-sm" onclick="manualSaveEditorContent()">Save
-                                    Code</button>
-                                <button id="downloadTabBtn" class="btn btn-primary btn-sm">Download Tab</button>
-                            </div>
-                        </div>
+                        <div class="resize-handle vertical"></div>
                     </div>
-                    <div class="resize-handle vertical"></div>
+
+
 
                 </div>
 
                 <div id="tabContainer">
                     <div id="tabs">
-                        <div class="tab active" data-tab="default" onclick="switchTab('default')">Default</div>
-                        <button id="addTabButton" onclick="addTab()">➕ Add Tab</button>
+                        <button id="addTabButton" onclick="addTab()">➕</button>
                     </div>
                 </div>
 
-                <textarea class="xml-container" title="xml container" placeholder=""></textarea>
-                <div class="editor hidden" id="editor"></div>
+                <div id="editorArea" style="height: 100%; width: 100%; position: relative;"></div>
                 <div id="commandBox" class="command-box">
                     <input type="text" id="commandInput" placeholder="Enter command..." />
                     <ul id="commandSuggestions" class="secondary-commands"></ul>
@@ -418,7 +424,7 @@
                 </div>
             </div>
         </div>
-
+    </div>
 </body>
 
 </html>

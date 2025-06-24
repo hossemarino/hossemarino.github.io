@@ -1,23 +1,24 @@
 //Modal handling
 function openModal(purpose, tabName = "") {
-    const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById("surveyModal"));
+    const modalEl = document.getElementById("surveyModal");
+    const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
     const title = document.getElementById("modalTitle");
 
-    // Hide all modal sections
     document.querySelectorAll(".modal-section").forEach(section => {
         section.style.display = "none";
     });
 
+    let focusInput = null;
+
     if (purpose === "tab") {
-        const tabInput = document.getElementById("tab_name");
         title.textContent = "Create a New Tab";
         document.querySelector(".new-tab").style.display = "block";
         document.getElementById("tabError").style.display = "none";
-        tabInput.focus();
+        focusInput = document.getElementById("tab_name");
     } else if (purpose === "new-survey") {
         title.textContent = "Create a New Survey";
         document.querySelector(".new-survey").style.display = "block";
-        document.getElementById("genXML").onclick = () => validateFormAndGenerateXML('survey');
+        document.getElementById("genXML").onclick = () => validateFormAndGenerateXML("survey");
     } else if (purpose === "delete-tab") {
         title.textContent = "Confirm Tab Deletion";
         document.querySelector(".delete-tab").style.display = "block";
@@ -26,12 +27,22 @@ function openModal(purpose, tabName = "") {
     } else if (purpose === "new-ihut") {
         title.textContent = "Create a New IHUT";
         document.querySelector(".new-ihut").style.display = "block";
-        document.getElementById("genIHUTXML").onclick = () => validateFormAndGenerateXML('ihut');
-
+        document.getElementById("genIHUTXML").onclick = () => validateFormAndGenerateXML("ihut");
     }
+
+    // Clean up previous listeners to avoid duplicates
+    modalEl.removeEventListener("shown.bs.modal", modalEl._focusListener);
+
+    modalEl._focusListener = () => {
+        if (focusInput) {
+            focusInput.focus();
+            focusInput.select();
+        }
+    };
+
+    modalEl.addEventListener("shown.bs.modal", modalEl._focusListener);
     modal.show();
 }
-
 // editor selection
 function getInputOrLine() {
     const sel = editor.getSelection();
@@ -88,9 +99,9 @@ function customTagRangeFinder(cm, start) {
 }
 //Save/load functions
 function saveEditorContent() {
-    if (activeTab) {
-        tabs[activeTab] = window.editor.getValue();
-        localStorage.setItem("editorTabs", JSON.stringify(tabs));
+    if (activeTab && tabs[activeTab]?.editor) {
+        const content = tabs[activeTab].editor.getValue();
+        localStorage.setItem(`editorTab_${activeTab}`, content);
     }
 }
 
@@ -106,108 +117,55 @@ function manualSaveEditorContent() {
     }, 3500);
 }
 
-function loadEditorContent() {
-    const savedTabs = JSON.parse(localStorage.getItem("editorTabs"));
-    if (savedTabs) {
-        tabs = savedTabs;
-        renderTabs();
-        switchTab(activeTab || "default");
+function loadEditorContent(tabName) {
+    const savedContent = localStorage.getItem(`editorTab_${tabName}`);
+    if (savedContent && tabs[tabName]?.editor) {
+        tabs[tabName].editor.setValue(savedContent);
     }
 }
 
-// TABS
-let tabs = {
-default:
-    ""
-};
-let activeTab = "default";
+function getCodeMirrorSettings(theme, wordWrap) {
+    return {
+        mode: "application/xml",
+        theme: theme,
+        lineNumbers: true,
+        autoCloseTags: false,
+        autoCloseBrackets: true,
+        matchTags: {
+            bothTags: true
+        },
+        lineWrapping: wordWrap,
 
+        foldGutter: true,
+        foldOptions: {
+            rangeFinder: CodeMirror.helpers.fold.custom
+        },
+        gutters: ["CodeMirror-linenumbers", "CodeMirror-foldgutter"],
+
+        extraKeys: {
+            "Ctrl-Q": function (cm) {
+                cm.foldCode(cm.getCursor());
+            },
+            "Ctrl-B": () => wrapSelection("b"),
+            "Ctrl-I": () => wrapSelection("i"),
+            "Ctrl-U": () => wrapSelection("u"),
+        }
+    };
+}
+// TABs
 function addTab() {
     openModal("tab");
 }
+
+let tabPendingDeletion = null;
+
 function requestTabDeletion(tabName) {
-    openModal("delete-tab", tabName);
+    tabPendingDeletion = tabName;
+    openModal("delete-tab", tabName); // Show confirmation modal
 }
 
-function truncateLabel(label, max = 4) {
+function truncateLabel(label, max = 12) {
     return label.length > max ? label.slice(0, max) + "…" : label;
-}
-
-function switchTab(tabName) {
-    activeTab = tabName;
-    document.querySelectorAll(".tab").forEach(tab => tab.classList.remove("active"));
-    document.querySelector(`[data-tab="${tabName}"]`).classList.add("active");
-
-    window.editor.setValue(tabs[tabName]);
-}
-
-function renderTabs() {
-    const tabsContainer = document.getElementById("tabs");
-    tabsContainer.innerHTML = ""; // Start fresh
-
-    // Default tab
-    const defaultTab = document.createElement("div");
-    defaultTab.className = "tab";
-    defaultTab.textContent = "Default";
-    defaultTab.dataset.tab = "default";
-    defaultTab.onclick = () => switchTab("default");
-    defaultTab.style.position = "relative";
-    tabsContainer.appendChild(defaultTab);
-
-    // Other saved tabs
-    Object.keys(tabs).forEach(tabName => {
-        if (tabName !== "default") {
-            const tabElement = document.createElement("div");
-            tabElement.className = "tab";
-            tabElement.dataset.tab = truncateLabel(tabName);
-            tabElement.style.position = "relative";
-
-            const tabText = document.createElement("span");
-            tabText.className = "tab-label";
-            tabText.textContent = truncateLabel(tabName);
-            tabText.title = tabName; // Tooltip with full name
-
-            tabElement.appendChild(tabText);
-
-            const closeButton = document.createElement("button");
-            closeButton.textContent = "✖";
-            closeButton.className = "close-tab";
-            closeButton.onclick = (e) => {
-                e.stopPropagation(); // Prevent tab switch when clicking ✖
-                requestTabDeletion(tabName);
-
-            };
-
-            tabElement.appendChild(closeButton);
-            tabElement.onclick = () => switchTab(tabName);
-
-            tabsContainer.appendChild(tabElement);
-
-            // delete tab from middle mouse button click
-            tabElement.addEventListener("mousedown", (e) => {
-                if (e.button === 1) { // Middle mouse button
-                    console.log("trigger?")
-                    e.preventDefault(); // Prevent default browser behavior (like opening in new tab)
-                    requestTabDeletion(tabName);
-                }
-            });
-        }
-    });
-
-    // "Add Tab" button
-    const addTabButton = document.createElement("button");
-    addTabButton.id = "addTabButton";
-    addTabButton.title = "Add New Tab";
-    addTabButton.textContent = "➕";
-    addTabButton.onclick = () => openModal("tab");
-    tabsContainer.appendChild(addTabButton);
-
-    // Apply active class
-    document.querySelectorAll(".tab").forEach(tab => {
-        tab.classList.remove("active");
-        if (tab.dataset.tab === activeTab)
-            tab.classList.add("active");
-    });
 }
 
 function confirmTabCreation() {
@@ -215,7 +173,6 @@ function confirmTabCreation() {
     const errorDisplay = document.getElementById("tabError");
     const tabName = tabNameInput.value.trim();
 
-    // Clear previous error
     errorDisplay.textContent = "";
     errorDisplay.style.display = "none";
 
@@ -225,76 +182,16 @@ function confirmTabCreation() {
         return;
     }
 
-    const tabAlreadyExists = tabs[tabName] !== undefined || document.querySelector(`.tab[data-tab="${tabName}"]`);
-
-    if (!tabName) {
-        errorDisplay.textContent = "Tab name cannot be empty.";
-        errorDisplay.style.display = "block";
-        return;
-    }
-
-    if (tabAlreadyExists) {
+    if (tabs[tabName]) {
         errorDisplay.textContent = "A tab with this name already exists.";
         errorDisplay.style.display = "block";
         return;
     }
 
-    tabs[tabName] = ""; // Initialize content
-    activeTab = tabName;
+    createTab(tabName); // ← This is your new official way
 
-    // Deactivate all other tabs
-    document.querySelectorAll(".tab").forEach(tab => tab.classList.remove("active"));
-
-    // Create the tab element
-    const tabElement = document.createElement("div");
-    tabElement.className = "tab active";
-    tabElement.dataset.tab = tabName;
-    tabElement.style.position = "relative";
-    tabElement.onclick = () => switchTab(tabName);
-
-    const tabText = document.createElement("span");
-    tabText.textContent = tabName;
-    tabElement.appendChild(tabText);
-
-    const closeButton = document.createElement("button");
-    closeButton.textContent = "✖";
-    closeButton.className = "close-tab";
-    closeButton.onclick = (e) => {
-        e.stopPropagation();
-        requestTabDeletion(tabName);
-    };
-    tabElement.appendChild(closeButton);
-
-    document.getElementById("tabs").insertBefore(tabElement, document.getElementById("addTabButton"));
-
-    // Update editor and save
-    window.editor.setValue("");
-    saveEditorContent();
-    renderTabs();
-    switchTab(tabName);
-
-    // Clear input field
     tabNameInput.value = "";
-
-    // Hide modal
     bootstrap.Modal.getInstance(document.getElementById("surveyModal")).hide();
-}
-
-function closeTab(tabName) {
-    if (tabName === "default") {
-        alert("You cannot close the default tab!");
-        return;
-    }
-
-    delete tabs[tabName];
-    localStorage.setItem("editorTabs", JSON.stringify(tabs));
-
-    document.querySelector(`[data-tab="${tabName}"]`).remove();
-
-    // Switch to default tab if the closed tab was active
-    if (activeTab === tabName) {
-        switchTab("default");
-    }
 }
 
 //FORMATTING STUFF:
