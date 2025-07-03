@@ -2,6 +2,54 @@ const tabs = {};
 let activeTab = "default";
 let editorArea;
 
+function getCodeMirrorSettings(theme, wordWrap) {
+    return {
+        mode: "application/xml",
+        theme: theme,
+        lineNumbers: true,
+        autoCloseTags: false,
+        autoCloseBrackets: true,
+        matchTags: {
+            bothTags: true
+        },
+        lineWrapping: wordWrap,
+
+        foldGutter: true,
+        foldOptions: {
+            rangeFinder: CodeMirror.helpers.fold.custom
+        },
+        gutters: ["CodeMirror-linenumbers", "CodeMirror-foldgutter"],
+
+        extraKeys: {
+            "Ctrl-Q": function (cm) {
+                cm.foldCode(cm.getCursor());
+            },
+            "Ctrl-B": () => wrapSelection("b"),
+            "Ctrl-I": () => wrapSelection("i"),
+            "Ctrl-U": () => wrapSelection("u"),
+            "Esc": () => {
+                const editor = getActiveEditor();
+                const isBoxVisible = commandBox.style.display !== "none";
+
+                if (isBoxVisible) {
+                    commandBox.style.display = "none";
+                    commandInput.value = "";
+                    selectedIndex = -1;
+                    editor.focus();
+                } else {
+                    positionCommandBox();
+                    commandBox.style.display = "block";
+                    commandInput.value = lastCommand || "";
+                    updateSuggestions(commandInput.value);
+                    commandInput.focus();
+                    commandInput.select();
+                    updateSuggestions(commandInput.value);
+                }
+            }
+        }
+    };
+}
+
 function initTabs(targetArea) {
     editorArea = targetArea;
     const savedTabs = JSON.parse(localStorage.getItem("editorTabs")) || {};
@@ -18,7 +66,7 @@ function initTabs(targetArea) {
         editor.setValue(data.content);
         editor.getWrapperElement().style.display = "none";
 
-        configureEditor(editor);
+        //configureEditor(editor);
         tabs[name] = {
             editor,
             textarea
@@ -27,6 +75,9 @@ function initTabs(targetArea) {
 
     if (!tabs["default"]) {
         createTab("default");
+    }
+    if (tabs["default"]?.editor && savedTabs["default"]?.content) {
+        tabs["default"].editor.setValue(savedTabs["default"].content);
     }
 
     renderTabs();
@@ -137,7 +188,8 @@ function saveAllTabs() {
 
 function renderTabs() {
     const tabsContainer = document.getElementById("tabs");
-    if (!tabsContainer) return;
+    if (!tabsContainer)
+        return;
 
     tabsContainer.innerHTML = ""; // Start fresh
 
@@ -187,6 +239,7 @@ function renderTabs() {
     // Highlight active
     document.querySelectorAll(".tab").forEach(tab => {
         tab.classList.remove("active");
-        if (tab.dataset.tab === activeTab) tab.classList.add("active");
+        if (tab.dataset.tab === activeTab)
+            tab.classList.add("active");
     });
 }
