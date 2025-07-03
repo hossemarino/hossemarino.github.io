@@ -6,6 +6,7 @@ let savedLanguage
 function getActiveEditor() {
     return tabs[activeTab]?.editor;
 }
+let lastCommand = "";
 
 document.addEventListener("DOMContentLoaded", () => {
     editorArea = document.getElementById("editorArea");
@@ -52,9 +53,9 @@ document.addEventListener("DOMContentLoaded", () => {
             "make rows": makeRows,
             "make rows (rating l-h)": makeRowsLow,
             "make rows (rating h-l)": makeRowsHigh,
-            "make cols": makeCols,
-            "make cols (rating l-h)": makeColsLow,
-            "make cols (rating h-l)": makeColsHigh,
+            "make columns": makeCols,
+            "make columns (rating l-h)": makeColsLow,
+            "make columns (rating h-l)": makeColsHigh,
             "make choices": makeChoices,
             "make choices (rating l-h)": makeChoicesLow,
             "make noanswer": makeNoAnswer,
@@ -96,6 +97,8 @@ document.addEventListener("DOMContentLoaded", () => {
             "add values": addValues,
             "add values l-h": addValuesLow,
             "add values h-l": addValuesHigh,
+            "add alt label": addAltlabel,
+            "add rating direction reversed": addRatingDirection,
             "swap rows and cols": swapRowCol,
         },
         misc: {
@@ -170,13 +173,34 @@ document.addEventListener("DOMContentLoaded", () => {
             "Ctrl-B": () => wrapSelection("b"),
             "Ctrl-I": () => wrapSelection("i"),
             "Ctrl-U": () => wrapSelection("u"),
+            "Esc": () => {
+                const editor = getActiveEditor();
+                const isBoxVisible = commandBox.style.display !== "none";
+
+                if (isBoxVisible) {
+                    commandBox.style.display = "none";
+                    commandInput.value = "";
+                    selectedIndex = -1;
+                    editor.focus();
+                } else {
+                    positionCommandBox();
+                    commandBox.style.display = "block";
+                    commandInput.value = lastCommand || "";
+                    updateSuggestions(commandInput.value);
+                    commandInput.focus();
+                    commandInput.select();
+                    updateSuggestions(commandInput.value);
+                }
+            }
         }
     });
+
     tabs["default"] = {
         editor: defaultEditor,
         textarea: defaultTextArea
     };
 
+    configureEditor(defaultEditor);
     initTabs(editorArea);
 
     // Register fold helpers
@@ -196,16 +220,6 @@ document.addEventListener("DOMContentLoaded", () => {
         saveAllTabs();
     });
     const editorInput = defaultEditor.getInputField();
-
-    // Initial fold
-    defaultEditor.operation(() => {
-        for (let line = defaultEditor.firstLine(); line <= defaultEditor.lastLine(); line++) {
-            defaultEditor.foldCode({
-                line,
-                ch: 0
-            }, null, "fold");
-        }
-    });
 
     // fold all button
     let isFolded = false;
@@ -272,14 +286,12 @@ document.addEventListener("DOMContentLoaded", () => {
             container.innerHTML = "";
 
             Object.keys(commands).forEach(cmd => {
-                // ➕ Toolbox item
                 const link = document.createElement("a");
                 link.href = "javascript:void(0);";
                 link.textContent = toTitleCase(cmd);
                 link.onclick = () => validateAndExecuteCommand(cmd);
                 container.appendChild(link);
 
-                // 🔍 Autocomplete item
                 const suggestion = document.createElement("li");
                 suggestion.textContent = toTitleCase(cmd);
                 suggestion.addEventListener("click", () => {
@@ -295,32 +307,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // defines different behaviours for command pallette box - navigating with arrow keys, cycling with tab and shift-tab
     // escape button calls the command pallette box when the editor is on focus
-
-
-    editorInput.addEventListener("keydown", (event) => {
-        editor = getActiveEditor();
-        if (event.key === "Escape") {
-            const isBoxVisible = commandBox.style.display !== "none";
-
-            if (isBoxVisible) {
-                event.preventDefault();
-                commandBox.style.display = "none";
-                commandInput.value = "";
-                selectedIndex = -1;
-                editor.focus();
-            } else {
-                event.preventDefault();
-                positionCommandBox();
-                commandBox.style.display = "block";
-                commandInput.value = lastCommand || "";
-                updateSuggestions(commandInput.value);
-                commandInput.focus();
-                commandInput.value = lastCommand || "";
-                commandInput.select();
-                updateSuggestions(commandInput.value);
-            }
-        }
-    });
 
     commandInput.addEventListener("blur", () => {
         // Optional safeguard if needed
@@ -457,7 +443,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     // common autosuggest - if command name is with the name currently being entered, show them, hide the rest
-    function updateSuggestions(input = "") {
+    window.updateSuggestions = function updateSuggestions(input = "") {
         commandSuggestions.innerHTML = "";
         selectedIndex = -1;
 
@@ -533,7 +519,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
     // positioning of the command pallette box
-    function positionCommandBox() {
+    window.positionCommandBox = function positionCommandBox() {
         editor = getActiveEditor();
         let cursor = editor.cursorCoords();
         commandBox.style.left = `${cursor.left}px`;
@@ -541,7 +527,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     // if command is valid, execute it
     // fail if not
-    let lastCommand = "";
+
 
     function validateAndExecuteCommand(command) {
         editor = getActiveEditor();
@@ -549,7 +535,7 @@ document.addEventListener("DOMContentLoaded", () => {
             alert("Command cannot be empty!");
             return;
         }
-        lastCommand = command; // ✅ Remember it
+        lastCommand = command;
         processCommand(command);
         editor.focus();
 

@@ -124,34 +124,6 @@ function loadEditorContent(tabName) {
     }
 }
 
-function getCodeMirrorSettings(theme, wordWrap) {
-    return {
-        mode: "application/xml",
-        theme: theme,
-        lineNumbers: true,
-        autoCloseTags: false,
-        autoCloseBrackets: true,
-        matchTags: {
-            bothTags: true
-        },
-        lineWrapping: wordWrap,
-
-        foldGutter: true,
-        foldOptions: {
-            rangeFinder: CodeMirror.helpers.fold.custom
-        },
-        gutters: ["CodeMirror-linenumbers", "CodeMirror-foldgutter"],
-
-        extraKeys: {
-            "Ctrl-Q": function (cm) {
-                cm.foldCode(cm.getCursor());
-            },
-            "Ctrl-B": () => wrapSelection("b"),
-            "Ctrl-I": () => wrapSelection("i"),
-            "Ctrl-U": () => wrapSelection("u"),
-        }
-    };
-}
 // TABs
 function addTab() {
     openModal("tab");
@@ -188,7 +160,7 @@ function confirmTabCreation() {
         return;
     }
 
-    createTab(tabName); // ← This is your new official way
+    createTab(tabName);
 
     tabNameInput.value = "";
     bootstrap.Modal.getInstance(document.getElementById("surveyModal")).hide();
@@ -248,11 +220,6 @@ function toTitleCase(str) {
 // termination
 function addTerm() {
     const selectedText = getInputOrLine();
-    if (!selectedText) {
-        alert("No content selected.");
-        return;
-    }
-
     const html = `<term label="term_" cond="${selectedText.trim()}"></term>`;
     window.editor.replaceSelection(html);
 }
@@ -260,10 +227,6 @@ function addTerm() {
 // quota tag
 function addQuota() {
     const selectedText = getInputOrLine();
-    if (!selectedText) {
-        alert("No content selected.");
-        return;
-    }
     const html = `<quota label="quota_${selectedText.trim()}" sheet="${selectedText.trim()}" overquota="noqual"/>`;
     window.editor.replaceSelection(html);
 }
@@ -271,10 +234,6 @@ function addQuota() {
 // validate tag
 function validateTag() {
     const selectedText = getInputOrLine();
-    if (!selectedText) {
-        alert("No content selected.");
-        return;
-    }
     const html = `
   <validate>
 ${selectedText.trim()}
@@ -681,10 +640,10 @@ function makeCase() {
 
     let xmlItems = "";
     lines.forEach((line, index) => {
-        xmlItems += `  <case label="r${index + 1}" cond="">${line}</case>\n`;
+        xmlItems += `  <case label="c${index + 1}" cond="">${line}</case>\n`;
     });
 
-    xmlItems += `  <case label="r${lines.length + 1}" cond="1">DEFAULT</case>\n`;
+    xmlItems += `  <case label="cn" cond="1">DEFAULT</case>\n`;
 
     window.editor.replaceSelection(xmlItems);
 }
@@ -921,6 +880,20 @@ function swapRowCol() {
     }
 }
 
+// add altlabel
+function addAltlabel() {
+    const selectedText = getInputOrLine();
+    const cleaned = selectedText.trim().replace(/\s+/g, "_");
+    const html = ` altlabel="${cleaned}"`;
+    window.editor.replaceSelection(html);
+}
+
+// add ratinDirection
+function addRatingDirection() {
+    const selectedText = getInputOrLine();
+    const html = ` ratingDirection="reverse"`;
+    window.editor.replaceSelection(html);
+}
 // make link href
 function makeHref() {
     try {

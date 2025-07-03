@@ -455,7 +455,7 @@ function makeTextarea() {
         let comment = "";
         if (!input.includes("<comment>")) {
             const set = comments[surveyLanguage] || comments.english;
-            comment = `<comment>${set.textarea}</comment>\n`
+            comment = `<comment>${set.text}</comment>\n`
         }
         //  Compose final question output
         let xmlItems = input.includes("<comment>")

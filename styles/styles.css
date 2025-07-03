@@ -127,12 +127,14 @@ html {
 #mainEditorWrapper {
     flex: 1;
     min-width: 0;
-    /* critical for shrinking */
-    overflow: auto;
+    height: 100vh;
+
 }
 
 .toolbox .commands-header {
     text-transform: uppercase;
+    padding-left: 5px;
+
 }
 
 .toolbox {
