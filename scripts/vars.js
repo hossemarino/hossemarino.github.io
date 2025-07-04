@@ -55,7 +55,7 @@ except:
 const CHECKBOX_RECODE = `
 <exec when="init">
 def chkbox_recode(tq):
-	mq = eval(tq.label.replace("h",""))
+	mq = eval(tq.label[1:])
 	textList = [eRow.label.replace("r","") for eRow in mq.rows if eRow]
 	tq.val = ",".join(textList)
 </exec>`;
@@ -569,7 +569,7 @@ const CONSENT_QUESTION = `
 <pipe label="pConsentCheckboxText" capture="">
   <case label="c1" cond="(allQuestions['CO'].DE if ('CO' in allQuestions.keys() and hasattr(allQuestions['CO'], 'DE')) else decLang == 'german' if decLang else gv.survey.root.lang == 'german')" translateable="0">Aktivieren Sie dieses Kontrollk&amp;#228;stchen, um zu best&amp;#228;tigen, dass Sie sowohl die Datenschutzrichtlinie als auch die Geheimhaltungsvereinbarung zu dieser Marktforschungsstudie gelesen und verstanden haben (<a href="https://sago.com/de/legal/participant-consent/" target="_blank" rel="noopener" title="Sago Consent">https://sago.com/de/legal/participant-consent/</a>). Ich stimme freiwillig zu, an dieser Studie teilzunehmen und erm&amp;#228;chtige Sago und die aufgef&amp;#252;hrten Empf&amp;#228;nger, meine personenbezogenen Daten f&amp;#252;r Marktforschungszwecke zu verwenden, einschlie&amp;#223;lich der Verarbeitung besonderer Kategorien personenbezogener Daten, der &amp;#252;bermittlung personenbezogener Daten au&amp;#223;erhalb des Staates meines Wohnsitzes sowie der Beobachtung und Aufzeichnung der Interviews live oder per Streaming.</case>
   <case label="c2" cond="(allQuestions['CO'].FR if ('CO' in allQuestions.keys() and hasattr(allQuestions['CO'], 'FR')) else decLang == 'french' if decLang else gv.survey.root.lang == 'french')" translateable="0">Cochez cette case pour confirmer que vous avez lu et compris la notice d&amp;#039;information et l&amp;#039;accord de non-divulgation concernant cette &amp;eacute;tude de march&amp;eacute; (<a href="https://sago.com/fr/legal/europe-participant-consent/" target="_blank" rel="noopener" title="Sago Consent">https://sago.com/fr/legal/europe-participant-consent/</a>). J&amp;#039;accepte volontairement de participer &amp;agrave; cette &amp;eacute;tude et j&amp;#039;autorise Sago et les destinataires list&amp;eacute;s &amp;agrave; utiliser mes informations personnelles &amp;agrave; des fins d&amp;#039;&amp;eacute;tude de march&amp;eacute;, y compris le traitement de donn&amp;eacute;es sensibles, le transfert d&amp;#039;informations personnelles en dehors de l&amp;#039;UE, l&amp;#039;observation et l&amp;#039;enregistrement des interviews en direct ou en diff&amp;eacute;r&amp;eacute;.</case>
-  <case label="c3" cond="(allQuestions['CO'].ES if ('CO' in allQuestions.keys() and hasattr(allQuestions['CO'], 'ES')) else decLang == 'spanish' if decLang else gv.survey.root.lang == 'spanish')" translateable="0">Marca esta casilla para confirmar que has le?do y comprendido tanto el aviso de privacidad como el acuerdo de confidencialidad relativos a este estudio de investigaci&amp;#243;n de mercado (<a href="https://sago.com/es/legal/participant-consent/" target="_blank" rel="noopener" title="Consentimiento de Sago">https://sago.com/es/legal/participant-consent/</a>). Acepto voluntariamente participar en este estudio de mercado y autorizo a Sago y a los destinatarios enumerados a utilizar mis informaciones personales con fines de investigaci&amp;#243;n de mercado, incluido el tratamiento de datos sensibles, la transferencia de informaciones personales fuera de la UE, la observaci&amp;#243;n y la grabaci&amp;#243;n de entrevistas en directo o grabadas.</case>
+  <case label="c3" cond="(allQuestions['CO'].ES if ('CO' in allQuestions.keys() and hasattr(allQuestions['CO'], 'ES')) else decLang == 'spanish' if decLang else gv.survey.root.lang == 'spanish')" translateable="0">Marca esta casilla para confirmar que has le&iacute;do y comprendido tanto el aviso de privacidad como el acuerdo de confidencialidad relativos a este estudio de investigaci&amp;#243;n de mercado (<a href="https://sago.com/es/legal/participant-consent/" target="_blank" rel="noopener" title="Consentimiento de Sago">https://sago.com/es/legal/participant-consent/</a>). Acepto voluntariamente participar en este estudio de mercado y autorizo a Sago y a los destinatarios enumerados a utilizar mis informaciones personales con fines de investigaci&amp;#243;n de mercado, incluido el tratamiento de datos sensibles, la transferencia de informaciones personales fuera de la UE, la observaci&amp;#243;n y la grabaci&amp;#243;n de entrevistas en directo o grabadas.</case>
   <case label="cn" cond="1"><span class="hidden">DO NOT TRANSLATE FOR FR, DE and ES</span>Check this box to confirm you have read and understood both the privacy notice and the non-disclosure agreement about this market research study (<a href="https://sago.com/en/legal/participant-consent/" target="_blank" rel="noopener" title="Sago Consent">https://sago.com/en/legal/participant-consent/</a>). I voluntarily agree to take part in this study and authorize Sago and the recipients listed to use my personal information for market research purposes, including the processing of special categories of personal information, the transfer of personal information outside the State of my residence, the observation and the recording of the interviews in live or streaming.</case></pipe>
 <pipe label="pConsentCheckboxErrorText" capture="">
   <case label="c1" cond="(allQuestions['CO'].DE if ('CO' in allQuestions.keys() and hasattr(allQuestions['CO'], 'DE')) else decLang == 'german' if decLang else gv.survey.root.lang == 'german')" translateable="0">Sie m&amp;uuml;ssen best&amp;auml;tigen, dass Sie die obigen Informationen gelesen und verstanden haben, bevor Sie fortfahren.</case>
@@ -661,7 +661,7 @@ const REVIEW_QUESTION = `
   researchdefender_review:private_key="607b1eca-a3e5-4808-ad3e-565fbf6e0ba5"
   researchdefender_review:publishable_key="9ed35863-39a4-41b0-a30e-0de31b4e672b"
   researchdefender_review:s_text_length="25"
-  researchdefender_review:survey_id="\${gv.survey.path.split('/',1)[1].replace('/','')}"
+  researchdefender_review:survey_id="\${gv.survey.path.split('/', 1)[1].replace('/', '')}"
   researchdefender_review:targets="Q00"
   uses="researchdefender_review.1">
   <title>Q00 Research Defender REVIEW Integration</title></logic>
@@ -1627,54 +1627,100 @@ const US_STATES = [
 ];
 
 const COUNTRIES = [
-      ["AF", "Afghanistan"], ["AL", "Albania"], ["DZ", "Algeria"], ["AD", "Andorra"],
-      ["AO", "Angola"], ["AG", "Antigua and Barbuda"], ["AR", "Argentina"], ["AM", "Armenia"],
-      ["AU", "Australia"], ["AT", "Austria"], ["AZ", "Azerbaijan"], ["BS", "Bahamas"],
-      ["BH", "Bahrain"], ["BD", "Bangladesh"], ["BB", "Barbados"], ["BY", "Belarus"],
-      ["BE", "Belgium"], ["BZ", "Belize"], ["BJ", "Benin"], ["BT", "Bhutan"],
-      ["BO", "Bolivia"], ["BA", "Bosnia Herzegovina"], ["BW", "Botswana"], ["BR", "Brazil"],
-      ["BN", "Brunei"], ["BG", "Bulgaria"], ["BF", "Burkina"], ["BI", "Burundi"],
-      ["KH", "Cambodia"], ["CM", "Cameroon"], ["CA", "Canada"], ["CV", "Cape Verde"],
-      ["CF", "Central African Republic"], ["TD", "Chad"], ["CL", "Chile"], ["CN", "China"],
-      ["CO", "Colombia"], ["KM", "Comoros"], ["CG", "Congo"], ["CD", "Congo (Democratic Republic)"],
-      ["CR", "Costa Rica"], ["HR", "Croatia"], ["CU", "Cuba"], ["CY", "Cyprus"],
-      ["CZ", "Czech Republic"], ["DK", "Denmark"], ["DJ", "Djibouti"], ["DM", "Dominica"],
-      ["DO", "Dominican Republic"], ["TL", "East Timor"], ["EC", "Ecuador"], ["EG", "Egypt"],
-      ["SV", "El Salvador"], ["GQ", "Equatorial Guinea"], ["ER", "Eritrea"], ["EE", "Estonia"],
-      ["ET", "Ethiopia"], ["FJ", "Fiji"], ["FI", "Finland"], ["FR", "France"],
-      ["GA", "Gabon"], ["GM", "Gambia"], ["GE", "Georgia"], ["DE", "Germany"],
-      ["GH", "Ghana"], ["GR", "Greece"], ["GD", "Grenada"], ["GT", "Guatemala"],
-      ["GN", "Guinea"], ["GW", "Guinea-Bissau"], ["GY", "Guyana"], ["HT", "Haiti"],
-      ["HN", "Honduras"], ["HU", "Hungary"], ["IS", "Iceland"], ["IN", "India"],
-      ["ID", "Indonesia"], ["IR", "Iran"], ["IQ", "Iraq"], ["IE", "Ireland"],
-      ["IL", "Israel"], ["IT", "Italy"], ["CI", "Ivory Coast"], ["JM", "Jamaica"],
-      ["JP", "Japan"], ["JO", "Jordan"], ["KZ", "Kazakhstan"], ["KE", "Kenya"],
-      ["KI", "Kiribati"], ["KP", "Korea North"], ["KR", "Korea South"], ["XK", "Kosovo"],
-      ["KW", "Kuwait"], ["KG", "Kyrgyzstan"], ["LA", "Laos"], ["LV", "Latvia"],
-      ["LB", "Lebanon"], ["LS", "Lesotho"], ["LR", "Liberia"], ["LY", "Libya"],
-      ["LI", "Liechtenstein"], ["LT", "Lithuania"], ["LU", "Luxembourg"], ["MK", "Macedonia"],
-      ["MG", "Madagascar"], ["MW", "Malawi"], ["MY", "Malaysia"], ["MV", "Maldives"],
-      ["ML", "Mali"], ["MT", "Malta"], ["MH", "Marshall Islands"], ["MR", "Mauritania"],
-      ["MU", "Mauritius"], ["MX", "Mexico"], ["FM", "Micronesia"], ["MD", "Moldova"],
-      ["MC", "Monaco"], ["MN", "Mongolia"], ["ME", "Montenegro"], ["MA", "Morocco"],
-      ["MZ", "Mozambique"], ["MM", "Myanmar"], ["NA", "Namibia"], ["NR", "Nauru"],
-      ["NP", "Nepal"], ["NL", "Netherlands"], ["NZ", "New Zealand"], ["NI", "Nicaragua"],
-      ["NE", "Niger"], ["NG", "Nigeria"], ["NO", "Norway"], ["OM", "Oman"],
-      ["PK", "Pakistan"], ["PW", "Palau"], ["PA", "Panama"], ["PG", "Papua New Guinea"],
-      ["PY", "Paraguay"], ["PE", "Peru"], ["PH", "Philippines"], ["PL", "Poland"],
-      ["PT", "Portugal"], ["QA", "Qatar"], ["RO", "Romania"], ["RU", "Russia"],
-      ["RW", "Rwanda"], ["KN", "St Kitts and Nevis"], ["LC", "St Lucia"],
-      ["VC", "Saint Vincent and the Grenadines"], ["WS", "Samoa"], ["SM", "San Marino"],
-      ["ST", "Sao Tome and Principe"], ["SA", "Saudi Arabia"], ["SN", "Senegal"],
-      ["RS", "Serbia"], ["SC", "Seychelles"], ["SL", "Sierra Leone"], ["SG", "Singapore"],
-      ["SK", "Slovakia"], ["SI", "Slovenia"], ["SB", "Solomon Islands"], ["SO", "Somalia"],
-      ["ZA", "South Africa"], ["ES", "Spain"], ["LK", "Sri Lanka"], ["SD", "Sudan"],
-      ["SR", "Suriname"], ["SZ", "Swaziland"], ["SE", "Sweden"], ["CH", "Switzerland"],
-      ["SY", "Syria"], ["TW", "Taiwan"], ["TJ", "Tajikistan"], ["TZ", "Tanzania"],
-      ["TH", "Thailand"], ["TG", "Togo"], ["TO", "Tonga"], ["TT", "Trinidad and Tobago"],
-      ["TN", "Tunisia"], ["TR", "Turkey"], ["TM", "Turkmenistan"], ["TV", "Tuvalu"],
-      ["UG", "Uganda"], ["UA", "Ukraine"], ["AE", "United Arab Emirates"], ["GB", "United Kingdom"],
-      ["US", "United States"], ["UY", "Uruguay"], ["UZ", "Uzbekistan"], ["VU", "Vanuatu"],
-      ["VA", "Vatican City"], ["VE", "Venezuela"], ["VN", "Vietnam"], ["YE", "Yemen"],
-      ["ZM", "Zambia"], ["ZW", "Zimbabwe"]
-    ];
+  ["AF", "Afghanistan"], ["AL", "Albania"], ["DZ", "Algeria"], ["AD", "Andorra"],
+  ["AO", "Angola"], ["AG", "Antigua and Barbuda"], ["AR", "Argentina"], ["AM", "Armenia"],
+  ["AU", "Australia"], ["AT", "Austria"], ["AZ", "Azerbaijan"], ["BS", "Bahamas"],
+  ["BH", "Bahrain"], ["BD", "Bangladesh"], ["BB", "Barbados"], ["BY", "Belarus"],
+  ["BE", "Belgium"], ["BZ", "Belize"], ["BJ", "Benin"], ["BT", "Bhutan"],
+  ["BO", "Bolivia"], ["BA", "Bosnia Herzegovina"], ["BW", "Botswana"], ["BR", "Brazil"],
+  ["BN", "Brunei"], ["BG", "Bulgaria"], ["BF", "Burkina"], ["BI", "Burundi"],
+  ["KH", "Cambodia"], ["CM", "Cameroon"], ["CA", "Canada"], ["CV", "Cape Verde"],
+  ["CF", "Central African Republic"], ["TD", "Chad"], ["CL", "Chile"], ["CN", "China"],
+  ["CO", "Colombia"], ["KM", "Comoros"], ["CG", "Congo"], ["CD", "Congo (Democratic Republic)"],
+  ["CR", "Costa Rica"], ["HR", "Croatia"], ["CU", "Cuba"], ["CY", "Cyprus"],
+  ["CZ", "Czech Republic"], ["DK", "Denmark"], ["DJ", "Djibouti"], ["DM", "Dominica"],
+  ["DO", "Dominican Republic"], ["TL", "East Timor"], ["EC", "Ecuador"], ["EG", "Egypt"],
+  ["SV", "El Salvador"], ["GQ", "Equatorial Guinea"], ["ER", "Eritrea"], ["EE", "Estonia"],
+  ["ET", "Ethiopia"], ["FJ", "Fiji"], ["FI", "Finland"], ["FR", "France"],
+  ["GA", "Gabon"], ["GM", "Gambia"], ["GE", "Georgia"], ["DE", "Germany"],
+  ["GH", "Ghana"], ["GR", "Greece"], ["GD", "Grenada"], ["GT", "Guatemala"],
+  ["GN", "Guinea"], ["GW", "Guinea-Bissau"], ["GY", "Guyana"], ["HT", "Haiti"],
+  ["HN", "Honduras"], ["HU", "Hungary"], ["IS", "Iceland"], ["IN", "India"],
+  ["ID", "Indonesia"], ["IR", "Iran"], ["IQ", "Iraq"], ["IE", "Ireland"],
+  ["IL", "Israel"], ["IT", "Italy"], ["CI", "Ivory Coast"], ["JM", "Jamaica"],
+  ["JP", "Japan"], ["JO", "Jordan"], ["KZ", "Kazakhstan"], ["KE", "Kenya"],
+  ["KI", "Kiribati"], ["KP", "Korea North"], ["KR", "Korea South"], ["XK", "Kosovo"],
+  ["KW", "Kuwait"], ["KG", "Kyrgyzstan"], ["LA", "Laos"], ["LV", "Latvia"],
+  ["LB", "Lebanon"], ["LS", "Lesotho"], ["LR", "Liberia"], ["LY", "Libya"],
+  ["LI", "Liechtenstein"], ["LT", "Lithuania"], ["LU", "Luxembourg"], ["MK", "Macedonia"],
+  ["MG", "Madagascar"], ["MW", "Malawi"], ["MY", "Malaysia"], ["MV", "Maldives"],
+  ["ML", "Mali"], ["MT", "Malta"], ["MH", "Marshall Islands"], ["MR", "Mauritania"],
+  ["MU", "Mauritius"], ["MX", "Mexico"], ["FM", "Micronesia"], ["MD", "Moldova"],
+  ["MC", "Monaco"], ["MN", "Mongolia"], ["ME", "Montenegro"], ["MA", "Morocco"],
+  ["MZ", "Mozambique"], ["MM", "Myanmar"], ["NA", "Namibia"], ["NR", "Nauru"],
+  ["NP", "Nepal"], ["NL", "Netherlands"], ["NZ", "New Zealand"], ["NI", "Nicaragua"],
+  ["NE", "Niger"], ["NG", "Nigeria"], ["NO", "Norway"], ["OM", "Oman"],
+  ["PK", "Pakistan"], ["PW", "Palau"], ["PA", "Panama"], ["PG", "Papua New Guinea"],
+  ["PY", "Paraguay"], ["PE", "Peru"], ["PH", "Philippines"], ["PL", "Poland"],
+  ["PT", "Portugal"], ["QA", "Qatar"], ["RO", "Romania"], ["RU", "Russia"],
+  ["RW", "Rwanda"], ["KN", "St Kitts and Nevis"], ["LC", "St Lucia"],
+  ["VC", "Saint Vincent and the Grenadines"], ["WS", "Samoa"], ["SM", "San Marino"],
+  ["ST", "Sao Tome and Principe"], ["SA", "Saudi Arabia"], ["SN", "Senegal"],
+  ["RS", "Serbia"], ["SC", "Seychelles"], ["SL", "Sierra Leone"], ["SG", "Singapore"],
+  ["SK", "Slovakia"], ["SI", "Slovenia"], ["SB", "Solomon Islands"], ["SO", "Somalia"],
+  ["ZA", "South Africa"], ["ES", "Spain"], ["LK", "Sri Lanka"], ["SD", "Sudan"],
+  ["SR", "Suriname"], ["SZ", "Swaziland"], ["SE", "Sweden"], ["CH", "Switzerland"],
+  ["SY", "Syria"], ["TW", "Taiwan"], ["TJ", "Tajikistan"], ["TZ", "Tanzania"],
+  ["TH", "Thailand"], ["TG", "Togo"], ["TO", "Tonga"], ["TT", "Trinidad and Tobago"],
+  ["TN", "Tunisia"], ["TR", "Turkey"], ["TM", "Turkmenistan"], ["TV", "Tuvalu"],
+  ["UG", "Uganda"], ["UA", "Ukraine"], ["AE", "United Arab Emirates"], ["GB", "United Kingdom"],
+  ["US", "United States"], ["UY", "Uruguay"], ["UZ", "Uzbekistan"], ["VU", "Vanuatu"],
+  ["VA", "Vatican City"], ["VE", "Venezuela"], ["VN", "Vietnam"], ["YE", "Yemen"],
+  ["ZM", "Zambia"], ["ZW", "Zimbabwe"]
+];
+
+const VSTATUS = `
+<radio label="vStatus" title="Status">
+<virtual>
+if 'recovered' in markers:
+\tdata[0][0] = 3
+else:
+\tif 'qualified' in markers:
+\t\tdata[0][0] = 2
+\telif 'OQ' in markers:
+\t\tdata[0][0] = 1
+\telse:
+\t\tdata[0][0] = 0
+</virtual>
+  <row label="r1">Term</row>
+  <row label="r2">OQ</row>
+  <row label="r3">Quals</row>
+  <row label="r4">Partials</row>
+</radio>
+`;
+
+function vChange(date) {
+  return `
+<exec>
+setMarker('vChange-${date}')
+</exec>
+
+<radio label="vChange-${date}" title="Pre vs Post Change">
+<virtual>
+if 'vChange-${date}' in markers:
+\tdata[0][0] = 1
+else:
+\tdata[0][0] = 0
+</virtual>
+  <row label="r1">Before Change made</row>
+  <row label="r2">After Change made</row>
+</radio>
+`;
+}
+
+const SHUFFLE_ROWS_VIRTUAL = `
+<number label="Q_order" size="2" title="Q order" onLoad="copy('Q', rows=True)">
+<virtual>
+assignRandomOrder("Q", "rows")
+</virtual>
+</number>`;

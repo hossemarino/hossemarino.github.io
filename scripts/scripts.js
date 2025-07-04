@@ -28,6 +28,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const standardsTab = document.getElementById("standardQuestions");
     const copyProtection = document.getElementById("standardCopyProtection");
+    const mouseoverPopUp = document.getElementById("standardMouseover");
+    const standardMiscelaneousCommands = document.getElementById("standardMiscellaneousCommands");
+
     const stylesTab = document.getElementById("styleCreation");
 
     const increaseFontButton = document.getElementById("increaseFont");
@@ -124,6 +127,18 @@ document.addEventListener("DOMContentLoaded", () => {
             "add unselectable attributes": addUnselectableAttributes
 
         },
+        mouseoverpopup: {
+            "mouseover": () => openModal("new-mouseover"),
+            "mouseover (template)": addMouseoverTemplate,
+            "popup": () => openModal("new-popup"),
+            "popup (template)": addPopupTemplate,
+        },
+        standardsmisc: {
+            "add status virtual": addvStatusVirtual,
+            "add change virtual": addvChange,
+            "shuffle rows virtual": addShuffleRowsVirtual,
+            "random order tracker": () => openModal("random-order-tracker"),
+        },
         styles: {}
 
     };
@@ -136,6 +151,8 @@ document.addEventListener("DOMContentLoaded", () => {
         misc: miscelaneousCommands,
         standards: standardsTab,
         copyprotection: copyProtection,
+        mouseoverpopup: mouseoverPopUp,
+        standardsmisc: standardMiscelaneousCommands,
         styles: stylesTab
     };
 
@@ -415,516 +432,539 @@ document.addEventListener("DOMContentLoaded", () => {
     // when creating new tab or survey, and enter is pressed, call error if something's wrong, else continue
     document.addEventListener("keydown", (event) => {
         const modal = document.getElementById("surveyModal");
-        const isVisible = modal && modal.classList.contains("show");
+        const isVisible = modal?.classList.contains("show");
 
         if (event.key === "Enter" && isVisible) {
             event.preventDefault();
 
-            const isTabMode = document.querySelector(".new-tab")?.style.display !== "none";
-            const isSurveyMode = document.querySelector(".new-survey")?.style.display !== "none";
-            const isIHUTMode = document.querySelector(".new-ihut")?.style.display !== "none";
-            const isRenameMode = document.querySelector(".rename-tab")?.style.display !== "none";
+            const actions = [{
+                    selector: ".new-tab",
+                    action: confirmTabCreation
+                }, {
+                    selector: ".new-survey",
+                    action: () => validateFormAndGenerateXML("survey")
+                }, {
+                    selector: ".new-ihut",
+                    action: () => validateFormAndGenerateXML("ihut")
+                }, {
+                    selector: ".rename-tab",
+                    action: () => document.getElementById("confirmRenameTabBtn").click()
+                }, {
+                    selector: ".new-mouseover",
+                    action: () => document.getElementById("genMO").click()
+                }, {
+                    selector: ".new-popup",
+                    action: () => document.getElementById("genPopup").click()
+                }, {
+                    selector: ".random-order-tracker",
+                    action: () => document.getElementById("genRandomOrder").click()
+                }
+            ];
 
-            if (isTabMode) {
-                confirmTabCreation();
-            } else if (isSurveyMode) {
-                validateFormAndGenerateXML("survey");
-            } else if (isIHUTMode) {
-                validateFormAndGenerateXML("ihut");
-            } else if (isRenameMode) {
-                document.getElementById("confirmRenameTabBtn").click();
+            for (const { selector, action } of actions) {
+                    const el = document.querySelector(selector);
+                    if (el && el.style.display !== "none") {
+                        action();
+                        break;
+                    }
+                }
+            }
+        });
+
+        //execute updateSuggestions on input in the command pallete box
+        commandInput.addEventListener("input", () => {
+            updateSuggestions(commandInput.value.trim());
+        });
+
+        // common autosuggest - if command name is with the name currently being entered, show them, hide the rest
+        window.updateSuggestions = function updateSuggestions(input = "") {
+            commandSuggestions.innerHTML = "";
+            selectedIndex = -1;
+
+            const query = input.trim().toLowerCase();
+            const results = [];
+
+            Object.entries(commandGroups).forEach(([group, commands]) => {
+                Object.keys(commands).forEach(cmd => {
+                    const label = toTitleCase(cmd);
+                    const cmdLower = cmd.toLowerCase();
+                    const labelLower = label.toLowerCase();
+
+                    let matchScore = 0;
+
+                    if (cmdLower.startsWith(query))
+                        matchScore = 3;
+                    else if (labelLower.startsWith(query))
+                        matchScore = 2;
+                    else if (cmdLower.includes(query) || labelLower.includes(query))
+                        matchScore = 1;
+
+                    if (matchScore > 0 || !query) {
+                        results.push({
+                            cmd,
+                            label,
+                            matchScore
+                        });
+                    }
+                });
+            });
+
+            results
+            .sort((a, b) => b.matchScore - a.matchScore || a.label.localeCompare(b.label))
+            .forEach(({
+                    cmd,
+                    label
+                }, index) => {
+                const suggestion = document.createElement("li");
+                suggestion.textContent = label;
+
+                suggestion.addEventListener("click", () => {
+                    commandInput.value = cmd;
+                    validateAndExecuteCommand(cmd);
+                    commandBox.style.display = "none";
+                    commandInput.value = "";
+                });
+
+                commandSuggestions.appendChild(suggestion);
+            });
+
+            if (results.length > 0) {
+                selectedIndex = 0;
+                highlightSelection();
             }
         }
-    });
+        // highlight the command in the command pallette that's on focus rn
+        function highlightSelection() {
+            let items = commandSuggestions.querySelectorAll("li");
 
-    //execute updateSuggestions on input in the command pallete box
-    commandInput.addEventListener("input", () => {
-        updateSuggestions(commandInput.value.trim());
-    });
+            items.forEach((item, index) => {
+                item.classList.toggle("selected", index === selectedIndex);
 
-    // common autosuggest - if command name is with the name currently being entered, show them, hide the rest
-    window.updateSuggestions = function updateSuggestions(input = "") {
-        commandSuggestions.innerHTML = "";
-        selectedIndex = -1;
-
-        const query = input.trim().toLowerCase();
-        const results = [];
-
-        Object.entries(commandGroups).forEach(([group, commands]) => {
-            Object.keys(commands).forEach(cmd => {
-                const label = toTitleCase(cmd);
-                const cmdLower = cmd.toLowerCase();
-                const labelLower = label.toLowerCase();
-
-                let matchScore = 0;
-
-                if (cmdLower.startsWith(query))
-                    matchScore = 3;
-                else if (labelLower.startsWith(query))
-                    matchScore = 2;
-                else if (cmdLower.includes(query) || labelLower.includes(query))
-                    matchScore = 1;
-
-                if (matchScore > 0 || !query) {
-                    results.push({
-                        cmd,
-                        label,
-                        matchScore
+                if (index === selectedIndex) {
+                    item.scrollIntoView({
+                        block: "nearest",
+                        behavior: "smooth"
+                    });
+                    window.scrollTo({
+                        top: item.getBoundingClientRect().top + window.scrollY - 100,
+                        behavior: "smooth"
                     });
                 }
             });
-        });
-
-        results
-        .sort((a, b) => b.matchScore - a.matchScore || a.label.localeCompare(b.label))
-        .forEach(({
-                cmd,
-                label
-            }, index) => {
-            const suggestion = document.createElement("li");
-            suggestion.textContent = label;
-
-            suggestion.addEventListener("click", () => {
-                commandInput.value = cmd;
-                validateAndExecuteCommand(cmd);
-                commandBox.style.display = "none";
-                commandInput.value = "";
-            });
-
-            commandSuggestions.appendChild(suggestion);
-        });
-
-        if (results.length > 0) {
-            selectedIndex = 0;
-            highlightSelection();
         }
-    }
-    // highlight the command in the command pallette that's on focus rn
-    function highlightSelection() {
-        let items = commandSuggestions.querySelectorAll("li");
-
-        items.forEach((item, index) => {
-            item.classList.toggle("selected", index === selectedIndex);
-
-            if (index === selectedIndex) {
-                item.scrollIntoView({
-                    block: "nearest",
-                    behavior: "smooth"
-                });
-                window.scrollTo({
-                    top: item.getBoundingClientRect().top + window.scrollY - 100,
-                    behavior: "smooth"
-                });
-            }
-        });
-    }
-    // positioning of the command pallette box
-    window.positionCommandBox = function positionCommandBox() {
-        editor = getActiveEditor();
-        let cursor = editor.cursorCoords();
-        commandBox.style.left = `${cursor.left}px`;
-        commandBox.style.top = `${cursor.top - 30}px`;
-    }
-    // if command is valid, execute it
-    // fail if not
-
-
-    function validateAndExecuteCommand(command) {
-        editor = getActiveEditor();
-        if (!command) {
-            alert("Command cannot be empty!");
-            return;
+        // positioning of the command pallette box
+        window.positionCommandBox = function positionCommandBox() {
+            editor = getActiveEditor();
+            let cursor = editor.cursorCoords();
+            commandBox.style.left = `${cursor.left}px`;
+            commandBox.style.top = `${cursor.top - 30}px`;
         }
-        lastCommand = command;
-        processCommand(command);
-        editor.focus();
+        // if command is valid, execute it
+        // fail if not
 
-    }
-    //process the command
-    function processCommand(command) {
-        const normalized = command.toLowerCase();
 
-        // Search across all groups in commandGroups
-        for (const group of Object.values(commandGroups)) {
-            if (group[normalized]) {
-                group[normalized]();
+        function validateAndExecuteCommand(command) {
+            editor = getActiveEditor();
+            if (!command) {
+                alert("Command cannot be empty!");
                 return;
             }
+            lastCommand = command;
+            processCommand(command);
+            editor.focus();
+
+        }
+        //process the command
+        function processCommand(command) {
+            const normalized = command.toLowerCase();
+
+            // Search across all groups in commandGroups
+            for (const group of Object.values(commandGroups)) {
+                if (group[normalized]) {
+                    group[normalized]();
+                    return;
+                }
+            }
+
+            console.error("Unknown command:", command);
+            alert(`Unknown command: "${command}"`);
         }
 
-        console.error("Unknown command:", command);
-        alert(`Unknown command: "${command}"`);
-    }
+        //confirm delete tab
+        document.getElementById("confirmDeleteTabBtn").onclick = () => {
+            if (tabPendingDeletion) {
+                closeTab(tabPendingDeletion);
+                tabPendingDeletion = null;
+                bootstrap.Modal.getInstance(document.getElementById("surveyModal")).hide();
+            }
+        };
 
-    //confirm delete tab
-    document.getElementById("confirmDeleteTabBtn").onclick = () => {
-        if (tabPendingDeletion) {
-            closeTab(tabPendingDeletion);
-            tabPendingDeletion = null;
-            bootstrap.Modal.getInstance(document.getElementById("surveyModal")).hide();
-        }
-    };
+        document.getElementById("downloadTabBtn").onclick = () => {
+            editor = getActiveEditor();
+            const content = editor.getValue();
+            const rawName = activeTab || "untitled";
+            const safeName = sanitizeFilename(rawName) || "untitled";
+            const filename = `${safeName}.xml`;
 
-    document.getElementById("downloadTabBtn").onclick = () => {
-        editor = getActiveEditor();
-        const content = editor.getValue();
-        const rawName = activeTab || "untitled";
-        const safeName = sanitizeFilename(rawName) || "untitled";
-        const filename = `${safeName}.xml`;
-
-        const blob = new Blob([content], {
-            type: "text/xml"
-        });
-        const link = document.createElement("a");
-        link.href = URL.createObjectURL(blob);
-        link.download = filename;
-
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(link.href);
-    };
-
-    let contextTabName = null;
-
-    // binding context menu to tabs
-    document.getElementById("tabs").addEventListener("contextmenu", (e) => {
-        const tab = e.target.closest(".tab");
-        if (!tab)
-            return;
-        e.preventDefault();
-
-        contextTabName = tab.dataset.tab;
-        const menu = document.getElementById("tabContextMenu");
-        menu.style.display = "block";
-        menu.style.position = "absolute";
-        menu.style.left = `${e.pageX}px`;
-        menu.style.top = `${e.pageY}px`;
-        menu.style.opacity = "1"; // ensure it's not accidentally transparent
-        menu.style.pointerEvents = "auto"; // just in case it's been disabled
-    });
-
-    // close the context menu when clicked outside of it
-    document.addEventListener("click", () => {
-        document.getElementById("tabContextMenu").style.display = "none";
-    });
-
-    // binding the items of the context menu to their respective functions
-    document.getElementById("tabContextMenu").addEventListener("click", (e) => {
-        e.preventDefault();
-        const action = e.target.dataset.action;
-        const tabName = contextTabName;
-        if (!tabName)
-            return;
-
-        switch (action) {
-        case "save":
-            const content = tabs[tabName];
-            const safeName = sanitizeFilename(tabName) || "untitled";
             const blob = new Blob([content], {
                 type: "text/xml"
             });
             const link = document.createElement("a");
             link.href = URL.createObjectURL(blob);
-            link.download = `${safeName}.xml`;
+            link.download = filename;
+
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
             URL.revokeObjectURL(link.href);
-            break;
-        case "copy":
-            navigator.clipboard.writeText(tabs[tabName] || "").then(() => {
-                const notification = document.getElementById("copyNotification");
-                notification.style.display = "block";
-
-                setTimeout(() => {
-                    notification.style.display = "none";
-                }, 3500);
-            });
-            break;
-        case "close":
-            requestTabDeletion(tabName);
-            break;
-        }
-
-        document.getElementById("tabContextMenu").style.display = "none";
-    });
-
-    // drag and drop event
-    editor = getActiveEditor();
-    editor.getWrapperElement().addEventListener("dragover", (event) => {
-        event.preventDefault(); // Prevent default browser behavior
-        event.dataTransfer.dropEffect = "copy";
-    });
-
-    editor.getWrapperElement().addEventListener("drop", (event) => {
-        editor = getActiveEditor();
-        event.preventDefault();
-
-        const file = event.dataTransfer.files[0];
-        if (!file)
-            return;
-
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            editor.setValue(e.target.result);
         };
 
-        reader.readAsText(file);
-    });
+        let contextTabName = null;
 
-    editor.getWrapperElement().addEventListener("dragenter", () => {
+        // binding context menu to tabs
+        document.getElementById("tabs").addEventListener("contextmenu", (e) => {
+            const tab = e.target.closest(".tab");
+            if (!tab)
+                return;
+            e.preventDefault();
+
+            contextTabName = tab.dataset.tab;
+            const menu = document.getElementById("tabContextMenu");
+            menu.style.display = "block";
+            menu.style.position = "absolute";
+            menu.style.left = `${e.pageX}px`;
+            menu.style.top = `${e.pageY}px`;
+            menu.style.opacity = "1"; // ensure it's not accidentally transparent
+            menu.style.pointerEvents = "auto"; // just in case it's been disabled
+        });
+
+        // close the context menu when clicked outside of it
+        document.addEventListener("click", () => {
+            document.getElementById("tabContextMenu").style.display = "none";
+        });
+
+        // binding the items of the context menu to their respective functions
+        document.getElementById("tabContextMenu").addEventListener("click", (e) => {
+            e.preventDefault();
+            const action = e.target.dataset.action;
+            const tabName = contextTabName;
+            if (!tabName || !tabs[tabName])
+                return;
+
+            const { editor } = tabs[tabName];
+
+            switch (action) {
+            case "save": {
+                    const safeName = sanitizeFilename(tabName) || "untitled";
+                    const content = editor.getValue();
+                    const blob = new Blob([content], {
+                        type: "text/xml"
+                    });
+                    const link = document.createElement("a");
+                    link.href = URL.createObjectURL(blob);
+                    link.download = `${safeName}.xml`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(link.href);
+                    break;
+                }
+            case "copy": {
+                    const content = editor.getValue();
+                    navigator.clipboard.writeText(content).then(() => {
+                        const notification = document.getElementById("copyNotification");
+                        if (notification) {
+                            notification.style.display = "block";
+                            setTimeout(() => {
+                                notification.style.display = "none";
+                            }, 3500);
+                        }
+                    });
+                    break;
+                }
+            case "close":
+                requestTabDeletion(tabName);
+                break;
+            }
+
+            document.getElementById("tabContextMenu").style.display = "none";
+        });
+
+        // drag and drop event
         editor = getActiveEditor();
-        editor.getWrapperElement().classList.add("dragging");
-    });
+        editor.getWrapperElement().addEventListener("dragover", (event) => {
+            event.preventDefault(); // Prevent default browser behavior
+            event.dataTransfer.dropEffect = "copy";
+        });
 
-    editor.getWrapperElement().addEventListener("dragleave", () => {
-        editor = getActiveEditor();
-        editor.getWrapperElement().classList.remove("dragging");
-    });
+        editor.getWrapperElement().addEventListener("drop", (event) => {
+            editor = getActiveEditor();
+            event.preventDefault();
 
-    // custom tools - question comments
-    function renderCommentEditor(language = "english") {
-        const container = document.getElementById("commentInputs");
-        container.innerHTML = "";
-        const saved = localStorage.getItem(`comments_${language}`);
-        if (saved) {
-            comments[language] = JSON.parse(saved);
-        }
-        Object.entries(comments[language]).forEach(([type, text]) => {
+            const file = event.dataTransfer.files[0];
+            if (!file)
+                return;
 
-            const label = document.createElement("label");
-            label.textContent = `${type} comment:`;
-            label.classList.add("form-label");
-
-            const input = document.createElement("input");
-            input.value = text;
-            input.dataset.type = type;
-            input.classList.add("form-control", "mb-2");
-
-            input.onchange = (e) => {
-                const type = e.target.dataset.type;
-                comments[language][type] = e.target.value;
-                localStorage.setItem(`comments_${language}`, JSON.stringify(comments[language]));
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                editor.setValue(e.target.result);
             };
 
-            container.appendChild(label);
-            container.appendChild(input);
+            reader.readAsText(file);
         });
 
-        // Optional reset button
-        const resetBtn = document.createElement("button");
-        resetBtn.textContent = "Reset to Defaults";
-        resetBtn.className = "btn btn-warning mt-2";
-        resetBtn.onclick = () => resetComments(language);
-        container.appendChild(resetBtn);
-    }
-    renderCommentEditor(savedLanguage);
+        editor.getWrapperElement().addEventListener("dragenter", () => {
+            editor = getActiveEditor();
+            editor.getWrapperElement().classList.add("dragging");
+        });
 
-    // reset custom comments to defalt
-    function resetComments(language) {
-        localStorage.removeItem(`comments_${language}`);
-        comments[language] = JSON.parse(JSON.stringify(defaultComments[language]));
-        renderCommentEditor(language);
-    }
+        editor.getWrapperElement().addEventListener("dragleave", () => {
+            editor = getActiveEditor();
+            editor.getWrapperElement().classList.remove("dragging");
+        });
 
-    // recode checkbox option load/save
-    const recodeToggleToolbar = document.getElementById("recodeToggleToolbar");
-    const recodeToggleModal = document.getElementById("ihut_chckbox_recode");
+        // custom tools - question comments
+        function renderCommentEditor(language = "english") {
+            const container = document.getElementById("commentInputs");
+            container.innerHTML = "";
+            const saved = localStorage.getItem(`comments_${language}`);
+            if (saved) {
+                comments[language] = JSON.parse(saved);
+            }
+            Object.entries(comments[language]).forEach(([type, text]) => {
 
-    // Load saved setting into both
-    const saved = localStorage.getItem("ihutCheckboxRecode") || "No";
-    recodeToggleToolbar.value = saved;
-    recodeToggleModal.value = saved;
+                const label = document.createElement("label");
+                label.textContent = `${type} comment:`;
+                label.classList.add("form-label");
 
-    // Sync changes from toolbar ➝ modal
-    recodeToggleToolbar.addEventListener("change", () => {
-        const val = recodeToggleToolbar.value;
-        localStorage.setItem("ihutCheckboxRecode", val);
-        recodeToggleModal.value = val;
-    });
+                const input = document.createElement("input");
+                input.value = text;
+                input.dataset.type = type;
+                input.classList.add("form-control", "mb-2");
 
-    // Sync changes from modal ➝ toolbar
-    recodeToggleModal.addEventListener("change", () => {
-        const val = recodeToggleModal.value;
-        localStorage.setItem("ihutCheckboxRecode", val);
-        recodeToggleToolbar.value = val;
-    });
+                input.onchange = (e) => {
+                    const type = e.target.dataset.type;
+                    comments[language][type] = e.target.value;
+                    localStorage.setItem(`comments_${language}`, JSON.stringify(comments[language]));
+                };
 
-    const toggleBtn = document.getElementById("toggleToolbox");
-    toggleBtn.onclick = () => {
-        const wrapper = document.getElementById("toolboxWrapper");
-        wrapper.classList.toggle("collapsed");
-        toggleBtn.textContent = wrapper.classList.contains("collapsed") ? "›" : "‹";
-    };
+                container.appendChild(label);
+                container.appendChild(input);
+            });
 
-    document.getElementById("toggleToolbarBtn").onclick = function () {
-        const toolbar = document.querySelector(".editor-toolbar");
-        toolbar.classList.toggle("collapsed");
+            // Optional reset button
+            const resetBtn = document.createElement("button");
+            resetBtn.textContent = "Reset to Defaults";
+            resetBtn.className = "btn btn-warning mt-2";
+            resetBtn.onclick = () => resetComments(language);
+            container.appendChild(resetBtn);
+        }
+        renderCommentEditor(savedLanguage);
 
-        this.textContent = toolbar.classList.contains("collapsed") ? "▼" : "▲";
-        if (targetSelector.includes("toolbar") && editor?.refresh) {
-            setTimeout(() => editor.refresh(), 310);
+        // reset custom comments to defalt
+        function resetComments(language) {
+            localStorage.removeItem(`comments_${language}`);
+            comments[language] = JSON.parse(JSON.stringify(defaultComments[language]));
+            renderCommentEditor(language);
         }
 
-    };
+        // recode checkbox option load/save
+        const recodeToggleToolbar = document.getElementById("recodeToggleToolbar");
+        const recodeToggleModal = document.getElementById("ihut_chckbox_recode");
 
-    //resize
-    function makeResizable(wrapperId, direction = "vertical") {
-        editor = getActiveEditor();
-        const wrapper = document.getElementById(wrapperId);
-        const handle = wrapper.querySelector(".resize-handle." + direction);
-        let isResizing = false;
+        // Load saved setting into both
+        const saved = localStorage.getItem("ihutCheckboxRecode") || "No";
+        recodeToggleToolbar.value = saved;
+        recodeToggleModal.value = saved;
 
-        handle.addEventListener("mousedown", e => {
-            isResizing = true;
-            document.body.style.cursor = handle.style.cursor;
-            e.preventDefault();
+        // Sync changes from toolbar ➝ modal
+        recodeToggleToolbar.addEventListener("change", () => {
+            const val = recodeToggleToolbar.value;
+            localStorage.setItem("ihutCheckboxRecode", val);
+            recodeToggleModal.value = val;
         });
 
-        document.addEventListener("mousemove", e => {
-            if (!isResizing)
-                return;
+        // Sync changes from modal ➝ toolbar
+        recodeToggleModal.addEventListener("change", () => {
+            const val = recodeToggleModal.value;
+            localStorage.setItem("ihutCheckboxRecode", val);
+            recodeToggleToolbar.value = val;
+        });
 
-            if (direction === "vertical") {
-                const newHeight = e.clientY - wrapper.getBoundingClientRect().top;
-                wrapper.style.height = newHeight + "px";
+        const toggleBtn = document.getElementById("toggleToolbox");
+        toggleBtn.onclick = () => {
+            const wrapper = document.getElementById("toolboxWrapper");
+            wrapper.classList.toggle("collapsed");
+            toggleBtn.textContent = wrapper.classList.contains("collapsed") ? "›" : "‹";
+        };
+
+        document.getElementById("toggleToolbarBtn").onclick = function () {
+            const toolbar = document.querySelector(".editor-toolbar");
+            toolbar.classList.toggle("collapsed");
+
+            this.textContent = toolbar.classList.contains("collapsed") ? "▼" : "▲";
+            if (targetSelector.includes("toolbar") && editor?.refresh) {
+                setTimeout(() => editor.refresh(), 310);
+            }
+
+        };
+
+        //resize
+        function makeResizable(wrapperId, direction = "vertical") {
+            editor = getActiveEditor();
+            const wrapper = document.getElementById(wrapperId);
+            const handle = wrapper.querySelector(".resize-handle." + direction);
+            let isResizing = false;
+
+            handle.addEventListener("mousedown", e => {
+                isResizing = true;
+                document.body.style.cursor = handle.style.cursor;
+                e.preventDefault();
+            });
+
+            document.addEventListener("mousemove", e => {
+                if (!isResizing)
+                    return;
+
+                if (direction === "vertical") {
+                    const newHeight = e.clientY - wrapper.getBoundingClientRect().top;
+                    wrapper.style.height = newHeight + "px";
+                } else {
+                    const maxWidth = 500;
+                    const minWidth = 200;
+                    const newWidth = Math.min(Math.max(e.clientX - wrapper.getBoundingClientRect().left, minWidth), maxWidth);
+                    wrapper.style.width = newWidth + "px";
+                }
+                if (editor.refresh)
+                    editor.refresh(); // for CodeMirror
+            });
+
+            document.addEventListener("mouseup", () => {
+                if (isResizing) {
+                    isResizing = false;
+                    document.body.style.cursor = "default";
+                }
+            });
+        }
+        const toolbox = document.getElementById("toolbox");
+        toolbox.style.width = "350px"; // or your default width
+
+        makeResizable("toolbar", "vertical");
+        makeResizable("toolbox", "horizontal");
+
+    });
+
+    function validateFormAndGenerateXML(mode) {
+        const formId = mode === 'ihut' ? '#ihutSurveyForm' : '#surveyForm';
+        const inputs = document.querySelectorAll(`${formId} input, ${formId} select`);
+        let allFilled = true;
+
+        inputs.forEach(input => {
+            const inputId = input.id;
+            const value = input.value.trim();
+
+            // IHUT-specific conditional skip
+            if (mode === 'ihut' &&
+                (inputId === "ihut_QBAPI" || inputId === "ihut_eventID")) {
+
+                const setupType = document.getElementById("ihut_setup_type").value;
+                const isQualBoardAPI = setupType === "QualBoard - status API" || setupType === "QualBoard - user creation API";
+
+                if (!isQualBoardAPI && !value) {
+                    input.classList.remove("is-invalid"); // Not required
+                    return;
+                }
+            }
+
+            if (!value) {
+                allFilled = false;
+                input.classList.add("is-invalid");
             } else {
-                const maxWidth = 500;
-                const minWidth = 200;
-                const newWidth = Math.min(Math.max(e.clientX - wrapper.getBoundingClientRect().left, minWidth), maxWidth);
-                wrapper.style.width = newWidth + "px";
-            }
-            if (editor.refresh)
-                editor.refresh(); // for CodeMirror
-        });
-
-        document.addEventListener("mouseup", () => {
-            if (isResizing) {
-                isResizing = false;
-                document.body.style.cursor = "default";
+                input.classList.remove("is-invalid");
             }
         });
-    }
-    const toolbox = document.getElementById("toolbox");
-    toolbox.style.width = "350px"; // or your default width
 
-    makeResizable("toolbar", "vertical");
-    makeResizable("toolbox", "horizontal");
-
-});
-
-function validateFormAndGenerateXML(mode) {
-    const formId = mode === 'ihut' ? '#ihutSurveyForm' : '#surveyForm';
-    const inputs = document.querySelectorAll(`${formId} input, ${formId} select`);
-    let allFilled = true;
-
-    inputs.forEach(input => {
-        const inputId = input.id;
-        const value = input.value.trim();
-
-        // IHUT-specific conditional skip
-        if (mode === 'ihut' &&
-            (inputId === "ihut_QBAPI" || inputId === "ihut_eventID")) {
-
-            const setupType = document.getElementById("ihut_setup_type").value;
-            const isQualBoardAPI = setupType === "QualBoard - status API" || setupType === "QualBoard - user creation API";
-
-            if (!isQualBoardAPI && !value) {
-                input.classList.remove("is-invalid"); // Not required
-                return;
-            }
+        if (!allFilled) {
+            alert("Please fill in all required fields.");
+            return;
         }
 
-        if (!value) {
-            allFilled = false;
-            input.classList.add("is-invalid");
-        } else {
-            input.classList.remove("is-invalid");
+        if (mode === 'survey')
+            generateXML();
+        else if (mode === 'ihut')
+            generateIHUTXML();
+
+    }
+
+    function setCursorAfterLastNote() {
+        editor = getActiveEditor();
+        editor.setCursor({
+            line: 513,
+            ch: 0
+        });
+    }
+
+    function generateXML() {
+        const surveyNumber = document.getElementById("survey_number").value;
+        const clientName = document.getElementById("client_name").value;
+        const surveyName = document.getElementById("survey_name").value;
+        const secretSampleCode = document.getElementById("secret_sample_code").value;
+        const s2s = document.getElementById("s2s").value;
+        const stl_wf = document.getElementById("stl_wf").value;
+        const portal = document.getElementById("portal").value;
+        const useu = document.getElementById("useu").value;
+        const surveyLanguage = document.getElementById("survey_language").value;
+
+        let langCode = "";
+        if (surveyLanguage === "Base English") {
+            langCode = "english";
+            setSurveyLanguage('english');
+        } else if (surveyLanguage === "Base German") {
+            langCode = "german";
+            setSurveyLanguage('german');
+
+        } else if (surveyLanguage === "Base French") {
+            langCode = "french";
+            setSurveyLanguage('french');
+
         }
-    });
 
-    if (!allFilled) {
-        alert("Please fill in all required fields.");
-        return;
-    }
+        let portalLinks = "";
+        let logos = "";
+        if (portal === "Eli Lilly") {
+            portalLinks = LILLY[0];
+            logos = LILLY[1]
+        }
+        if (portal === "Schlesinger") {
+            portalLinks = SAGO[0];
+            logos = SAGO[1];
+        }
 
-    if (mode === 'survey')
-        generateXML();
-    else if (mode === 'ihut')
-        generateIHUTXML();
-
-}
-
-function setCursorAfterLastNote() {
-    editor = getActiveEditor();
-    editor.setCursor({
-        line: 513,
-        ch: 0
-    });
-}
-
-function generateXML() {
-    const surveyNumber = document.getElementById("survey_number").value;
-    const clientName = document.getElementById("client_name").value;
-    const surveyName = document.getElementById("survey_name").value;
-    const secretSampleCode = document.getElementById("secret_sample_code").value;
-    const s2s = document.getElementById("s2s").value;
-    const stl_wf = document.getElementById("stl_wf").value;
-    const portal = document.getElementById("portal").value;
-    const useu = document.getElementById("useu").value;
-    const surveyLanguage = document.getElementById("survey_language").value;
-
-    let langCode = "";
-    if (surveyLanguage === "Base English") {
-        langCode = "english";
-        setSurveyLanguage('english');
-    } else if (surveyLanguage === "Base German") {
-        langCode = "german";
-        setSurveyLanguage('german');
-
-    } else if (surveyLanguage === "Base French") {
-        langCode = "french";
-        setSurveyLanguage('french');
-
-    }
-
-    let portalLinks = "";
-    let logos = "";
-    if (portal === "Eli Lilly") {
-        portalLinks = LILLY[0];
-        logos = LILLY[1]
-    }
-    if (portal === "Schlesinger") {
-        portalLinks = SAGO[0];
-        logos = SAGO[1];
-    }
-
-    let privacyPolicy = "";
-    if (useu === 'US' || (useu === "EU" && langCode === "english")) {
-        privacyPolicy = `<style cond="list in ['0','1'] or (list in ['2'] and vendorid in ['1234','1235'])" name="survey.respview.footer.support"><![CDATA[
+        let privacyPolicy = "";
+        if (useu === 'US' || (useu === "EU" && langCode === "english")) {
+            privacyPolicy = `<style cond="list in ['0','1'] or (list in ['2'] and vendorid in ['1234','1235'])" name="survey.respview.footer.support"><![CDATA[
 <a href="https://www.focusgroup.com/Page/PrivacyPolicy" target="_blank">\${res.privacy}</a> - <a href="mailto:help@focusgroup.com?Subject=${surveyNumber}" target="_blank">\${res.helpText}</a>
 ]]></style>
 `;
-    }
-    if (useu === 'EU' && langCode === "german") {
-        privacyPolicy = `<style cond="list in ['0','1'] or (list in ['2'] and vendorid in ['1234','1235'])" name="survey.respview.footer.support"><![CDATA[
+        }
+        if (useu === 'EU' && langCode === "german") {
+            privacyPolicy = `<style cond="list in ['0','1'] or (list in ['2'] and vendorid in ['1234','1235'])" name="survey.respview.footer.support"><![CDATA[
 <a href="https://www.sagunsdiemeinung.de/Page/PrivacyPolicy" target="_blank">\${res.privacy}</a> - <a href="mailto:QuantProjectManagement@sago.com?subject=${surveyNumber}" target="_blank">\${res.helpText}</a>
 ]]></style>
 `;
-    }
-    if (useu === 'EU' && langCode === "french") {
-        privacyPolicy = `<style cond="list in ['0','1'] or (list in ['2'] and vendorid in ['1234','1235'])" name="survey.respview.footer.support"><![CDATA[
+        }
+        if (useu === 'EU' && langCode === "french") {
+            privacyPolicy = `<style cond="list in ['0','1'] or (list in ['2'] and vendorid in ['1234','1235'])" name="survey.respview.footer.support"><![CDATA[
 <a href="https://www.opinionspartagees.fr/Page/PrivacyPolicy" target="_blank">\${res.privacy}</a> - <a href="mailto:QuantProjectManagement@sago.com?subject=${surveyNumber}" target="_blank">\${res.helpText}</a>
 ]]></style>
 `;
-    }
+        }
 
-    let s2sText = s2s === "No" ? "" : `${S2S_TEXT}`;
+        let s2sText = s2s === "No" ? "" : `${S2S_TEXT}`;
 
-    let stlwftext = stl_wf === "No" ? "" : `${STL_WF_TEXT}`;
+        let stlwftext = stl_wf === "No" ? "" : `${STL_WF_TEXT}`;
 
-    let xmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+        let xmlContent = `<?xml version="1.0" encoding="UTF-8"?>
 <survey 
   alt="${surveyNumber} - ${clientName} - ${surveyName}"
   autosave="1"
@@ -1037,59 +1077,59 @@ ${REVIEW_QUESTION}
 ${s2sText}
 ${stlwftext}
 </survey>`;
-    editor = getActiveEditor();
-    if (editor) {
-        editor.setValue(xmlContent);
-        setTimeout(() => {
-            editor.focus();
-            setCursorAfterLastNote();
-        }, 100);
-    } else {
-        console.error("CodeMirror editor not initialized!");
+        editor = getActiveEditor();
+        if (editor) {
+            editor.setValue(xmlContent);
+            setTimeout(() => {
+                editor.focus();
+                setCursorAfterLastNote();
+            }, 100);
+        } else {
+            console.error("CodeMirror editor not initialized!");
+        }
+
+        let modal = bootstrap.Modal.getInstance(document.getElementById("surveyModal"));
+        if (modal) {
+            modal.hide();
+        }
+
     }
 
-    let modal = bootstrap.Modal.getInstance(document.getElementById("surveyModal"));
-    if (modal) {
-        modal.hide();
-    }
+    function generateIHUTXML() {
+        const get = (id) => document.getElementById(id).value;
 
-}
+        const xmlData = {
+            hutNumber: get("ihut_survey_number"),
+            clientName: get("ihut_client_name"),
+            projectName: get("ihut_survey_name"),
+            surveyType: get("ihut_survey_type"),
+            setupType: get("ihut_setup_type"),
+            qbApiKey: get("ihut_QBAPI"),
+            eventId: get("ihut_eventID"),
+            redirects: get("ihut_redirects"),
+            recodeCheckbox: get("ihut_chckbox_recode"),
+            verity: get("ihut_verity"),
+            contactQuestion: get("ihut_contact_question")
+        };
+        console.log(xmlData);
+        let OTS = xmlData.setupType == "QualMobile (OTS)" ? true : false;
+        console.log(OTS);
+        let extraVariables = '';
 
-function generateIHUTXML() {
-    const get = (id) => document.getElementById(id).value;
+        if (xmlData.surveyType === "Questionnaire/Diary") {
+            extraVariables = `  extraVariables="record,decLang,list,userAgent,flashDetected"`
+        } else {
+            extraVariables = `  extraVariables="record,decLang,list,userAgent,flashDetected,api,dupe"`
+        }
 
-    const xmlData = {
-        hutNumber: get("ihut_survey_number"),
-        clientName: get("ihut_client_name"),
-        projectName: get("ihut_survey_name"),
-        surveyType: get("ihut_survey_type"),
-        setupType: get("ihut_setup_type"),
-        qbApiKey: get("ihut_QBAPI"),
-        eventId: get("ihut_eventID"),
-        redirects: get("ihut_redirects"),
-        recodeCheckbox: get("ihut_chckbox_recode"),
-        verity: get("ihut_verity"),
-        contactQuestion: get("ihut_contact_question")
-    };
-    console.log(xmlData);
-    let OTS = xmlData.setupType == "QualMobile (OTS)" ? true : false;
-    console.log(OTS);
-    let extraVariables = '';
+        let qbres = xmlData.setupType !== "QualBoard - user creation API" ? "" : `${QUALBOARD_USER_CREATION_API_RES}`;
 
-    if (xmlData.surveyType === "Questionnaire/Diary") {
-        extraVariables = `  extraVariables="record,decLang,list,userAgent,flashDetected"`
-    } else {
-        extraVariables = `  extraVariables="record,decLang,list,userAgent,flashDetected,api,dupe"`
-    }
+        let redirects = ``;
 
-    let qbres = xmlData.setupType !== "QualBoard - user creation API" ? "" : `${QUALBOARD_USER_CREATION_API_RES}`;
+        let redirecrts_contd = ``;
 
-    let redirects = ``;
-
-    let redirecrts_contd = ``;
-
-    if (xmlData.surveyType === "CLT") {
-        redirects = `
+        if (xmlData.surveyType === "CLT") {
+            redirects = `
   <samplesource list="2">
     <title>Sago Live</title>
     <invalid>You are missing information in the URL. Please verify the URL with the original invite.</invalid>
@@ -1101,8 +1141,8 @@ function generateIHUTXML() {
     Please raise your hand and let your Server know you have answered all the questions so they may initial your index card to bring to the front desk to check out.</exit>
     <exit cond="overquota">Thank you for your willingness to participate. You did not qualify for this study. More members responded than expected and we have reached our quotas. We hope that you will consider participating in future research. You may close your browser window now.</exit>
   </samplesource>`;
-    } else if (xmlData.redirects === "SAMS/Complex Surveys(CS)") {
-        redirects = `
+        } else if (xmlData.redirects === "SAMS/Complex Surveys(CS)") {
+            redirects = `
   <samplesource list="2">
     <title>SAMS / Complex Survey (CS)</title>
     <invalid>You are missing information in the URL. Please verify the URL with the original invite.</invalid>
@@ -1113,8 +1153,8 @@ function generateIHUTXML() {
     <exit cond="qualified" url="https://survey3.schlesingergroup.com/survey/forms/redirect.aspx?STATUS=S&amp;ESERID=\${ESERID}" timeout="10">On the next screen, you will be asked to schedule for an appointment. This is NOT a scheduled date and time you need to be available but only a PLACEHOLDER, so our system includes you as qualified for the study.  Additionally, please note, we will NOT reach out via phone to confirm you but will send you confirmation details via email only and No Phone Call.</exit>
     <exit cond="overquota" url="https://survey3.schlesingergroup.com/survey/forms/redirect.aspx?STATUS=Q&amp;ESERID=\${ESERID}"/>
   </samplesource>`;
-    } else if (xmlData.redirects === "Esearch") {
-        redirects = `
+        } else if (xmlData.redirects === "Esearch") {
+            redirects = `
   <samplesource list="2">
     <title>Esearch</title>
     <invalid>You are missing information in the URL. Please verify the URL with the original invite.</invalid>
@@ -1124,8 +1164,8 @@ function generateIHUTXML() {
     <exit cond="qualified" url=http://www.esearch.com/survey/message.epl?surveyID=SG021023-POD&amp;response=2&amp;userID=\${code}"/>
     <exit cond="overquota" url="http://www.esearch.com/survey/message.epl?surveyID=SG021023-POD&amp;response=1&amp;userID=\${code}"/>
   </samplesource>`;
-    } else if (OTS) {
-        redirects = `
+        } else if (OTS) {
+            redirects = `
   <samplesource list="2">
     <title>Default End Page Text OTS</title>
     <invalid>You are missing information in the URL. Please verify the URL with the original invite.</invalid>
@@ -1138,8 +1178,8 @@ function generateIHUTXML() {
     <exit cond="qualified">Thank you for your participation and for sharing your opinions with us! Your efforts are greatly appreciated.<br/><br/><div class="closing-screen">To ensure your responses are saved, please click the white "X" in the top right-hand corner of your screen. Once clicked, you will return to the QualMobile app to complete the assignment.</div></exit>
     <exit cond="overquota">Thank you for your willingness to participate. You did not qualify for this study. More members responded than expected and we have reached our quotas. We hope that you will consider participating in future research. You may close your browser window now.</exit>
   </samplesource>`;
-    } else {
-        redirects = `
+        } else {
+            redirects = `
   <samplesource list="2">
     <title>Default End Page Text</title>
     <invalid>You are missing information in the URL. Please verify the URL with the original invite.</invalid>
@@ -1149,10 +1189,10 @@ function generateIHUTXML() {
     <exit cond="qualified">Thank you for your participation and sharing your opinions with us! Your efforts are greatly appreciated. You may close your browser window now.</exit>
     <exit cond="overquota">Thank you for your willingness to participate. You did not qualify for this study. More members responded than expected and we have reached our quotas. We hope that you will consider participating in future research. You may close your browser window now.</exit>
   </samplesource>`;
-    }
+        }
 
-    if (xmlData.setupType === "QualBoard - status API") {
-        redirecrts_contd = `
+        if (xmlData.setupType === "QualBoard - status API") {
+            redirecrts_contd = `
   <samplesource list="3">
     <title>QualBoard</title>
     <invalid>You are missing information in the URL. Please verify the URL with the original invite.</invalid>
@@ -1167,8 +1207,8 @@ function generateIHUTXML() {
     <exit cond="qualified" url="https://qualboard.com/participate/#/projects/[$externalParameters.projectId$]/group-discussions/\${eventId}/"/>
     <exit cond="overquota">Thank you for your willingness to participate. You did not qualify for this study. More members responded than expected and we have reached our quotas. We hope that you will consider participating in future research. You may close your browser window now.</exit>
   </samplesource>`;
-    } else if (xmlData.setupType === "QualBoard - user creation API") {
-        redirecrts_contd = `
+        } else if (xmlData.setupType === "QualBoard - user creation API") {
+            redirecrts_contd = `
   <samplesource list="3">
     <title>QualBoard</title>
     <invalid>You are missing information in the URL. Please verify the URL with the original invite.</invalid>
@@ -1183,34 +1223,34 @@ function generateIHUTXML() {
     <exit cond="qualified">Thank you for your participation and sharing your opinions with us! Your efforts are greatly appreciated. You may close your browser window now.</exit>
     <exit cond="overquota">Thank you for your willingness to participate. You did not qualify for this study. More members responded than expected and we have reached our quotas. We hope that you will consider participating in future research. You may close your browser window now.</exit>
   </samplesource>`;
-    }
+        }
 
-    let ihutCSS = ``;
+        let ihutCSS = ``;
 
-    if (xmlData.surveyType !== "Screener" && OTS) {
-        ihutCSS = IHUT_OTS_CSS;
-    }
+        if (xmlData.surveyType !== "Screener" && OTS) {
+            ihutCSS = IHUT_OTS_CSS;
+        }
 
-    let consentQ = '';
-    if (xmlData.surveyType !== "CLT") {
-        consentQ = CONSENT_QUESTION
-            if (xmlData.surveyType !== "Screener")
-                suspend = '<suspend/>'
-    }
+        let consentQ = '';
+        if (xmlData.surveyType !== "CLT") {
+            consentQ = CONSENT_QUESTION
+                if (xmlData.surveyType !== "Screener")
+                    suspend = '<suspend/>'
+        }
 
-    let cltNote = ``;
-    if (xmlData.surveyType === "CLT") {
-        cltNote = CLTNOTE;
-    }
-    let ots_api = ``;
-    let restOfSurvey_1 = ``;
-    let restOfSurvey_2 = ``;
-    let restOfSurvey_3 = ``;
-    let QualBoardAPI = ``;
+        let cltNote = ``;
+        if (xmlData.surveyType === "CLT") {
+            cltNote = CLTNOTE;
+        }
+        let ots_api = ``;
+        let restOfSurvey_1 = ``;
+        let restOfSurvey_2 = ``;
+        let restOfSurvey_3 = ``;
+        let QualBoardAPI = ``;
 
-    if (xmlData.surveyType !== "CLT") {
-        if (xmlData.setupType === 'QualBoard - status API') {
-            QualBoardAPI = `<block label="bQualBoard">
+        if (xmlData.surveyType !== "CLT") {
+            if (xmlData.setupType === 'QualBoard - status API') {
+                QualBoardAPI = `<block label="bQualBoard">
   <logic label="QualBoard" api:method="POST" api:url="https://api.qualboard.com/api/events/\${eventId}/questions/\${questionId}/external-redirect-callback?userId=\${userId}&amp;X-External-Redirect=${xmlData.qbApiKey}" uses="api.1"/>
   <text 
    label="QualBoard_LIVE_RESPONSE"
@@ -1233,11 +1273,11 @@ print response.encode('utf-8-sig')
 
   <suspend/>
 </block>`;
-        }
+            }
 
-        if (xmlData.setupType === 'QualBoard - user creation API') {
-            restOfSurvey_1 = CONTACT_QUESTION_IHUT;
-            restOfSurvey_1 += `<textarea
+            if (xmlData.setupType === 'QualBoard - user creation API') {
+                restOfSurvey_1 = CONTACT_QUESTION_IHUT;
+                restOfSurvey_1 += `<textarea
   label="QUALBOARD_DATA"
   where="execute,survey,report">
   <title>Hidden: Qual Board API DATA</title>
@@ -1320,33 +1360,33 @@ print QualBoard.status
   <logic label="email" email:company="Qualtrics" email:content="\${res.qual_email}" email:recipient="\${contact.r9.unsafe_val}" email:sender="support@qualboard.com" email:subject="Welcome to QualBoard" uses="email.1"/>
 </block>
 `;
-        }
-
-        if (xmlData.surveyType === "Questionnaire/Diary" && OTS) {
-            ots_api = OTS_API
-        }
-
-        if (xmlData.surveyType === "Screener" && OTS) {
-            restOfSurvey_2 = CONTACT_QUESTION_IHUT;
-            restOfSurvey_2 += OTS_SCREENER_PART_1;
-
-            if (xmlData.verity === "Yes") {
-                restOfSurvey_2 += VERITY_API;
             }
 
-            restOfSurvey_2 += OTS_SCREENER_PART_2(xmlData.hutNumber);
-        }
-
-        if (xmlData.verity === "Yes" && xmlData.setupType !== "QualBoard - user creation API" && xmlData.contactQuestion === "Yes") {
-            restOfSurvey_3 = CONTACT_QUESTION_IHUT;
-            if (!restOfSurvey_2.includes(VERITY_API)) {
-                restOfSurvey_3 += VERITY_API;
+            if (xmlData.surveyType === "Questionnaire/Diary" && OTS) {
+                ots_api = OTS_API
             }
 
-        }
-    }
+            if (xmlData.surveyType === "Screener" && OTS) {
+                restOfSurvey_2 = CONTACT_QUESTION_IHUT;
+                restOfSurvey_2 += OTS_SCREENER_PART_1;
 
-    const xml = `
+                if (xmlData.verity === "Yes") {
+                    restOfSurvey_2 += VERITY_API;
+                }
+
+                restOfSurvey_2 += OTS_SCREENER_PART_2(xmlData.hutNumber);
+            }
+
+            if (xmlData.verity === "Yes" && xmlData.setupType !== "QualBoard - user creation API" && xmlData.contactQuestion === "Yes") {
+                restOfSurvey_3 = CONTACT_QUESTION_IHUT;
+                if (!restOfSurvey_2.includes(VERITY_API)) {
+                    restOfSurvey_3 += VERITY_API;
+                }
+
+            }
+        }
+
+        const xml = `
 <?xml version="1.0" encoding="UTF-8"?>
 <survey 
   alt="${xmlData.hutNumber} - ${xmlData.clientName} - ${xmlData.projectName}"
@@ -1445,10 +1485,140 @@ ${restOfSurvey_3}
 
 ${QualBoardAPI}
 </survey>`.trim();
-    editor = getActiveEditor();
-    editor.setValue(xml);
-    let modal = bootstrap.Modal.getInstance(document.getElementById("surveyModal"));
-    if (modal) {
-        modal.hide();
+        editor = getActiveEditor();
+        editor.setValue(xml);
+        let modal = bootstrap.Modal.getInstance(document.getElementById("surveyModal"));
+        if (modal) {
+            modal.hide();
+        }
     }
-}
+
+    function generateMO() {
+        const get = (id) => document.getElementById(id).value.trim();
+
+        const textImage = get("moTextImage") === "Yes";
+        const protectPopupImage = get("moImageProtect") === "Yes";
+        const text = get("moName");
+
+        const descImage = get("moContentImage") === "Yes";
+        const descImageProtected = get("moContentImageProtect") === "Yes";
+        const desc = get("moContent");
+
+        const surveyPath = "${gv.survey.path}"; // Template literal placeholder
+
+        let textHTML = "";
+        let descHTML = "";
+
+        // Build mouseover label
+        if (!textImage) {
+            textHTML = text;
+        } else {
+            textHTML = protectPopupImage
+                 ? `[protected ${text} placement=top]`
+                 : `<img src="/survey/${surveyPath}/${text}" />`;
+        }
+
+        // Build mouseover content
+        if (!descImage) {
+            descHTML = desc;
+        } else {
+            descHTML = descImageProtected
+                 ? `[protected ${desc} placement=top]`
+                 : `<img src="/survey/${surveyPath}/${desc}" />`;
+        }
+
+        const output =
+`<span class="self-tooltip">${textHTML}</span><span class="tooltip-content">${descHTML}</span>`;
+
+        const editor = getActiveEditor();
+        editor.replaceSelection(output);
+
+        const modal = bootstrap.Modal.getInstance(document.getElementById("surveyModal"));
+        if (modal)
+            modal.hide();
+    }
+
+    function generatePopup() {
+        const get = (id) => document.getElementById(id).value.trim();
+
+        const textImage = get("popupTextImage") === "Yes";
+        const protectPopupImage = get("popupImageProtect") === "Yes";
+        const text = get("popupTextName");
+
+        const descImage = get("popupContentImage") === "Yes";
+        const descImageProtected = get("popupContentProtect") === "Yes";
+        const desc = get("popupContent");
+
+        const surveyPath = "${gv.survey.path}"; // placeholder for server-side resolution
+
+        const width = get("popupWidth") || "600";
+        const height = get("popupHeight") || "400";
+        const title = get("popupTitle") || "";
+        const popupCall = `Survey.uidialog.make($(this).next('.popup-content'), {width: Math.min(${width}, $(window).width()), height: Math.min(${height}, $(window).height()), title: '${title}'} );`;
+
+        let anchor = "";
+
+        // Build clickable anchor element
+        if (!textImage) {
+            anchor = `<span class="self-popup" onclick="${popupCall}">${text}</span>`;
+        } else if (protectPopupImage) {
+            anchor = `<span class="self-popup" onclick="${popupCall}">[protected ${text} placement=top]</span>`;
+        } else {
+            anchor = `<span class="self-popup" onclick="${popupCall}"><img src="/survey/${surveyPath}/${text}" /></span>`;
+        }
+
+        // Build pop-up content element
+        let content = "";
+
+        if (!descImage) {
+            content = `<div class="popup-content">${desc}</div>`;
+        } else if (descImageProtected) {
+            content = `<div class="popup-content">[protected ${desc} placement=top]</div>`;
+        } else {
+            content = `<div class="popup-content"><img src="/survey/${surveyPath}/${desc}" /></div>`;
+        }
+
+        const output = `${anchor}${content}`;
+
+        const editor = getActiveEditor();
+        editor.replaceSelection(output);
+
+        const modal = bootstrap.Modal.getInstance(document.getElementById("surveyModal"));
+        if (modal)
+            modal.hide();
+    }
+
+    function generateRandomOrderTracker() {
+        const get = (id) => document.getElementById(id).value.trim();
+
+        const loop_block = get("loop_block");
+        const loop_block_label = get("loop_block_label");
+        const editor = getActiveEditor();
+        let output = ``;
+        if (loop_block === "Loop") {
+            output = `
+<number label="h${loop_block_label}_order_" size="2">
+  <title>Virtual: ${loop_block_label} Order</title>
+  <virtual>assignRandomOrder("${loop_block_label}_expanded", "children")</virtual>
+  <row label="${loop_block_label}_1_expanded">Concept 1</row>
+  <row label="${loop_block_label}_2_expanded">Concept 2</row>
+  <row label="${loop_block_label}_3_expanded">Concept 3</row>
+</number>`;
+
+        } else if (loop_block === "Block") {
+            output = `
+<number label="h${loop_block_label}_order" size="2">
+  <title>Virtual: ${loop_block_label} Order</title>
+  <virtual>assignRandomOrder("${loop_block_label}", "children")</virtual>
+  <row label="r1">Concept 1</row>
+  <row label="r2">Concept 2</row>
+  <row label="r3">Concept 3</row>
+</number>
+<note>Change row labels to the labels of block's children, then delete this note</note>`;
+
+        }
+        editor.replaceSelection(output);
+        const modal = bootstrap.Modal.getInstance(document.getElementById("surveyModal"));
+        if (modal)
+            modal.hide();
+    }

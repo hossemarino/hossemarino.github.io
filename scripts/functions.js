@@ -28,6 +28,18 @@ function openModal(purpose, tabName = "") {
         title.textContent = "Create a New IHUT";
         document.querySelector(".new-ihut").style.display = "block";
         document.getElementById("genIHUTXML").onclick = () => validateFormAndGenerateXML("ihut");
+    } else if (purpose === "new-mouseover") {
+        title.textContent = "Mouseover";
+        document.querySelector(".new-mouseover").style.display = "block";
+        document.getElementById("genMO").onclick = () => generateMO();
+    } else if (purpose === "new-popup") {
+        title.textContent = "Pop-up";
+        document.querySelector(".new-popup").style.display = "block";
+        document.getElementById("genPopup").onclick = () => generatePopup();
+    } else if (purpose === "random-order-tracker") {
+        title.textContent = "Pop-up";
+        document.querySelector(".random-order-tracker").style.display = "block";
+        document.getElementById("genRandomOrder").onclick = () => generateRandomOrderTracker();
     }
 
     // Clean up previous listeners to avoid duplicates
@@ -1151,4 +1163,33 @@ function makeUnselectableDiv() {
 function addUnselectableAttributes() {
     const attrs = ` style="-moz-user-select: none;-webkit-user-select: none;-ms-user-select: none;" unselectable="on" ondragstart="return false" oncontextmenu="return false"`;
     window.editor.replaceSelection(attrs);
+}
+
+function addMouseoverTemplate() {
+    const attrs = `<span class="self-tooltip">(MOUSE OVER TEXT HERE)</span><span class="tooltip-content">(MOUSEOVER CONTENT HERE)</span>`;
+    window.editor.replaceSelection(attrs);
+}
+
+function addPopupTemplate() {
+    const attrs = `<span class="self-popup" onclick="Survey.uidialog.make($(this).next('.popup-content'), {width: Math.min(320, $(window).width()), height: Math.min(240, $(window).height()), title: ''} );">(POP-UP TEXT HERE)</span><div class="popup-content">(POP-UP CONTENT HERE)</div>`;
+    window.editor.replaceSelection(attrs);
+}
+
+function addvStatusVirtual() {
+    window.editor.replaceSelection(VSTATUS)
+}
+
+function addvChange() {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, "0");
+    const dd = String(today.getDate()).padStart(2, "0");
+    const formattedDate = `${yyyy}-${mm}-${dd}`;
+
+    window.editor.replaceSelection(vChange(formattedDate).trim());
+
+}
+
+function addShuffleRowsVirtual() {
+    window.editor.replaceSelection(SHUFFLE_ROWS_VIRTUAL)
 }
