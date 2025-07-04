@@ -425,6 +425,143 @@
                             <div id="renameTabError" class="text-danger mt-1" style="display: none;"></div>
                             <button id="confirmRenameTabBtn" type="button" class="btn btn-primary mt-3">Rename</button>
                         </div>
+                        <!-- mouse over clip-->
+                        <div class="new-mouseover modal-section" style="display: none;">
+                            <form id="mouseoverForm">
+                                <table class="survey-standard">
+                                    <tr>
+                                        <td>Is the mouseover text an image?</td>
+                                        <td><select id="moTextImage">
+                                                <option>Yes</option>
+                                                <option selected>No</option>
+                                            </select></td>
+                                    </tr>
+                                    <tr>
+                                        <td>If an image, should it be protected:</td>
+                                        <td><select id="moImageProtect">
+                                                <option>Yes</option>
+                                                <option selected>No</option>
+                                            </select>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>Mouseover text or image name:</td>
+                                        <td><input type="text" id="moName"></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Is he mouseover content an image:</td>
+                                        <td><select id="moContentImage">
+                                                <option>Yes</option>
+                                                <option selected>No</option>
+                                            </select>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>If an image, should it be protected:</td>
+                                        <td><select id="moContentImageProtect">
+                                                <option>Yes</option>
+                                                <option selected>No</option>
+                                            </select>
+                                        </td>
+                                    </tr>
+                                    <td>Mouseover content or image name:</td>
+                                    <td><input type="text" id="moContent"></td>
+                                    </tr>
+                                </table>
+                                <button id="genMO" type="button" class="btn btn-success mt-3">Generate</button>
+                            </form>
+                        </div>
+                        <!-- popup clip-->
+                        <div class="new-popup modal-section" style="display: none;">
+                            <form id="popupForm">
+                                <table class="survey-standard">
+                                    <tr>
+                                        <td>Is the pop-up label an image?</td>
+                                        <td>
+                                            <select id="popupTextImage">
+                                                <option>Yes</option>
+                                                <option selected>No</option>
+                                            </select>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>If an image, should it be protected?</td>
+                                        <td>
+                                            <select id="popupImageProtect">
+                                                <option>Yes</option>
+                                                <option selected>No</option>
+                                            </select>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>Pop-up label (text or image name):</td>
+                                        <td><input type="text" id="popupTextName"></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Is the pop-up content an image?</td>
+                                        <td>
+                                            <select id="popupContentImage">
+                                                <option>Yes</option>
+                                                <option selected>No</option>
+                                            </select>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>If an image, should it be protected?</td>
+                                        <td>
+                                            <select id="popupContentProtect">
+                                                <option>Yes</option>
+                                                <option selected>No</option>
+                                            </select>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>Pop-up content (text or image name):</td>
+                                        <td><input type="text" id="popupContent"></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Pop-up width:</td>
+                                        <td><input type="text" id="popupWidth"></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Pop-up height:</td>
+                                        <td><input type="text" id="popupHeight"></td>
+                                    </tr>
+                                    <tr>
+                                        <td>Pop-up title:</td>
+                                        <td><input type="text" id="popupTitle"></td>
+                                    </tr>
+
+                                </table>
+
+                                <div class="mt-3 d-flex justify-content-end">
+                                    <button id="genPopup" type="button" class="btn btn-success">Generate</button>
+                                </div>
+                            </form>
+                        </div>
+
+                        <div class="random-order-tracker  modal-section" style="display: none;">
+                            <form id="randomOrderForm">
+                                <table class="survey-standard">
+                                    <tr>
+                                        <td>What do you track?</td>
+                                        <td>
+                                            <select id="loop_block">
+                                                <option>Loop</option>
+                                                <option>Block</option>
+                                            </select>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>Enter the label of the tracked item:</td>
+                                        <td><input type="text" id="loop_block_label"></td>
+                                    </tr>
+                                </table>
+
+                                <div class="mt-3 d-flex justify-content-end">
+                                    <button id="genRandomOrder" type="button" class="btn btn-success">Generate</button>
+                                </div>
+                            </form>
                     </div>
                 </div>
             </div>

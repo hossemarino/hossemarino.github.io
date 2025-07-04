@@ -66,7 +66,7 @@ function initTabs(targetArea) {
         editor.setValue(data.content);
         editor.getWrapperElement().style.display = "none";
 
-        //configureEditor(editor);
+        configureEditor(editor);
         tabs[name] = {
             editor,
             textarea
@@ -173,6 +173,7 @@ function getActiveEditor() {
 }
 
 function saveAllTabs() {
+    console.log("Registered tabs:", Object.keys(tabs));
     const toSave = {};
     Object.entries(tabs).forEach(([name, tab]) => {
         toSave[name] = {
