@@ -89,19 +89,33 @@ html {
     width: 35px;
 }
 
-.editor-toolbar .tabs button,
-.editor-toolbar button#toggleFoldBtn,
-.editor-toolbar .save-buttons button {
+.editor-toolbar .tabs button {
+    width: 35px;
+}
+
+.editor-toolbar button#toggleFoldBtn {
     width: max-content;
 }
 
 .editor-toolbar .right-side,
+.editor-toolbar .middle,
 .editor-toolbar .left-side {
     gap: 5px;
     flex-wrap: wrap;
     display: flex;
     flex-direction: column;
     align-content: space-evenly;
+}
+
+.editor-toolbar .save-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.editor-toolbar .save-buttons button {
+    width: 145px;
+    text-align: left;
 }
 
 .editor-container select,
