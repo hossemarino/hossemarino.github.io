@@ -1,4 +1,3 @@
-
 let savedTheme;
 let savedWordWrap;
 let savedFontSize
@@ -23,7 +22,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const controlElements = document.getElementById("controlElements");
     const questionTypes = document.getElementById("questionTypes");
     const questionElements = document.getElementById("questionElements");
-    const questionAttroibutes = document.getElementById("attributesCommands");
+    const questionAttributes = document.getElementById("attributesCommands");
+    const prePostText = document.getElementById("prePostText");
     const miscelaneousCommands = document.getElementById("miscellaneousCommands");
 
     const standardsTab = document.getElementById("standardQuestions");
@@ -32,6 +32,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const standardMiscelaneousCommands = document.getElementById("standardMiscellaneousCommands");
 
     const stylesTab = document.getElementById("styleCreation");
+    const stylesTabXML = document.getElementById("styleCreationXML");
 
     const increaseFontButton = document.getElementById("increaseFont");
     const decreaseFontButton = document.getElementById("decreaseFont");
@@ -104,6 +105,14 @@ document.addEventListener("DOMContentLoaded", () => {
             "add rating direction reversed": addRatingDirection,
             "swap rows and cols": swapRowCol,
         },
+        preposttext: {
+            "add pretext": addPreText,
+            "add pretext (internal)": addPreTextInternal,
+            "make pretext res (internal)": makePreTextResInternal,
+            "add posttext": addPostText,
+            "add posttext (internal)": addPostTextInternal,
+            "make posttext res (internal)": makePostTextResInternal,
+        },
         misc: {
             "make note": makeNote,
             "brbr": brbr,
@@ -138,8 +147,21 @@ document.addEventListener("DOMContentLoaded", () => {
             "add change virtual": addvChange,
             "shuffle rows virtual": addShuffleRowsVirtual,
             "random order tracker": () => openModal("random-order-tracker"),
+            "dupe check by variable": () => openModal("dupe-check"),
         },
-        styles: {}
+        styles: {
+            "new style": () => openModal("new-style"),
+            "new style (blank)": addNewStyleBlank,
+        },
+        stylesxml: {
+            "new style wtih label": addNewStyleBlankwithLabel,
+            "style copy/call": addStyleCopy,
+            "survey wide css": addSurveyWideCSS,
+            "survey wide js": addSurveyWideJS,
+            "question specific css": addQuestionSpecificCSS,
+            "question specific js (after question)": addQuestionSpecificJSAfterQ,
+            "question specific js (in <head>)": addQuestionSpecificJSInHead,
+        }
 
     };
 
@@ -147,13 +169,15 @@ document.addEventListener("DOMContentLoaded", () => {
         control: controlElements,
         types: questionTypes,
         elements: questionElements,
-        attr: questionAttroibutes,
+        attr: questionAttributes,
+        preposttext: prePostText,
         misc: miscelaneousCommands,
         standards: standardsTab,
         copyprotection: copyProtection,
         mouseoverpopup: mouseoverPopUp,
         standardsmisc: standardMiscelaneousCommands,
-        styles: stylesTab
+        styles: stylesTab,
+        stylesxml: stylesTabXML
     };
 
     document.getElementById("addTabButton").onclick = () => openModal("tab");
@@ -170,6 +194,9 @@ document.addEventListener("DOMContentLoaded", () => {
         mode: "application/xml",
         theme: savedTheme,
         lineNumbers: true,
+        smartIndent: false,
+        indentWithTabs: true,
+        indentUnit: 4,
         autoCloseTags: false,
         autoCloseBrackets: true,
         matchTags: {
@@ -208,7 +235,23 @@ document.addEventListener("DOMContentLoaded", () => {
                     commandInput.select();
                     updateSuggestions(commandInput.value);
                 }
+            },
+            Tab: (cm) => cm.replaceSelection("\t", "end"),
+            Enter: (cm) => {
+                const cur = cm.getCursor();
+                const line = cm.getLine(cur.line);
+                const indentMatch = line.match(/^([ \t]+)/);
+                const indent = indentMatch ? indentMatch[1] : "";
+                cm.replaceSelection("\n" + indent, "start");
+
+                // Move the cursor to the correct position after insertion
+                const newPos = {
+                    line: cur.line + 1,
+                    ch: indent.length
+                };
+                cm.setCursor(newPos);
             }
+
         }
     });
 
@@ -458,7 +501,14 @@ document.addEventListener("DOMContentLoaded", () => {
                 }, {
                     selector: ".random-order-tracker",
                     action: () => document.getElementById("genRandomOrder").click()
+                }, {
+                    selector: ".dupe-check",
+                    action: () => document.getElementById("genDupeCheck").click()
+                }, {
+                    selector: ".new-style",
+                    action: () => document.getElementById("genNewStyle").click()
                 }
+
             ];
 
             for (const { selector, action } of actions) {
@@ -618,6 +668,8 @@ document.addEventListener("DOMContentLoaded", () => {
             document.body.removeChild(link);
             URL.revokeObjectURL(link.href);
         };
+
+        document.getElementById("clearStorageBtn").onclick = () => openModal("delete-all-data");
 
         let contextTabName = null;
 
@@ -852,773 +904,20 @@ document.addEventListener("DOMContentLoaded", () => {
         makeResizable("toolbar", "vertical");
         makeResizable("toolbox", "horizontal");
 
+        const select = document.getElementById("styleDropdown");
+        const grouped = groupStylesByPrefix(SURVEY_STYLE_DEFINITIONS);
+
+        Object.entries(grouped).forEach(([prefix, labels]) => {
+            const group = document.createElement("optgroup");
+            group.label = prefix;
+
+            labels.forEach(label => {
+                const option = document.createElement("option");
+                option.value = label;
+                option.textContent = label;
+                group.appendChild(option);
+            });
+
+            select.appendChild(group);
+        });
     });
-
-    function validateFormAndGenerateXML(mode) {
-        const formId = mode === 'ihut' ? '#ihutSurveyForm' : '#surveyForm';
-        const inputs = document.querySelectorAll(`${formId} input, ${formId} select`);
-        let allFilled = true;
-
-        inputs.forEach(input => {
-            const inputId = input.id;
-            const value = input.value.trim();
-
-            // IHUT-specific conditional skip
-            if (mode === 'ihut' &&
-                (inputId === "ihut_QBAPI" || inputId === "ihut_eventID")) {
-
-                const setupType = document.getElementById("ihut_setup_type").value;
-                const isQualBoardAPI = setupType === "QualBoard - status API" || setupType === "QualBoard - user creation API";
-
-                if (!isQualBoardAPI && !value) {
-                    input.classList.remove("is-invalid"); // Not required
-                    return;
-                }
-            }
-
-            if (!value) {
-                allFilled = false;
-                input.classList.add("is-invalid");
-            } else {
-                input.classList.remove("is-invalid");
-            }
-        });
-
-        if (!allFilled) {
-            alert("Please fill in all required fields.");
-            return;
-        }
-
-        if (mode === 'survey')
-            generateXML();
-        else if (mode === 'ihut')
-            generateIHUTXML();
-
-    }
-
-    function setCursorAfterLastNote() {
-        editor = getActiveEditor();
-        editor.setCursor({
-            line: 513,
-            ch: 0
-        });
-    }
-
-    function generateXML() {
-        const surveyNumber = document.getElementById("survey_number").value;
-        const clientName = document.getElementById("client_name").value;
-        const surveyName = document.getElementById("survey_name").value;
-        const secretSampleCode = document.getElementById("secret_sample_code").value;
-        const s2s = document.getElementById("s2s").value;
-        const stl_wf = document.getElementById("stl_wf").value;
-        const portal = document.getElementById("portal").value;
-        const useu = document.getElementById("useu").value;
-        const surveyLanguage = document.getElementById("survey_language").value;
-
-        let langCode = "";
-        if (surveyLanguage === "Base English") {
-            langCode = "english";
-            setSurveyLanguage('english');
-        } else if (surveyLanguage === "Base German") {
-            langCode = "german";
-            setSurveyLanguage('german');
-
-        } else if (surveyLanguage === "Base French") {
-            langCode = "french";
-            setSurveyLanguage('french');
-
-        }
-
-        let portalLinks = "";
-        let logos = "";
-        if (portal === "Eli Lilly") {
-            portalLinks = LILLY[0];
-            logos = LILLY[1]
-        }
-        if (portal === "Schlesinger") {
-            portalLinks = SAGO[0];
-            logos = SAGO[1];
-        }
-
-        let privacyPolicy = "";
-        if (useu === 'US' || (useu === "EU" && langCode === "english")) {
-            privacyPolicy = `<style cond="list in ['0','1'] or (list in ['2'] and vendorid in ['1234','1235'])" name="survey.respview.footer.support"><![CDATA[
-<a href="https://www.focusgroup.com/Page/PrivacyPolicy" target="_blank">\${res.privacy}</a> - <a href="mailto:help@focusgroup.com?Subject=${surveyNumber}" target="_blank">\${res.helpText}</a>
-]]></style>
-`;
-        }
-        if (useu === 'EU' && langCode === "german") {
-            privacyPolicy = `<style cond="list in ['0','1'] or (list in ['2'] and vendorid in ['1234','1235'])" name="survey.respview.footer.support"><![CDATA[
-<a href="https://www.sagunsdiemeinung.de/Page/PrivacyPolicy" target="_blank">\${res.privacy}</a> - <a href="mailto:QuantProjectManagement@sago.com?subject=${surveyNumber}" target="_blank">\${res.helpText}</a>
-]]></style>
-`;
-        }
-        if (useu === 'EU' && langCode === "french") {
-            privacyPolicy = `<style cond="list in ['0','1'] or (list in ['2'] and vendorid in ['1234','1235'])" name="survey.respview.footer.support"><![CDATA[
-<a href="https://www.opinionspartagees.fr/Page/PrivacyPolicy" target="_blank">\${res.privacy}</a> - <a href="mailto:QuantProjectManagement@sago.com?subject=${surveyNumber}" target="_blank">\${res.helpText}</a>
-]]></style>
-`;
-        }
-
-        let s2sText = s2s === "No" ? "" : `${S2S_TEXT}`;
-
-        let stlwftext = stl_wf === "No" ? "" : `${STL_WF_TEXT}`;
-
-        let xmlContent = `<?xml version="1.0" encoding="UTF-8"?>
-<survey 
-  alt="${surveyNumber} - ${clientName} - ${surveyName}"
-  autosave="1"
-  autosaveKey="identifier,code,CRID"
-  browserDupes=""
-  builderCompatible="1"
-  compat="153"
-  delphi="1"
-  watermark:fontSize="16"
-  displayOnError="all"
-  extraVariables="record,decLang,list,userAgent,flashDetected,api,dupe"
-  featurephoneNotAllowedMessage="The device you are using is not allowed to take this survey."
-  fir="on"
-  html:showNumber="0"
-  mobile="compat"
-  mobileDevices="smartphone,tablet,desktop"
-  name="Survey"
-  setup="term,decLang,quota,time"
-  ss:disableBackButton="1"
-  ss:hideProgressBar="0"
-  ss:listDisplay="1"
-  lang="${langCode}"
-  ${portalLinks}
-  state="testing">
-  
-<res label="sys_surveyCompleted">&amp;nbsp;</res>
-<res label="privacy">Privacy Policy</res>
-<res label="helpText">Help</res>
-<res label="dialogClose">Close</res>
-
-<samplesources default="1">
-  <samplesource list="1">
-    <title>SAGO Test</title>
-    <invalid>You are missing information in the URL. Please verify the URL with the original invite.</invalid>
-    <completed>It seems you have already entered this survey.</completed>
-    <var name="code"/>
-    <exit cond="terminated">Thank you for your participation! Unfortunately, you haven't qualified this time but there will be another opportunity for you soon! You may close your browser window now.</exit>
-    <exit cond="qualified">Thank you for your participation and sharing your opinions with us! Your efforts are greatly appreciated. You may close your browser window now.</exit>
-    <exit cond="overquota">Thank you for your willingness to participate. You did not qualify for this study. More members responded than expected and we have reached our quotas. We hope that you will consider participating in future research. You may close your browser window now.</exit>
-  </samplesource>
-
-  <samplesource list="2">
-    <title>SAGO Live</title>
-    <invalid>You are missing information in the URL. Please verify the URL with the original invite.</invalid>
-    <completed>It seems you have already entered this survey.</completed>
-    <var name="vendorid"/>
-    <var name="RID" unique="1"/>
-    <var name="CRID" unique="1"/>
-    <var name="Matching_Unique_ID"/>
-    <var name="VRID"/>
-    <exit cond="terminated" url="https://surveys.sample-cube.com/ending/?RS=3&amp;RID=\${RID}"/>
-    <exit cond="qualified" url="https://surveys.sample-cube.com/ending/?RS=1&amp;RID=\${RID}&amp;secret=${secretSampleCode}"/>
-    <exit cond="overquota" url="https://surveys.sample-cube.com/ending/?RS=2&amp;RID=\${RID}"/>
-    </samplesource>
-</samplesources>
-
-<radio 
-  label="vvendorid">
-  <title>vendorid</title>
-  <virtual>
-#### ADD NEW VENDOR IDS AS NEW ROWS IN THIS QUESTION WITH THE RELEVANT VALUE 
-bucketize(vendorid)
-  </virtual>
-
-  <row label="none">No vendorid Variable</row>
-  <row label="1234">FocusGroup Consumer US</row>
-  <row label="1235">FocusGroup Healthcare US</row>
-  <row label="other">Other</row>
-</radio>
-
-${SAGO_CSS}
-
-${UI_DIALOG_CLOSE}
-${GROUP_SHUFFLE}
-
-${logos}
-${privacyPolicy}
-<style cond="list not in ['0','1'] or (list in ['2'] and vendorid not in ['1234','1235'])" name="survey.logo"/>
-<style cond="list not in ['0','1'] or (list in ['2'] and vendorid not in ['1234','1235'])" name="survey.respview.footer.support"/>
-${COPY_PROTECTION}
-${PRETEST_LABELS_DISPLAY}
-
-<style cond="list!='0'" name="button.goback"/>
-
-<suspend/>
-
-<html label="list1_live" cond="list == '1' and gv.survey.root.state.live" final="1" where="survey">You are missing information in the URL. Please verify the URL with the original invite.</html>
-
-<note>First survey screen: Consent page and ResearchDefender</note>
-
-<label label="template_point_1" />
-
-${CONSENT_QUESTION}
-${RESDEF}
-
-<note>Second screen: Rest of survey</note>
-
-<label label="template_point_2" />
-<note>/
-/ ********************************************************************* /
-/ ********************************************************************* /
-/ ******************* INSERT REST OF SURVEY HERE ********************** /
-/ ********************************************************************* /
-/ ********************************************************************* /
-/</note>
-
-
-
-${REVIEW_QUESTION}
-${s2sText}
-${stlwftext}
-</survey>`;
-        editor = getActiveEditor();
-        if (editor) {
-            editor.setValue(xmlContent);
-            setTimeout(() => {
-                editor.focus();
-                setCursorAfterLastNote();
-            }, 100);
-        } else {
-            console.error("CodeMirror editor not initialized!");
-        }
-
-        let modal = bootstrap.Modal.getInstance(document.getElementById("surveyModal"));
-        if (modal) {
-            modal.hide();
-        }
-
-    }
-
-    function generateIHUTXML() {
-        const get = (id) => document.getElementById(id).value;
-
-        const xmlData = {
-            hutNumber: get("ihut_survey_number"),
-            clientName: get("ihut_client_name"),
-            projectName: get("ihut_survey_name"),
-            surveyType: get("ihut_survey_type"),
-            setupType: get("ihut_setup_type"),
-            qbApiKey: get("ihut_QBAPI"),
-            eventId: get("ihut_eventID"),
-            redirects: get("ihut_redirects"),
-            recodeCheckbox: get("ihut_chckbox_recode"),
-            verity: get("ihut_verity"),
-            contactQuestion: get("ihut_contact_question")
-        };
-        console.log(xmlData);
-        let OTS = xmlData.setupType == "QualMobile (OTS)" ? true : false;
-        console.log(OTS);
-        let extraVariables = '';
-
-        if (xmlData.surveyType === "Questionnaire/Diary") {
-            extraVariables = `  extraVariables="record,decLang,list,userAgent,flashDetected"`
-        } else {
-            extraVariables = `  extraVariables="record,decLang,list,userAgent,flashDetected,api,dupe"`
-        }
-
-        let qbres = xmlData.setupType !== "QualBoard - user creation API" ? "" : `${QUALBOARD_USER_CREATION_API_RES}`;
-
-        let redirects = ``;
-
-        let redirecrts_contd = ``;
-
-        if (xmlData.surveyType === "CLT") {
-            redirects = `
-  <samplesource list="2">
-    <title>Sago Live</title>
-    <invalid>You are missing information in the URL. Please verify the URL with the original invite.</invalid>
-    <completed>It seems you have already entered this survey.</completed>
-    <var name="vendorid"/>
-    <var name="code" unique="1"/>
-    <exit cond="terminated">Thank you for your participation! Unfortunately, you haven't qualified this time but there will be another opportunity for you soon! You may close your browser window now.</exit>
-    <exit cond="qualified">Thank you for taking our survey. Your efforts are greatly appreciated! 
-    Please raise your hand and let your Server know you have answered all the questions so they may initial your index card to bring to the front desk to check out.</exit>
-    <exit cond="overquota">Thank you for your willingness to participate. You did not qualify for this study. More members responded than expected and we have reached our quotas. We hope that you will consider participating in future research. You may close your browser window now.</exit>
-  </samplesource>`;
-        } else if (xmlData.redirects === "SAMS/Complex Surveys(CS)") {
-            redirects = `
-  <samplesource list="2">
-    <title>SAMS / Complex Survey (CS)</title>
-    <invalid>You are missing information in the URL. Please verify the URL with the original invite.</invalid>
-    <completed>It seems you have already entered this survey.</completed>
-    <var name="ESERID" unique="1"/>
-    <var name="samsid" required="1"/>
-    <exit cond="terminated" url="https://survey3.schlesingergroup.com/survey/forms/redirect.aspx?STATUS=T&amp;ESERID=\${ESERID}"/>
-    <exit cond="qualified" url="https://survey3.schlesingergroup.com/survey/forms/redirect.aspx?STATUS=S&amp;ESERID=\${ESERID}" timeout="10">On the next screen, you will be asked to schedule for an appointment. This is NOT a scheduled date and time you need to be available but only a PLACEHOLDER, so our system includes you as qualified for the study.  Additionally, please note, we will NOT reach out via phone to confirm you but will send you confirmation details via email only and No Phone Call.</exit>
-    <exit cond="overquota" url="https://survey3.schlesingergroup.com/survey/forms/redirect.aspx?STATUS=Q&amp;ESERID=\${ESERID}"/>
-  </samplesource>`;
-        } else if (xmlData.redirects === "Esearch") {
-            redirects = `
-  <samplesource list="2">
-    <title>Esearch</title>
-    <invalid>You are missing information in the URL. Please verify the URL with the original invite.</invalid>
-    <completed>It seems you have already entered this survey.</completed>
-    <var name="code" unique="1"/>
-    <exit cond="terminated" url="http://www.esearch.com/survey/message.epl?surveyID=SG021023-POD&amp;response=2&amp;userID=\${code}"/>
-    <exit cond="qualified" url=http://www.esearch.com/survey/message.epl?surveyID=SG021023-POD&amp;response=2&amp;userID=\${code}"/>
-    <exit cond="overquota" url="http://www.esearch.com/survey/message.epl?surveyID=SG021023-POD&amp;response=1&amp;userID=\${code}"/>
-  </samplesource>`;
-        } else if (OTS) {
-            redirects = `
-  <samplesource list="2">
-    <title>Default End Page Text OTS</title>
-    <invalid>You are missing information in the URL. Please verify the URL with the original invite.</invalid>
-    <completed>It seems you have already entered this survey.</completed>
-    <var name="cf1" required="1"/>
-    <var name="ParticipantQuestionID" unique="1"/>
-    <var name="participantID" required="1"/>
-    <var name="assignmentID" required="1"/>
-    <exit cond="terminated">OOPS! Something went wrong. Please send us an email at <a href="mailto:ihuthelp@sago.com?Subject=${xmlData.hutNumber}" target="_blank">ihuthelp@sago.com</a> and include a screenshot of the error message you received. </exit>
-    <exit cond="qualified">Thank you for your participation and for sharing your opinions with us! Your efforts are greatly appreciated.<br/><br/><div class="closing-screen">To ensure your responses are saved, please click the white "X" in the top right-hand corner of your screen. Once clicked, you will return to the QualMobile app to complete the assignment.</div></exit>
-    <exit cond="overquota">Thank you for your willingness to participate. You did not qualify for this study. More members responded than expected and we have reached our quotas. We hope that you will consider participating in future research. You may close your browser window now.</exit>
-  </samplesource>`;
-        } else {
-            redirects = `
-  <samplesource list="2">
-    <title>Default End Page Text</title>
-    <invalid>You are missing information in the URL. Please verify the URL with the original invite.</invalid>
-    <completed>It seems you have already entered this survey.</completed>
-    <var name="code"/>
-    <exit cond="terminated">Thank you for your participation! Unfortunately, you haven't qualified this time but there will be another opportunity for you soon! You may close your browser window now.</exit>
-    <exit cond="qualified">Thank you for your participation and sharing your opinions with us! Your efforts are greatly appreciated. You may close your browser window now.</exit>
-    <exit cond="overquota">Thank you for your willingness to participate. You did not qualify for this study. More members responded than expected and we have reached our quotas. We hope that you will consider participating in future research. You may close your browser window now.</exit>
-  </samplesource>`;
-        }
-
-        if (xmlData.setupType === "QualBoard - status API") {
-            redirecrts_contd = `
-  <samplesource list="3">
-    <title>QualBoard</title>
-    <invalid>You are missing information in the URL. Please verify the URL with the original invite.</invalid>
-    <completed>It seems you have already entered this survey.</completed>
-    <var name="Rn" required="1"/>
-    <var name="userId" required="1"/>
-    <var name="eventId" required="1"/>
-    <var name="questionId" required="1"/>
-    <var name="sesskey" unique="1"/>
-    <var name="surveyNumber"/>
-    <exit cond="terminated">Thank you for your participation! Unfortunately, you haven't qualified this time but there will be another opportunity for you soon! You may close your browser window now.</exit>
-    <exit cond="qualified" url="https://qualboard.com/participate/#/projects/[$externalParameters.projectId$]/group-discussions/\${eventId}/"/>
-    <exit cond="overquota">Thank you for your willingness to participate. You did not qualify for this study. More members responded than expected and we have reached our quotas. We hope that you will consider participating in future research. You may close your browser window now.</exit>
-  </samplesource>`;
-        } else if (xmlData.setupType === "QualBoard - user creation API") {
-            redirecrts_contd = `
-  <samplesource list="3">
-    <title>QualBoard</title>
-    <invalid>You are missing information in the URL. Please verify the URL with the original invite.</invalid>
-    <completed>It seems you have already entered this survey.</completed>
-    <var name="Rn" required="1"/>
-    <var name="userId" required="1"/>
-    <var name="eventId" required="1"/>
-    <var name="questionId" required="1"/>
-    <var name="sesskey" unique="1"/>
-    <var name="surveyNumber"/>
-    <exit cond="terminated">Thank you for your participation! Unfortunately, you haven't qualified this time but there will be another opportunity for you soon! You may close your browser window now.</exit>
-    <exit cond="qualified">Thank you for your participation and sharing your opinions with us! Your efforts are greatly appreciated. You may close your browser window now.</exit>
-    <exit cond="overquota">Thank you for your willingness to participate. You did not qualify for this study. More members responded than expected and we have reached our quotas. We hope that you will consider participating in future research. You may close your browser window now.</exit>
-  </samplesource>`;
-        }
-
-        let ihutCSS = ``;
-
-        if (xmlData.surveyType !== "Screener" && OTS) {
-            ihutCSS = IHUT_OTS_CSS;
-        }
-
-        let consentQ = '';
-        if (xmlData.surveyType !== "CLT") {
-            consentQ = CONSENT_QUESTION
-                if (xmlData.surveyType !== "Screener")
-                    suspend = '<suspend/>'
-        }
-
-        let cltNote = ``;
-        if (xmlData.surveyType === "CLT") {
-            cltNote = CLTNOTE;
-        }
-        let ots_api = ``;
-        let restOfSurvey_1 = ``;
-        let restOfSurvey_2 = ``;
-        let restOfSurvey_3 = ``;
-        let QualBoardAPI = ``;
-
-        if (xmlData.surveyType !== "CLT") {
-            if (xmlData.setupType === 'QualBoard - status API') {
-                QualBoardAPI = `<block label="bQualBoard">
-  <logic label="QualBoard" api:method="POST" api:url="https://api.qualboard.com/api/events/\${eventId}/questions/\${questionId}/external-redirect-callback?userId=\${userId}&amp;X-External-Redirect=${xmlData.qbApiKey}" uses="api.1"/>
-  <text 
-   label="QualBoard_LIVE_RESPONSE"
-   size="40"
-   sst="0"
-   where="execute,survey,report">
-    <title>Hidden: QualBoard API Live response if any.</title>
-    <exec>
-tq = thisQuestion
-
-# Initialize
-tq.val = None
-
-response = QualBoard.r
-
-print response.encode('utf-8-sig')
-    </exec>
-
-  </text>
-
-  <suspend/>
-</block>`;
-            }
-
-            if (xmlData.setupType === 'QualBoard - user creation API') {
-                restOfSurvey_1 = CONTACT_QUESTION_IHUT;
-                restOfSurvey_1 += `<textarea
-  label="QUALBOARD_DATA"
-  where="execute,survey,report">
-  <title>Hidden: Qual Board API DATA</title>
-  <exec>
-tq = thisQuestion
-
-# Initialize
-tq.rHead.val = None
-tq.rData.val = None
-
-p.aHead = {'contentType': 'application/x-www-form-urlencoded; charset=UTF-8'}
-
-p.aData = {
-'Email'           : '%s' % contact.r9.unsafe_val,
-'FirstName'       : '%s' % contact.r1.unsafe_val,
-'LastName'         : '%s' % contact.r2.unsafe_val,
-'DisplayName'       : '%s' % contact.r1.unsafe_val,
-'ApiKey'            : '${xmlData.qbApiKey}',
-'SetTempPassword'   : 'True',
-'ResponseFormat'    : '0',
-'LanguageCode'      : 'en',
-'EventId'           : '${xmlData.eventId}',
-'GroupTags'         : '',
-}
-
-p.logicURL = "Email=%(Email)s&amp;FirstName=%(FirstName)s&amp;LastName=%(LastName)s&amp;DisplayName=%(DisplayName)s&amp;ApiKey=%(ApiKey)s&amp;SetTempPassword=%(SetTempPassword)s&amp;ResponseFormat=%(ResponseFormat)s&amp;LanguageCode=%(LanguageCode)s&amp;EventId=%(EventId)s&amp;GroupTags=%(GroupTags)s" % p.aData
-
-print p.logicURL
-
-tq.rHead.val = str(p.aHead).replace("'",'*').replace('*','"')
-tq.rData.val = str(p.aData).replace("'",'*').replace('*','"')
-  </exec>
-
-  <row label="rHead">aHead</row>
-  <row label="rData">aData</row>
-</textarea>
-
-<suspend/>
-
-<logic label="QualBoard" api:data="QUALBOARD_DATA.rData.unsafe_val" api:headers="{'contentType': 'application/x-www-form-urlencoded;charset=UTF-8', 'Authorization': '${xmlData.qbApiKey}'}" api:method="GET" api:params="{'withCredentials': 'tru?', 'dataType':  'html'}" api:url="https://api.qualboard.com/api/v4/users/import?\${p.logicURL}" uses="api.1"/>
-<text 
-  label="QUALBOARD_RESPONSE"
-  size="40"
-  sst="0"
-  where="execute,survey,report">
-  <title>Hidden: API response.</title>
-  <exec>
-tq = thisQuestion
-
-# Initialize
-for each_row in tq.rows:
-	each_row.val = None  
-
-response = QualBoard.r
-print response
-
-
-for key, item in response.items():
-	print key, item
-
-for each_row in tq.rows:
-	if response[each_row.label]:
-		each_row.val = response[each_row.label]
-
-print QualBoard.status
-  </exec>
-
-  <row label="isNewUser">isNewUser</row>
-  <row label="password">password</row>
-  <row label="userId">userId</row>
-  <row label="error">error</row>
-</text>
-
-<suspend/>
-
-<block label="respondent_email" cond="QUALBOARD_RESPONSE.isNewUser.val == 'True'">
-  <pipe label="pass_pipe" capture="">
-    <case label="r1" cond="QUALBOARD_RESPONSE.password.val not in ['', None]">\${QUALBOARD_RESPONSE.password.val}</case>
-    <case label="r2" cond="1">None</case></pipe>
-  <logic label="email" email:company="Qualtrics" email:content="\${res.qual_email}" email:recipient="\${contact.r9.unsafe_val}" email:sender="support@qualboard.com" email:subject="Welcome to QualBoard" uses="email.1"/>
-</block>
-`;
-            }
-
-            if (xmlData.surveyType === "Questionnaire/Diary" && OTS) {
-                ots_api = OTS_API
-            }
-
-            if (xmlData.surveyType === "Screener" && OTS) {
-                restOfSurvey_2 = CONTACT_QUESTION_IHUT;
-                restOfSurvey_2 += OTS_SCREENER_PART_1;
-
-                if (xmlData.verity === "Yes") {
-                    restOfSurvey_2 += VERITY_API;
-                }
-
-                restOfSurvey_2 += OTS_SCREENER_PART_2(xmlData.hutNumber);
-            }
-
-            if (xmlData.verity === "Yes" && xmlData.setupType !== "QualBoard - user creation API" && xmlData.contactQuestion === "Yes") {
-                restOfSurvey_3 = CONTACT_QUESTION_IHUT;
-                if (!restOfSurvey_2.includes(VERITY_API)) {
-                    restOfSurvey_3 += VERITY_API;
-                }
-
-            }
-        }
-
-        const xml = `
-<?xml version="1.0" encoding="UTF-8"?>
-<survey 
-  alt="${xmlData.hutNumber} - ${xmlData.clientName} - ${xmlData.projectName}"
-  autosave="1"
-  autosaveKey="code,sesskey,ESERID,ParticipantQuestionID"
-  browserDupes=""
-  builderCompatible="1"
-  compat="153"
-  delphi="1"
-  watermark:fontSize="16"
-  displayOnError="all"
-${extraVariables}
-  featurephoneNotAllowedMessage="The device you are using is not allowed to take this survey."
-  fir="on"
-  html:showNumber="0"
-  mobile="compat"
-  mobileDevices="smartphone,tablet,desktop"
-  name="Survey"
-  setup="term,decLang,quota,time"
-  ss:disableBackButton="1"
-  ss:hideProgressBar="0"
-  ss:listDisplay="1"
-  ss:includeJS="https://surveys.sago.com/survey/selfserve/1819/jtsfiles/jts_static_108.js"
-  ss:includeCSS="https://surveys.sago.com/survey/selfserve/1819/jtsfiles/jts_static_104.css"
-  state="testing">
-
-<res label="privacy">Privacy Policy</res>
-<res label="helpText">Help</res>
-<res label="dialogClose">Close</res>
-${qbres}
-<samplesources default="1">
-  <samplesource list="1">
-    <title>Sago Test</title>
-    <invalid>You are missing information in the URL. Please verify the URL with the original invite.</invalid>
-    <completed>It seems you have already entered this survey.</completed>
-    <var name="code"/>
-    <exit cond="terminated">Thank you for your participation! Unfortunately, you haven't qualified this time but there will be another opportunity for you soon! You may close your browser window now.</exit>
-    <exit cond="qualified">Thank you for your participation and sharing your opinions with us! Your efforts are greatly appreciated. You may close your browser window now.</exit>
-    <exit cond="overquota">Thank you for your willingness to participate. You did not qualify for this study. More members responded than expected and we have reached our quotas. We hope that you will consider participating in future research. You may close your browser window now.</exit>
-  </samplesource>
-${redirects}
-${redirecrts_contd}
-</samplesources>
-
-${IHUT_CSS}
-
-${ihutCSS}
-
-${UI_DIALOG_CLOSE}
-
-${GROUP_SHUFFLE}
-
-${CHECKBOX_RECODE}
-
-${IHUT_LOGO}
-
-<style name="survey.respview.footer.support"><![CDATA[
-<a href="https://www.focusgroup.com/Page/PrivacyPolicy" target="_blank">\${res.privacy}</a> - <a href="mailto:help@focusgroup.com?Subject=${xmlData.hutNumber}" target="_blank">\${res.helpText}</a>
-]]></style>
-
-${COPY_PROTECTION}
-
-${PRETEST_LABELS_DISPLAY}
-
-<style cond="list!='0'" name="button.goback"/>
-
-<suspend/>
-
-<html label="list1_live" cond="list == '1' and gv.survey.root.state.live" final="1" where="survey">You are missing information in the URL. Please verify the URL with the original invite.</html>
-
-<note>First survey screen: Intro message</note>
-
-${consentQ}
-
-<label label="template_point_2" />
-<note>/
-/ ********************************************************************* /
-/ ********************************************************************* /
-/ ******************* INSERT REST OF SURVEY HERE ********************** /
-/ ********************************************************************* /
-/ ********************************************************************* /
-/</note>
-
-
-
-
-${cltNote}
-
-${restOfSurvey_1}
-
-${ots_api}
-
-${restOfSurvey_2}
-
-${restOfSurvey_3}
-
-${QualBoardAPI}
-</survey>`.trim();
-        editor = getActiveEditor();
-        editor.setValue(xml);
-        let modal = bootstrap.Modal.getInstance(document.getElementById("surveyModal"));
-        if (modal) {
-            modal.hide();
-        }
-    }
-
-    function generateMO() {
-        const get = (id) => document.getElementById(id).value.trim();
-
-        const textImage = get("moTextImage") === "Yes";
-        const protectPopupImage = get("moImageProtect") === "Yes";
-        const text = get("moName");
-
-        const descImage = get("moContentImage") === "Yes";
-        const descImageProtected = get("moContentImageProtect") === "Yes";
-        const desc = get("moContent");
-
-        const surveyPath = "${gv.survey.path}"; // Template literal placeholder
-
-        let textHTML = "";
-        let descHTML = "";
-
-        // Build mouseover label
-        if (!textImage) {
-            textHTML = text;
-        } else {
-            textHTML = protectPopupImage
-                 ? `[protected ${text} placement=top]`
-                 : `<img src="/survey/${surveyPath}/${text}" />`;
-        }
-
-        // Build mouseover content
-        if (!descImage) {
-            descHTML = desc;
-        } else {
-            descHTML = descImageProtected
-                 ? `[protected ${desc} placement=top]`
-                 : `<img src="/survey/${surveyPath}/${desc}" />`;
-        }
-
-        const output =
-`<span class="self-tooltip">${textHTML}</span><span class="tooltip-content">${descHTML}</span>`;
-
-        const editor = getActiveEditor();
-        editor.replaceSelection(output);
-
-        const modal = bootstrap.Modal.getInstance(document.getElementById("surveyModal"));
-        if (modal)
-            modal.hide();
-    }
-
-    function generatePopup() {
-        const get = (id) => document.getElementById(id).value.trim();
-
-        const textImage = get("popupTextImage") === "Yes";
-        const protectPopupImage = get("popupImageProtect") === "Yes";
-        const text = get("popupTextName");
-
-        const descImage = get("popupContentImage") === "Yes";
-        const descImageProtected = get("popupContentProtect") === "Yes";
-        const desc = get("popupContent");
-
-        const surveyPath = "${gv.survey.path}"; // placeholder for server-side resolution
-
-        const width = get("popupWidth") || "600";
-        const height = get("popupHeight") || "400";
-        const title = get("popupTitle") || "";
-        const popupCall = `Survey.uidialog.make($(this).next('.popup-content'), {width: Math.min(${width}, $(window).width()), height: Math.min(${height}, $(window).height()), title: '${title}'} );`;
-
-        let anchor = "";
-
-        // Build clickable anchor element
-        if (!textImage) {
-            anchor = `<span class="self-popup" onclick="${popupCall}">${text}</span>`;
-        } else if (protectPopupImage) {
-            anchor = `<span class="self-popup" onclick="${popupCall}">[protected ${text} placement=top]</span>`;
-        } else {
-            anchor = `<span class="self-popup" onclick="${popupCall}"><img src="/survey/${surveyPath}/${text}" /></span>`;
-        }
-
-        // Build pop-up content element
-        let content = "";
-
-        if (!descImage) {
-            content = `<div class="popup-content">${desc}</div>`;
-        } else if (descImageProtected) {
-            content = `<div class="popup-content">[protected ${desc} placement=top]</div>`;
-        } else {
-            content = `<div class="popup-content"><img src="/survey/${surveyPath}/${desc}" /></div>`;
-        }
-
-        const output = `${anchor}${content}`;
-
-        const editor = getActiveEditor();
-        editor.replaceSelection(output);
-
-        const modal = bootstrap.Modal.getInstance(document.getElementById("surveyModal"));
-        if (modal)
-            modal.hide();
-    }
-
-    function generateRandomOrderTracker() {
-        const get = (id) => document.getElementById(id).value.trim();
-
-        const loop_block = get("loop_block");
-        const loop_block_label = get("loop_block_label");
-        const editor = getActiveEditor();
-        let output = ``;
-        if (loop_block === "Loop") {
-            output = `
-<number label="h${loop_block_label}_order_" size="2">
-  <title>Virtual: ${loop_block_label} Order</title>
-  <virtual>assignRandomOrder("${loop_block_label}_expanded", "children")</virtual>
-  <row label="${loop_block_label}_1_expanded">Concept 1</row>
-  <row label="${loop_block_label}_2_expanded">Concept 2</row>
-  <row label="${loop_block_label}_3_expanded">Concept 3</row>
-</number>`;
-
-        } else if (loop_block === "Block") {
-            output = `
-<number label="h${loop_block_label}_order" size="2">
-  <title>Virtual: ${loop_block_label} Order</title>
-  <virtual>assignRandomOrder("${loop_block_label}", "children")</virtual>
-  <row label="r1">Concept 1</row>
-  <row label="r2">Concept 2</row>
-  <row label="r3">Concept 3</row>
-</number>
-<note>Change row labels to the labels of block's children, then delete this note</note>`;
-
-        }
-        editor.replaceSelection(output);
-        const modal = bootstrap.Modal.getInstance(document.getElementById("surveyModal"));
-        if (modal)
-            modal.hide();
-    }

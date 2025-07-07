@@ -1,65 +1,17 @@
-//Modal handling
-function openModal(purpose, tabName = "") {
-    const modalEl = document.getElementById("surveyModal");
-    const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
-    const title = document.getElementById("modalTitle");
-
-    document.querySelectorAll(".modal-section").forEach(section => {
-        section.style.display = "none";
-    });
-
-    let focusInput = null;
-
-    if (purpose === "tab") {
-        title.textContent = "Create a New Tab";
-        document.querySelector(".new-tab").style.display = "block";
-        document.getElementById("tabError").style.display = "none";
-        focusInput = document.getElementById("tab_name");
-    } else if (purpose === "new-survey") {
-        title.textContent = "Create a New Survey";
-        document.querySelector(".new-survey").style.display = "block";
-        document.getElementById("genXML").onclick = () => validateFormAndGenerateXML("survey");
-    } else if (purpose === "delete-tab") {
-        title.textContent = "Confirm Tab Deletion";
-        document.querySelector(".delete-tab").style.display = "block";
-        document.getElementById("tabToDeleteName").textContent = tabName;
-        tabPendingDeletion = tabName;
-    } else if (purpose === "new-ihut") {
-        title.textContent = "Create a New IHUT";
-        document.querySelector(".new-ihut").style.display = "block";
-        document.getElementById("genIHUTXML").onclick = () => validateFormAndGenerateXML("ihut");
-    } else if (purpose === "new-mouseover") {
-        title.textContent = "Mouseover";
-        document.querySelector(".new-mouseover").style.display = "block";
-        document.getElementById("genMO").onclick = () => generateMO();
-    } else if (purpose === "new-popup") {
-        title.textContent = "Pop-up";
-        document.querySelector(".new-popup").style.display = "block";
-        document.getElementById("genPopup").onclick = () => generatePopup();
-    } else if (purpose === "random-order-tracker") {
-        title.textContent = "Pop-up";
-        document.querySelector(".random-order-tracker").style.display = "block";
-        document.getElementById("genRandomOrder").onclick = () => generateRandomOrderTracker();
-    }
-
-    // Clean up previous listeners to avoid duplicates
-    modalEl.removeEventListener("shown.bs.modal", modalEl._focusListener);
-
-    modalEl._focusListener = () => {
-        if (focusInput) {
-            focusInput.focus();
-            focusInput.select();
-        }
-    };
-
-    modalEl.addEventListener("shown.bs.modal", modalEl._focusListener);
-    modal.show();
-}
 // editor selection
 function getInputOrLine() {
     const sel = editor.getSelection();
     return sel.trim() || editor.getLine(editor.getCursor().line)?.trim() || "";
 }
+
+function setCursorAfterLine(l) {
+    editor = getActiveEditor();
+    editor.setCursor({
+        line: l,
+        ch: 0
+    });
+}
+
 // download files
 function sanitizeFilename(name) {
     return name
@@ -215,7 +167,7 @@ function wrapSelection(tag) {
 }
 
 function toTitleCase(str) {
-    const acronyms = ["us", "uk", "eu", "xml", "id", "qa", "br", "brbr", "li", "ol", "ul"]; // Add more as needed
+    const acronyms = ["us", "uk", "eu", "xml", "id", "qa", "br", "brbr", "li", "ol", "ul","css","js"]; // Add more as needed
 
     return str
     .toLowerCase()
@@ -1192,4 +1144,44 @@ function addvChange() {
 
 function addShuffleRowsVirtual() {
     window.editor.replaceSelection(SHUFFLE_ROWS_VIRTUAL)
+}
+
+
+// pre texts
+function addPreText() {
+    const selectedText = getInputOrLine();
+    const xmlContent = `ss:preText="\${res.${selectedText.trim()}}"`;
+    window.editor.replaceSelection(xmlContent);
+}
+
+function addPreTextInternal() {
+    const selectedText = getInputOrLine();
+    const xmlContent = `ss:preText="\${res['%s,preText' % this.label]}"`;
+    window.editor.replaceSelection(xmlContent);
+}
+
+function makePreTextResInternal() {
+    const selectedText = getInputOrLine();
+    const xmlContent = `<res label="preText">${selectedText.trim()}</res>`;
+    window.editor.replaceSelection(xmlContent);
+}
+
+// post texts
+
+function addPostText() {
+    const selectedText = getInputOrLine();
+    const xmlContent = `ss:postText="\${res.${selectedText.trim()}}"`;
+    window.editor.replaceSelection(xmlContent);
+}
+
+function addPostTextInternal() {
+    const selectedText = getInputOrLine();
+    const xmlContent = `ss:postText="\${res['%s,postText' % this.label]}"`;
+    window.editor.replaceSelection(xmlContent);
+}
+
+function makePostTextResInternal() {
+    const selectedText = getInputOrLine();
+    const xmlContent = `<res label="postText">${selectedText.trim()}</res>`;
+    window.editor.replaceSelection(xmlContent);
 }

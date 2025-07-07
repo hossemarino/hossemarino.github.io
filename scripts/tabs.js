@@ -8,6 +8,9 @@ function getCodeMirrorSettings(theme, wordWrap) {
         theme: theme,
         lineNumbers: true,
         autoCloseTags: false,
+        smartIndent: false,
+        indentWithTabs: false,
+        indentUnit: 4,
         autoCloseBrackets: true,
         matchTags: {
             bothTags: true
@@ -45,7 +48,23 @@ function getCodeMirrorSettings(theme, wordWrap) {
                     commandInput.select();
                     updateSuggestions(commandInput.value);
                 }
+            },
+            Tab: (cm) => cm.replaceSelection("\t", "end"),
+            Enter: (cm) => {
+                const cur = cm.getCursor();
+                const line = cm.getLine(cur.line);
+                const indentMatch = line.match(/^([ \t]+)/);
+                const indent = indentMatch ? indentMatch[1] : "";
+                cm.replaceSelection("\n" + indent, "start");
+
+                // Move the cursor to the correct position after insertion
+                const newPos = {
+                    line: cur.line + 1,
+                    ch: indent.length
+                };
+                cm.setCursor(newPos);
             }
+
         }
     };
 }
@@ -173,7 +192,6 @@ function getActiveEditor() {
 }
 
 function saveAllTabs() {
-    console.log("Registered tabs:", Object.keys(tabs));
     const toSave = {};
     Object.entries(tabs).forEach(([name, tab]) => {
         toSave[name] = {

@@ -7,6 +7,64 @@ const LILLY = [`ss:includeCSS="https://survey.decipherinc.com/survey/selfserve/5
 ]]></style>
 `];
 
+const SURVEY_SETUP = {
+  english: {
+    testRedirects: `  <samplesource list="1">
+    <title>SAGO Test</title>
+    <invalid>You are missing information in the URL. Please verify the URL with the original invite.</invalid>
+    <completed>It seems you have already entered this survey.</completed>
+    <var name="code"/>
+    <exit cond="terminated">Thank you for your participation! Unfortunately, you haven't qualified this time but there will be another opportunity for you soon! You may close your browser window now.</exit>
+    <exit cond="qualified">Thank you for your participation and sharing your opinions with us! Your efforts are greatly appreciated. You may close your browser window now.</exit>
+    <exit cond="overquota">Thank you for your willingness to participate. You did not qualify for this study. More members responded than expected and we have reached our quotas. We hope that you will consider participating in future research. You may close your browser window now.</exit>
+  </samplesource>`,
+    featurephoneNotAllowedMessage: `The device you are using is not allowed to take this survey.`,
+    privacyPolicy: function (surveyNumber) {
+      return `<style cond="list in ['0','1'] or (list in ['2'] and vendorid in ['1234','1235'])" name="survey.respview.footer.support"><![CDATA[
+<a href="https://www.focusgroup.com/Page/PrivacyPolicy" target="_blank">\${res.privacy}</a> - <a href="mailto:help@focusgroup.com?Subject=${surveyNumber}" target="_blank">\${res.helpText}</a>
+]]></style>
+`;
+    }
+
+  },
+  german: {
+    testRedirects: `  <samplesource list="1">
+    <title>SAGO Test</title>
+    <invalid>Ihr Link ist nicht vollst&amp;#228;ndig. Bitte kopieren Sie den Link vollst&amp;#228;ndig in Ihren Browser, um die Umfrage starten zu k&amp;#246;nnen</invalid>
+    <completed>Sie oder eine andere Person auf diesem Rechner haben die Umfrage bereits beantwortet.</completed>
+    <var name="code"/>
+    <exit cond="terminated">Vielen Dank f&amp;#252;r Ihr Interesse! Leider passen Sie nicht in das gesuchte Profil.</exit>
+    <exit cond="qualified">Vielen Dank f&amp;#252;r Ihr Interesse! Sie haben die Umfrage erfolgreich beendet.</exit>
+    <exit cond="overquota">Vielen Dank f&amp;#252;r Ihr Interesse! Leider passen Sie nicht in das gesuchte Profil.</exit>
+  </samplesource>`,
+    featurephoneNotAllowedMessage: `Bitte &amp;#246;ffnen Sie diese Umfrage auf einem PC oder Laptop.`,
+    privacyPolicy: function (surveyNumber) {
+      return `<style cond="list in ['0','1'] or (list in ['2'] and vendorid in ['1234','1235'])" name="survey.respview.footer.support"><![CDATA[
+<a href="https://www.sagunsdiemeinung.de/Page/PrivacyPolicy" target="_blank">\${res.privacy}</a> - <a href="mailto:QuantProjectManagement@sago.com?subject=${surveyNumber}" target="_blank">\${res.helpText}</a>
+]]></style>
+`
+    }
+  },
+  french: {
+    testRedirects: `  <samplesource list="1">
+    <title>SAGO Test</title>
+    <invalid>Il vous manque des informations dans l'URL. Merci de v&amp;eacute;rifier l'URL avec l'invitation originale.</invalid>
+    <completed>Il semble que vous vous soyez d&amp;eacute;j&amp;agrave; inscrit(e) &amp;agrave; cette enqu&amp;ecirc;te.</completed>
+    <var name="code"/>
+    <exit cond="terminated">Nous vous remercions d'avoir particip&amp;eacute; &amp;agrave; cette enqu&amp;ecirc;te.</exit>
+    <exit cond="qualified">Merci d'avoir particip&amp;eacute;, et de nous avoir fait partager votre opinion ! Nous appr&amp;eacute;cions votre effort. Vous pouvez fermer votre fen&amp;ecirc;tre de navigation.</exit>
+    <exit cond="overquota">Nous vous remercions d'avoir particip&amp;eacute; &amp;agrave; cette enqu&amp;ecirc;te.</exit>
+  </samplesource>`,
+    featurephoneNotAllowedMessage: `L&amp;rsquo;appareil mobile que vous utilisez n&amp;rsquo;est pas compatible avec l&amp;rsquo;enqu&amp;ecirc;te en ligne`,
+    privacyPolicy: function (surveyNumber) {
+      return `<style cond="list in ['0','1'] or (list in ['2'] and vendorid in ['1234','1235'])" name="survey.respview.footer.support"><![CDATA[
+<a href="https://www.opinionspartagees.fr/Page/PrivacyPolicy" target="_blank">\${res.privacy}</a> - <a href="mailto:QuantProjectManagement@sago.com?subject=${surveyNumber}" target="_blank">\${res.helpText}</a>
+]]></style>
+`
+    }
+  }
+};
+
 const SAGO = [`ss:includeJS="https://surveys.sago.com/survey/selfserve/1819/jtsfiles/jts_static_108.js"
   ss:includeCSS="https://surveys.sago.com/survey/selfserve/1819/jtsfiles/jts_static_104.css"`, `<style cond="list in ['0','1'] or (list in ['2'] and vendorid in ['1234','1235'])" name='survey.logo'> <![CDATA[
     <div class="logo logo-left">
@@ -175,6 +233,12 @@ img {
 
 .batman {
 	display: none;
+}
+
+.button[disabled] {
+	background-color: #ededed;
+	cursor: wait;
+	color: #c6bcbc;
 }
 
 /* ========================= */
@@ -357,6 +421,12 @@ img {
 
 .batman {
 	display: none;
+}
+
+.button[disabled] {
+	background-color: #ededed;
+	cursor: wait;
+	color: #c6bcbc;
 }
 
 /* ========================= */
@@ -1724,3 +1794,179 @@ const SHUFFLE_ROWS_VIRTUAL = `
 assignRandomOrder("Q", "rows")
 </virtual>
 </number>`;
+
+const SURVEY_STYLE_DEFINITIONS = [{
+    "label": "global.page.head",
+    "body": ""
+  }, {
+    "label": "respview.client.meta",
+    "body": ""
+  }, {
+    "label": "respview.client.css",
+    "body": ""
+  }, {
+    "label": "respview.client.js",
+    "body": ""
+  }, {
+    "label": "survey.header",
+    "body": "<div class=\"page-header\"></div>\n<!-- /.page-header -->"
+  }, {
+    "label": "survey.logo",
+    "body": "\\@if gv.inSurvey() and gv.survey.root.styles.ss.logoFile\n    <div class=\"logo logo-\$(gv.survey.root.styles.ss.logoPosition)\">\n        <img src=\"[static]/survey/\$(gv.survey.root.styles.ss.logoFile)\" class=\"logo-image\" alt=\"Logo\" />\n    </div>\n    <!-- /.logo -->\n\\@endif"
+  }, {
+    "label": "buttons",
+    "body": "<div class=\"survey-buttons\">\n    \$(left)\n    \$(right)\n</div>\n<!-- #surveyButtons -->"
+  }, {
+    "label": "button.continue",
+    "body": "<input type=\"submit\" name=\"continue\" id=\"btn_continue\" class=\"button continue\" value=\"@(continue) &raquo;\" onClick=\"var i = document.createElement('input');i.setAttribute('type', 'hidden');i.setAttribute('value', '1');i.setAttribute('name', '__has_javascript');document.forms.primary.appendChild(i);\"/>"
+  }, {
+    "label": "button.finish",
+    "body": "<input type=\"submit\" name=\"finish\" id=\"btn_finish\" class=\"button finish\" value=\"@(finish)\"  onClick=\"var i = document.createElement('input');i.setAttribute('type', 'hidden');i.setAttribute('value', '1');i.setAttribute('name', '__has_javascript');document.forms.primary.appendChild(i);\"/>"
+  }, {
+    "label": "button.cancel",
+    "body": ""
+  }, {
+    "label": "survey.completion",
+    "body": "\\@if not gv.survey.root.styles.ss.hideProgressBar\n    <div role=\"progressbar\" aria-valuenow=\"\$(percent)\" aria-valuemin=\"0\" aria-valuemax=\"100\" class=\"progress-bar progress-\${\"top\" if gv.survey.root.progressOnTop else \"bottom\"}\" title=\"@(progress-bar) - \$(percent)% @(complete)\">\n      <div class=\"progress-box-outer\" aria-hidden=\"true\"><span class=\"progress-box-completed\" style=\"width: \$(percent)%;\"></span></div>\n      <div class=\"progress-text\" aria-hidden=\"true\">\$(percent)%</div>\n    </div>\n    <!-- /.progress-bar -->\n\\@endif"
+  }, {
+    "label": "survey.respview.footer",
+    "body": "<div class=\"footer\">\${v2_insertStyle('survey.respview.footer.support')}</div>\n<!-- /.footer -->"
+  }, {
+    "label": "survey.respview.footer.support",
+    "body": "@(support)"
+  }, {
+    "label": "button.goback",
+    "body": "<input type=\"button\" id=\"btn_goback\" class=\"button back\" onClick=\"Survey.postControl('back2')\" value=\"&laquo; @(back)\" />"
+  }, {
+    "label": "page.head",
+    "body": ""
+  }, {
+    "label": "question.header",
+    "body": "<div id=\"question_\${this.label}\" class=\"question \${'disabledElement ' if why and gv.debug.qa else ''}\${this.getName().lower()} label_\${this.label} \$(this.styles.ss.questionClassNames) \$(hasError)\"\${' role=\"radiogroup\" aria-labelledby=\"' + (this.label + '_' + ec.enabledCols[0].label if ec.haveColLegend else 'question_text_' + this.label) + '\"' if ec.simpleList else ''}>\n\${v2_insertStyle('survey.question')}\n\$(error)\n\${v2_insertStyle('survey.question.instructions')}\n\${v2_insertStyle('survey.question.answers.start')}"
+  }, {
+    "label": "survey.question",
+    "body": "<h1 title=\"@(question)\" class=\"question-text\" id=\"question_text_\${this.label}\">\${this.styles.html.showNumber and (str(number) + '. ') or ''}\$(title)</h1>\n<!-- /.question-text -->"
+  }, {
+    "label": "survey.question.instructions",
+    "body": "<h2 title=\"@(instructions)\" class=\"instruction-text\">\$(comment)</h2>\n<!-- /.instruction-text -->"
+  }, {
+    "label": "survey.question.answers.start",
+    "body": "<div class=\"answers \$(answerClassNames)\">\n\$(fir)\n\\@if not ec.simpleList\n<\$(tag) class=\"grid \$(gridClassNames)\" data-settings=\"\$(gridOptions)\" data-height=\"\${this.styles.ss.rowHeight if this.styles.ss.rowHeight else \"\"}\" summary=\"This table contains form elements to answer the survey question\">\n\\@if not simple\n<tbody>\n\\@endif\n\\@if not forceDesktop\n\${v2_insertStyle('question.borderfix')}\n\\@endif\n\\@endif"
+  }, {
+    "label": "question.group-column",
+    "body": "<\$(tag) class=\"row row-col-legends row-col-legends-top colGroup\">\n    \$(left)\n    \$(elements)\n    \$(right)\n</\$(tag)>"
+  }, {
+    "label": "question.group-column-cell",
+    "body": "<\$(tag) scope=\"colgroup\" colspan=\"\$(span)\" id=\"\$(this.label)_\$(group.label)\" class=\"cell nonempty legend col-legend col-legend-top col-legend-group \$(levels) \${\"desktop\" if this.grouping.cols else \"mobile\"} \${\"col-legend-space\" if this.grouping.cols and ec.haveLeftLegend and ec.haveRightLegend else \"border-collapse\"} \$(group.styles.ss.groupClassNames)\">\n    \$(text)\n</\$(tag)>"
+  }, {
+    "label": "question.top-legend",
+    "body": "\\@if ec.simpleList\n    \$(legends)\n\\@else\n\\@if this.styles.ss.colLegendHeight\n    <\$(tag) class=\"row row-col-legends row-col-legends-top \${\"mobile-top-row-legend \" if mobileOnly else \"\"}\${\"GtTenColumns \" if ec.colCount > 10 else \"\"}colCount-\$(colCount)\" style=\"height:\${this.styles.ss.colLegendHeight};\">\n\\@else\n    <\$(tag) class=\"row row-col-legends row-col-legends-top \${\"mobile-top-row-legend \" if mobileOnly else \"\"}\${\"GtTenColumns \" if ec.colCount > 10 else \"\"}colCount-\$(colCount)\">\n\\@endif\n    \$(left)\n    \$(legends)\n    \$(right)\n</\$(tag)>\n\\@if not simple\n</tbody>\n<tbody>\n\\@endif\n\\@endif"
+  }, {
+    "label": "question.left-blank-legend",
+    "body": "<\$(tag) class=\"cell empty empty-left empty-\$(pos) unused \${\"desktop\" if this.grouping.cols else \"mobile\"} border-collapse\"></\$(tag)>"
+  }, {
+    "label": "question.top-legend-item",
+    "body": "\\@if ec.simpleList\n    <div id=\"\$(this.label)_\$(col.label)\" class=\"legend col-legend col-legend-top col-legend-basic \$(levels) \${\"col-legend-space\" if this.grouping.cols and (col.group or col.index!=0) and ec.haveLeftLegend and ec.haveRightLegend else \"border-collapse\"} \$(col.styles.ss.colClassNames) \${col.group.styles.ss.groupClassNames if col.group else \"\"} \$(colError)\">\n        \$(text)\n    </div>\n\\@else\n\\@if this.styles.ss.colWidth\n    <\$(tag) scope=\"col\" id=\"\$(this.label)_\$(col.label)\" class=\"cell nonempty legend col-legend col-legend-top col-legend-basic \$(levels) \${\"desktop\" if this.grouping.cols else \"mobile\"} \${\"col-legend-space\" if this.grouping.cols and (col.group or col.index!=0) and ec.haveLeftLegend and ec.haveRightLegend else \"border-collapse\"} \$(col.styles.ss.colClassNames) \${col.group.styles.ss.groupClassNames if col.group else \"\"} \$(colError)\" style=\"width:\${this.styles.ss.colWidth}; min-width:\${this.styles.ss.colWidth}\">\n        \$(text)\n    </\$(tag)>\n\\@else\n    <\$(tag) scope=\"col\" id=\"\$(this.label)_\$(col.label)\" class=\"cell nonempty legend col-legend col-legend-top col-legend-basic \$(levels) \${\"desktop\" if this.grouping.cols else \"mobile\"} \${\"col-legend-space\" if this.grouping.cols and (col.group or col.index!=0) and ec.haveLeftLegend and ec.haveRightLegend else \"border-collapse\"} \$(col.styles.ss.colClassNames) \${col.group.styles.ss.groupClassNames if col.group else \"\"} \$(colError)\">\n        \$(text)\n    </\$(tag)>\n\\@endif\n\\@endif"
+  }, {
+    "label": "question.right-blank-legend",
+    "body": "<\$(tag) class=\"cell empty empty-right empty-\$(pos) unused \${\"desktop\" if this.grouping.cols else \"mobile\"} border-collapse\"></\$(tag)>"
+  }, {
+    "label": "question.group-3",
+    "body": "<\$(tagRow) class=\"row row-group row-group-3 rowGroup group3\">\n    <\$(tagCell) scope=\"rowgroup\" colspan=\"\$(span)\" id=\"\$(this.label)_\$(group.label)\" class=\"cell nonempty legend row-legend row-legend-left row-legend-group \$(levels) \${\"desktop\" if this.grouping.cols else \"mobile\"} border-collapse \$(group.styles.ss.groupClassNames)\">\n        \$(text)\n    </\$(tagCell)>\n</\$(tagRow)>"
+  }, {
+    "label": "question.group-2",
+    "body": "<\$(tagRow) class=\"row row-group row-group-2 rowGroup group2\">\n    <\$(tagCell) scope=\"rowgroup\" colspan=\"\$(span)\" id=\"\$(this.label)_\$(group.label)\" class=\"cell nonempty legend row-legend row-legend-left row-legend-group \$(levels) \${\"desktop\" if this.grouping.cols else \"mobile\"} border-collapse \$(group.styles.ss.groupClassNames)\">\n        \$(text)\n    </\$(tagCell)>\n</\$(tagRow)>"
+  }, {
+    "label": "question.group",
+    "body": "<\$(tagRow) class=\"row row-group row-group-1 rowGroup group1\">\n    <\$(tagCell) scope=\"rowgroup\" colspan=\"\$(span)\" id=\"\$(this.label)_\$(group.label)\" class=\"cell nonempty legend row-legend row-legend-left row-legend-group \$(levels) \${\"desktop\" if this.grouping.cols else \"mobile\"} \${\"row-legend-group-space\" if row.index!=0 and ec.haveRightLegend and ec.haveLeftLegend else \"border-collapse\"} \$(group.styles.ss.groupClassNames)\">\n        \$(text)\n    </\$(tagCell)>\n</\$(tagRow)>"
+  }, {
+    "label": "question.row",
+    "body": "\\@if ec.simpleList\n\$(elements)\n\\@else\n\\@if this.styles.ss.rowHeight\n    <\$(tag) class=\"row row-elements \$(style) colCount-\$(colCount)\" style=\"height:\${this.styles.ss.rowHeight};\">\n\\@else\n    <\$(tag) class=\"row row-elements \$(style) colCount-\$(colCount)\">\n\\@endif\n\$(left)\n\$(elements)\n\$(right)\n</\$(tag)>\n\\@endif"
+  }, {
+    "label": "question.col-legend-row",
+    "body": "\\@if ec.simpleList\n    \$(legends)\n\\@else\n\\@if this.styles.ss.colLegendHeight\n    <\$(tag) class=\"row row-col-legends row-col-legends-middle \${\"GtTenColumns \" if ec.colCount > 10 else \"\"}colCount-\$(colCount)\" style=\"height:\${this.styles.ss.colLegendHeight};\">\n\\@else\n    <\$(tag) class=\"row row-col-legends row-col-legends-middle \${\"GtTenColumns \" if ec.colCount > 10 else \"\"}colCount-\$(colCount)\">\n\\@endif\n    \$(left)\n    \$(legends)\n    \$(right)\n</\$(tag)>\n\\@endif"
+  }, {
+    "label": "question.col-legend-row-item",
+    "body": "\\@if ec.simpleList\n    <div class=\"legend col-legend col-legend-middle col-legend-basic \$(levels) \${\"desktop\" if this.grouping.cols else \"mobile\"} border-collapse q-col-legend-row-item \$(col.styles.ss.colClassNames) \${col.group.styles.ss.groupClassNames if col.group else \"\"} \$(colError)\">\n        \$(text)\n    </div>\n\\@else\n\\@if this.styles.ss.colWidth\n    <\$(tag) scope=\"col\" class=\"cell nonempty legend col-legend col-legend-middle col-legend-basic \$(levels) \${\"desktop\" if this.grouping.cols else \"mobile\"} border-collapse q-col-legend-row-item \$(col.styles.ss.colClassNames) \${col.group.styles.ss.groupClassNames if col.group else \"\"} \$(colError)\" style=\"width:\${this.styles.ss.colWidth}; min-width:\${this.styles.ss.colWidth}\">\n        \$(text)\n    </\$(tag)>\n\\@else\n    <\$(tag) scope=\"col\" class=\"cell nonempty legend col-legend col-legend-middle col-legend-basic \$(levels) \${\"desktop\" if this.grouping.cols else \"mobile\"} border-collapse q-col-legend-row-item \$(col.styles.ss.colClassNames) \${col.group.styles.ss.groupClassNames if col.group else \"\"} \$(colError)\">\n        \$(text)\n    </\$(tag)>\n\\@endif\n\\@endif"
+  }, {
+    "label": "question.na.row",
+    "body": "\\@if ec.simpleList\n\$(naElement)\n\\@else\n<\$(tagRow) class=\"row row-elements row-no-answer \$(rowStyle)\">\n\$(left)\n<\$(tagCell) colspan=\"\$(colCount)\" \$(headers) class=\"cell nonempty element cell-no-answer \${\"desktop\" if this.grouping.cols else \"mobile\"} border-collapse \$(extraClasses) \$(col.styles.ss.colClassNames) \$(row.styles.ss.rowClassNames) clickableCell\" \$(extra)>\n    \$(naElement)\n</\$(tagCell)>\n\$(right)\n</\$(tagRow)>\n\\@endif"
+  }, {
+    "label": "question.bottom-legend",
+    "body": "\\@if ec.simpleList\n    \$(legends)\n\\@else\n\\@if not simple\n</tbody>\n<tbody>\n\\@endif\n\\@if this.styles.ss.colLegendHeight\n    <\$(tag) class=\"row row-col-legends row-col-legends-bottom \${\"GtTenColumns \" if ec.colCount > 10 else \"\"}colCount-\$(colCount)\" style=\"height:\${this.styles.ss.colLegendHeight};\">\n\\@else\n    <\$(tag) class=\"row row-col-legends row-col-legends-bottom \${\"GtTenColumns \" if ec.colCount > 10 else \"\"}colCount-\$(colCount)\">\n\\@endif\n    \$(left)\n    \$(legends)\n    \$(right)\n</\$(tag)>\n\\@endif"
+  }, {
+    "label": "question.bottom-legend-item",
+    "body": "\\@if ec.simpleList\n    <div id=\"\$(this.label)_\$(col.label)\" class=\"legend col-legend col-legend-bottom col-legend-basic \$(levels) \${\"desktop\" if this.grouping.cols else \"mobile\"} border-collapse \$(col.styles.ss.colClassNames) \${col.group.styles.ss.groupClassNames if col.group else \"\"} \$(colError)\">\n        \$(text)\n    </div>\n\\@else\n\\@if this.styles.ss.colWidth\n    <\$(tag) scope=\"col\" id=\"\$(this.label)_\$(col.label)\" class=\"cell nonempty legend col-legend col-legend-bottom col-legend-basic \$(levels) \${\"desktop\" if this.grouping.cols else \"mobile\"} border-collapse \$(col.styles.ss.colClassNames) \${col.group.styles.ss.groupClassNames if col.group else \"\"} \$(colError)\" style=\"width:\${this.styles.ss.colWidth}; min-width:\${this.styles.ss.colWidth}\">\n        \$(text)\n    </\$(tag)>\n\\@else\n    <\$(tag) scope=\"col\" id=\"\$(this.label)_\$(col.label)\" class=\"cell nonempty legend col-legend col-legend-bottom col-legend-basic \$(levels) \${\"desktop\" if this.grouping.cols else \"mobile\"} border-collapse \$(col.styles.ss.colClassNames) \${col.group.styles.ss.groupClassNames if col.group else \"\"} \$(colError)\">\n        \$(text)\n    </\$(tag)>\n\\@endif\n\\@endif"
+  }, {
+    "label": "question.footer",
+    "body": "\${v2_insertStyle('survey.question.answers.end')}\n</div>\n<!-- /.question -->"
+  }, {
+    "label": "survey.question.answers.end",
+    "body": "\\@if not ec.simpleList\n\\@if not simple\n</tbody>\n\\@endif\n</\$(tag)>\n\\@endif\n<!-- /.grid -->\n</div>\n<!-- /.answers -->"
+  }, {
+    "label": "question.after",
+    "body": ""
+  }, {
+    "label": "question.element",
+    "body": "\\@if ec.simpleList\n<div class=\"element \$(rowStyle) \$(levels) \$(extraClasses) \${col.group.styles.ss.groupClassNames if col.group else (row.group.styles.ss.groupClassNames if row.group else \"\")} \$(col.styles.ss.colClassNames) \$(row.styles.ss.rowClassNames) \${\"clickableCell\" if isClickable else \"\"}\"\$(extra)>\n    \${v2_insertStyle('el.label.start')}\n    \$(text)\n    \${v2_insertStyle('el.label.end')}\n</div>\n\\@else\n<\$(tag) \$(headers) class=\"cell nonempty element \$(levels) \${\"desktop\" if this.grouping.cols else \"mobile\"} border-collapse \$(extraClasses) \${col.group.styles.ss.groupClassNames if col.group else (row.group.styles.ss.groupClassNames if row.group else \"\")} \$(col.styles.ss.colClassNames) \$(row.styles.ss.rowClassNames) \${\"clickableCell\" if isClickable else \"\"}\"\$(extra)>\n    \${v2_insertStyle('el.label.start')}\n    \$(text)\n    \${v2_insertStyle('el.label.end')}\n</\$(tag)>\n\\@endif"
+  }, {
+    "label": "question.left",
+    "body": "\\@if this.styles.ss.legendColWidth\n    <\$(tag) scope=\"row\" class=\"cell nonempty legend row-legend row-legend-left \${\"row-legend-both \" if ec.haveRightLegend and ec.haveLeftLegend else \"\"}row-legend-basic \${\"mobile-left-row-legend \" if force else \"\"}\$(levels) \${\"desktop\" if this.grouping.cols else \"mobile\"} \${\"row-legend-both-space \" if ec.haveRightLegend and ec.haveLeftLegend and (not row.group or not row.index==0) else \"border-collapse \"} \$(row.styles.ss.rowClassNames)\" style=\"width:\${this.styles.ss.legendColWidth}; min-width:\${this.styles.ss.legendColWidth}\">\n        \$(text)\n    </\$(tag)>\n\\@else\n    <\$(tag) scope=\"row\" class=\"cell nonempty legend row-legend row-legend-left \${\"row-legend-both \" if ec.haveRightLegend and ec.haveLeftLegend else \"\"}row-legend-basic \${\"mobile-left-row-legend \" if force else \"\"}\$(levels) \${\"desktop\" if this.grouping.cols else \"mobile\"} \${\"row-legend-both-space \" if ec.haveRightLegend and ec.haveLeftLegend and (row.group or not row.index==0) else \"border-collapse \"} \$(row.styles.ss.rowClassNames)\">\n        \$(text)\n    </\$(tag)>\n\\@endif"
+  }, {
+    "label": "question.right",
+    "body": "\\@if this.styles.ss.legendColWidth\n    <\$(tag) scope=\"row\" class=\"cell nonempty legend row-legend row-legend-right \${\"row-legend-both \" if ec.haveRightLegend and ec.haveLeftLegend else \"\"}row-legend-basic \$(levels) \${\"desktop\" if this.grouping.cols else \"mobile\"} border-collapse \$(row.styles.ss.rowClassNames)\" style=\"width:\${this.styles.ss.legendColWidth}; min-width:\${this.styles.ss.legendColWidth}\">\n        \$(text)\n    </\$(tag)>\n\\@else\n    <\$(tag) scope=\"row\" class=\"cell nonempty legend row-legend row-legend-right \${\"row-legend-both \" if ec.haveRightLegend and ec.haveLeftLegend else \"\"}row-legend-basic \$(levels) \${\"desktop\" if this.grouping.cols else \"mobile\"} border-collapse \$(row.styles.ss.rowClassNames)\">\n        \$(text)\n    </\$(tag)>\n\\@endif"
+  }, {
+    "label": "el.radio",
+    "body": "<input type=\"radio\" name=\"\$(name)\" value=\"\$(value)\" id=\$(id) \$(checked) class=\"input radio\" \$(extra)/>"
+  }, {
+    "label": "el.checkbox",
+    "body": "<input type=\"checkbox\" name=\"\$(name)\" id=\"\$(id)\" value=\"1\" \$(checked) class=\"\${flags.CSS} input checkbox\" \$(extra)/>"
+  }, {
+    "label": "el.select.header",
+    "body": "<select name=\"\$(name)\" id=\"\$(id)\" class=\"input dropdown\" \$(extra)>"
+  }, {
+    "label": "el.select.default",
+    "body": "<option value=\"-1\" \$(selected)>@(select)</option>"
+  }, {
+    "label": "el.select.element",
+    "body": "<option value=\"\$(value)\" \$(selected) class=\"\${choice.styles.ss.choiceClassNames if ec.choice else \"\"}\">\$(text)</option>"
+  }, {
+    "label": "el.select.footer",
+    "body": "</select>"
+  }, {
+    "label": "el.textarea",
+    "body": "\\@if row.styles.ss.preText or this.styles.ss.preText\n    \${row.styles.ss.preText or this.styles.ss.preText or \"\"}&nbsp;\n\\@endif\n<textarea name=\"\$(name)\" id=\"\$(id)\" rows=\"\$(height)\" cols=\"\$(width)\" wrap=\"virtual\" class=\"input textarea\" \$(extra)>\$(value)</textarea>\n\\@if row.styles.ss.postText or this.styles.ss.postText\n    &nbsp;\${row.styles.ss.postText or this.styles.ss.postText or \"\"}\n\\@endif"
+  }, {
+    "label": "el.noanswer",
+    "body": "\\@if ec.simpleList\n<div class=\"element\">\n\\@endif\n<span class=\"cell-sub-wrapper cell-legend-right\"><span class=\"cell-input cell-sub-column\">\n<input type=\"checkbox\" id=\"\$(row.checkboxLabel)\" name=\"\$(row.checkboxLabel)\" value=\"1\" class=\"input no-answer checkbox\" \$(value|checkbox)/>\n</span><span class=\"cell-text cell-sub-column\"><label for=\"\$(row.checkboxLabel)\">\$(label)</label></span></span>\n\\@if ec.simpleList\n</div>\n\\@endif"
+  }, {
+    "label": "el.text",
+    "body": "\\@if row.styles.ss.preText or this.styles.ss.preText\n<span class=\"pre-text\">\n\t\${row.styles.ss.preText or this.styles.ss.preText or \"\"}&nbsp;\n</span>\t\t\t\t\t\t\t\t\t\n\\@endif\n\\@if this.xmlTagName in ('number', 'float')\n<input type=\"number\" name=\"\$(name)\" id=\"\$(id)\" value=\"\$(value)\" size=\"\$(size)\" class=\"input text-input\" \$(extra)/>\n\\@else\t\t\t\t\t\t\t\t\t\n<input type=\"text\" name=\"\$(name)\" id=\"\$(id)\" value=\"\$(value)\" size=\"\$(size)\" class=\"input text-input\" \$(extra)/>\n\\@endif\n\\@if row.styles.ss.postText or this.styles.ss.postText\n<span class=\"post-text\">\n\t&nbsp;\${row.styles.ss.postText or this.styles.ss.postText or \"\"}\n</span>\n\\@endif"
+  }, {
+    "label": "el.open",
+    "body": "<input type=\"text\" name=\"\$(name)\" id=\"\$(name)\" value=\"\$(value)\" data-cell=\"\$(cell.parent.label)_\$(cell.label)\" size=\"\$(size)\" class=\"input text-input oe oe-\$(align)\" \$(extra)/>\n\$(scripts)"
+  }, {
+    "label": "el.image",
+    "body": "\\@if data\n\\@if this.displayInline\n<img align='center' src='/survey/\${gv.survey.path}/\$(localFilename|q)'>\n\\@endif\n<input type=\"hidden\" name=\"old-\$(name)\" value=\"\$(data)\">\n<br/><br/>\n\\@endif\n<input type=\"file\" name=\"\$(name)\" size=\"\$(size)\">"
+  }
+];
+
+function dupeCheckScript(dupeVarName) {
+  return `
+<exec when="init"> 
+db_${dupeVarName} = Database(name="${dupeVarName}") 
+</exec>
+
+<exec cond="${dupeVarName} != ''"> 
+if db_${dupeVarName}.has(${dupeVarName}): 
+	setMarker("${dupeVarName}_Dupe") 
+</exec>
+
+<term label="term_${dupeVarName}_dupe" cond="hasMarker('${dupeVarName}_Dupe')" sst="0">${dupeVarName} Duplicate</term>
+
+<exec cond="${dupeVarName} != ''" when="finished"> 
+if ${dupeVarName} != '': 
+	db_${dupeVarName}.add(${dupeVarName}) 
+</exec>`;
+
+}
