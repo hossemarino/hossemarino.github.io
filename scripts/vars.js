@@ -24,7 +24,10 @@ const SURVEY_SETUP = {
 <a href="https://www.focusgroup.com/Page/PrivacyPolicy" target="_blank">\${res.privacy}</a> - <a href="mailto:help@focusgroup.com?Subject=${surveyNumber}" target="_blank">\${res.helpText}</a>
 ]]></style>
 `;
-    }
+    },
+    privacyText: `Privacy Policy`,
+    helpText: `Help`,
+    dialogClose: `Close`,
 
   },
   german: {
@@ -43,7 +46,10 @@ const SURVEY_SETUP = {
 <a href="https://www.sagunsdiemeinung.de/Page/PrivacyPolicy" target="_blank">\${res.privacy}</a> - <a href="mailto:QuantProjectManagement@sago.com?subject=${surveyNumber}" target="_blank">\${res.helpText}</a>
 ]]></style>
 `
-    }
+    },
+    privacyText: `Datenschutz`,
+    helpText: `Hilfe`,
+    dialogClose: `Schlie&#223;en`,
   },
   french: {
     testRedirects: `  <samplesource list="1">
@@ -61,7 +67,11 @@ const SURVEY_SETUP = {
 <a href="https://www.opinionspartagees.fr/Page/PrivacyPolicy" target="_blank">\${res.privacy}</a> - <a href="mailto:QuantProjectManagement@sago.com?subject=${surveyNumber}" target="_blank">\${res.helpText}</a>
 ]]></style>
 `
-    }
+    },
+    privacyText: `Politique de confidentialit&amp;eacute;`,
+    helpText: `Aide`,
+    dialogClose: `Fermer`,
+
   }
 };
 
@@ -260,7 +270,7 @@ img {
   <themevar name="color-4">#fdfffd</themevar>
   <themevar name="color-5">rgb(107,193,116)</themevar>
   <themevar name="color-6">#d8d8d8</themevar>
-  <themevar name="progress-fill-color">@color-4</themevar>
+  <themevar name="progress-fill-color">@color-5</themevar>
   <themevar name="table-cell-hover-color">#f1f7e8</themevar>
   <themevar name="survey-info-bg-color">@color-5</themevar>
   <themevar name="survey-error-bg-color">#e50000</themevar>
@@ -448,7 +458,7 @@ img {
   <themevar name="color-4">#fdfffd</themevar>
   <themevar name="color-5">rgb(107,193,116)</themevar>
   <themevar name="color-6">#d8d8d8</themevar>
-  <themevar name="progress-fill-color">@color-4</themevar>
+  <themevar name="progress-fill-color">@color-5</themevar>
   <themevar name="table-cell-hover-color">#f1f7e8</themevar>
   <themevar name="survey-info-bg-color">@color-5</themevar>
   <themevar name="survey-error-bg-color">#e50000</themevar>
@@ -1070,6 +1080,57 @@ Click <a href="https://qb4.qualboard.com" target="_blank">here to access QualBoa
 const CLTNOTE = `
 <note>CREATE A LANDING PAGE SURVEY WITH AN OPEN LINK SAMPLE SOURCE AND A QUESTION ASKING FOR RESPONDENT ID THAT WILL REDIRECT TO THIS QUESTION
 REFERENCE ONCE LANDING PAGE SURVEYS FOR CLT PROJECTS IF NEEDED</note>`;
+
+const CONTACT_QUESTION = `
+<text 
+  label="contact"
+  mls="english"
+  optional="0"
+  size="25">
+  <title>
+  Please enter your contact information below, so we can process your incentive.  
+  Be sure to click the 'Continue' button after you have finished entering your contact information.  
+  That is needed in order to submit your results and be eligible for your incentive.
+  </title>
+  <validate>
+validStates = ["AL","AK","AS","AZ","AR","AA","AP","AE","CA","CO","CT","DE","DC",
+"FM","FL","GA","GU","HI","ID","IL","IN","IA","KS","KY","LA","ME","MH","MD","MA",
+"MI","MN","MS","MO","MP","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK",
+"OR","PW","PA","PR","RI","SC","SD","TN","TX","UT","VT","VI","VA","WA","WV","WI","WY"]
+  
+if this.r6.displayed and this.r6.val not in validStates:
+	error(res["%s,stateErr"%this.label], this.r6)
+
+searchStr = "[\\"~%$#@*(){}\\[\\]|\\\\\\\\&amp;+_=&lt;&gt;?/\`:;,]"
+allowed_chars = flatten([range(65,91), range(97,123)])
+
+for erow in this.rows:
+	if erow.displayed and erow.label in ['r1','r2']:
+		if re.search(searchStr, erow.unsafe_val) != None:
+			error(res["%s,nameErr"%this.label], row=erow)
+		
+		for eSymbol in map(ord, erow.unsafe_val.replace(' ','')):
+			if eSymbol not in allowed_chars:
+				error(res["%s,characterError"%this.label], row=erow)
+  </validate>
+
+  <res label="sys_lenAtMost">Your answer must be <b>at most $(max)</b> characters long, but I counted $(count)</res>
+  <res label="stateErr">Please enter the state as a two letter abbreviation, in the "AA" format.</res>
+  <res label="nameErr">Invalid character entered. The following characters are not allowed: \\"~%$#@*(){}[]|&amp;+_=&lt;&gt;?/\`:;,</res>
+  <res label="characterError">Please write only standard ASCII symbols</res>
+  <row label="r1" verify="len(1,20)">First Name:</row>
+  <row label="r2" verify="len(1,20)">Last Name:</row>
+  <row label="r3" verify="len(1,30)">Address:</row>
+  <row label="r4" optional="1" verify="len(0,30)">Address 2:</row>
+  <row label="r5" verify="len(1,19)">City:</row>
+  <row label="r6">State:</row>
+  <row label="r7" verify="zipcode">Zip Code:</row>
+  <row label="r8" verify="phoneUS">Phone:</row>
+  <row label="r9" verify="email">Email:</row>
+</text>
+
+<suspend/>
+`;
 
 const CONTACT_QUESTION_IHUT = `
 <text 

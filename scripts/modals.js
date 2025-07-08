@@ -6,11 +6,7 @@ const modalDefinitions = {
         focus: "#tab_name",
         init: () => document.getElementById("tabError").style.display = "none"
     },
-    "new-survey": {
-        title: "Create a New Survey",
-        section: ".new-survey",
-        init: () => document.getElementById("genXML").onclick = () => validateFormAndGenerateXML("survey")
-    },
+
     "delete-tab": {
         title: "Confirm Tab Deletion",
         section: ".delete-tab",
@@ -18,6 +14,16 @@ const modalDefinitions = {
             document.getElementById("tabToDeleteName").textContent = tabName;
             tabPendingDeletion = tabName;
         }
+    },
+    "delete-all-data": {
+        title: "Delete All Data",
+        section: ".delete-all-data",
+        init: () => document.getElementById("confirmDeleteAll").onclick = () => deleteAllData()
+    },
+    "new-survey": {
+        title: "Create a New Survey",
+        section: ".new-survey",
+        init: () => document.getElementById("genXML").onclick = () => validateFormAndGenerateXML("survey")
     },
     "new-ihut": {
         title: "Create a New IHUT",
@@ -50,13 +56,18 @@ const modalDefinitions = {
         section: ".new-style",
         init: () => document.getElementById("genNewStyle").onclick = () => genNewStyle()
     },
-    "delete-all-data": {
-        title: "Delete All Data",
-        section: ".delete-all-data",
-        init: () => document.getElementById("confirmDeleteAll").onclick = () => deleteAllData()
-    }
-
+    "pipe-in-number": {
+        title: "Pipe Number question in table",
+        section: ".pipe-in-number",
+        init: () => document.getElementById("genPipeNumber").onclick = () => genPipeNumber()
+    },
+    "disable-continue": {
+        title: "Disable Continue Button",
+        section: ".disable-continue",
+        init: () => document.getElementById("genDisableContinue").onclick = () => genDisableContinue()
+    },
 };
+
 function openModal(purpose, tabName = "") {
     const modalEl = document.getElementById("surveyModal");
     const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
@@ -213,16 +224,16 @@ function generateXML() {
     if (useu === "US" || surveyLanguage === "Base English") {
         langCode = "english";
         setSurveyLanguage('english');
-    } else if (useu === "EU" || surveyLanguage === "Base German") {
+    } else if (useu === "EU" && surveyLanguage === "Base German") {
         langCode = "german";
         setSurveyLanguage('german');
 
-    } else if (useu === "EU" || surveyLanguage === "Base French") {
+    } else if (useu === "EU" && surveyLanguage === "Base French") {
         langCode = "french";
         setSurveyLanguage('french');
 
     }
-
+    console.log(langCode)
     let portalLinks = "";
     let logos = "";
 
@@ -266,9 +277,9 @@ function generateXML() {
   state="testing">
   
 <res label="sys_surveyCompleted">&amp;nbsp;</res>
-<res label="privacy">Privacy Policy</res>
-<res label="helpText">Help</res>
-<res label="dialogClose">Close</res>
+<res label="privacy">${SURVEY_SETUP[langCode].privacyText}</res>
+<res label="helpText">${SURVEY_SETUP[langCode].helpText}</res>
+<res label="dialogClose">${SURVEY_SETUP[langCode].dialogClose}</res>
 
 <samplesources default="1">
 ${SURVEY_SETUP[langCode].testRedirects}
@@ -285,7 +296,7 @@ ${SURVEY_SETUP[langCode].testRedirects}
     <exit cond="terminated" url="https://surveys.sample-cube.com/ending/?RS=3&amp;RID=\${RID}"/>
     <exit cond="qualified" url="https://surveys.sample-cube.com/ending/?RS=1&amp;RID=\${RID}&amp;secret=${secretSampleCode}"/>
     <exit cond="overquota" url="https://surveys.sample-cube.com/ending/?RS=2&amp;RID=\${RID}"/>
-    </samplesource>
+  </samplesource>
 </samplesources>
 
 <radio 
@@ -911,3 +922,70 @@ function generateDupeCheck() {
         modal.hide();
 
 };
+
+function genPipeNumber() {
+    const qLabel = document.getElementById("pipeNumberLabel").value;
+    const qMultiCol = document.getElementById("pipeNumberMultiCol").value === "Yes" ? true : false;
+    const questionTopLegendItem = `
+<style name="question.top-legend-item" arg:colText="Replace with res tag" mode="before" cond="col.index == 0"><![CDATA[
+\\@if ec.simpleList
+    <div id="\${this.label}_\${col.label}" class="legend col-legend col-legend-top col-legend-basic \${levels} \${this.grouping.cols && (col.group || col.index!=0) && ec.haveLeftLegend && ec.haveRightLegend ? "col-legend-space" : "border-collapse"} \${col.styles.ss.colClassNames} \${col.group ? col.group.styles.ss.groupClassNames : ""} \${colError}">
+        \${colText}
+    </div>
+\\@else
+\\@if this.styles.ss.colWidth
+    <\${tag} scope="col" id="\${this.label}_\${col.label}" class="cell nonempty legend col-legend col-legend-top col-legend-basic \${levels} \${this.grouping.cols ? "desktop" : "mobile"} \${this.grouping.cols && (col.group || col.index!=0) && ec.haveLeftLegend && ec.haveRightLegend ? "col-legend-space" : "border-collapse"} \${col.styles.ss.colClassNames} \${col.group ? col.group.styles.ss.groupClassNames : ""} \${colError}" style="width:\${this.styles.ss.colWidth}; min-width:\${this.styles.ss.colWidth}">
+        \${colText}
+    </\${tag}>
+\\@else
+    <\${tag} scope="col" id="\${this.label}_\${col.label}" class="cell nonempty legend col-legend col-legend-top col-legend-basic \${levels} \${this.grouping.cols ? "desktop" : "mobile"} \${this.grouping.cols && (col.group || col.index!=0) && ec.haveLeftLegend && ec.haveRightLegend ? "col-legend-space" : "border-collapse"} \${col.styles.ss.colClassNames} \${col.group ? col.group.styles.ss.groupClassNames : ""} \${colError}">
+        \${colText}
+    </\${tag}>
+\\@endif
+\\@endif
+]]></style>`;
+
+    const elementInner = qMultiCol
+         ? `\${${qLabel}.rows[row.index][0].ival}`
+         : `\${${qLabel}.rows[row.index].ival}`;
+
+    const questionElement = `
+<style name="question.element" mode="before" cond="col.index == 0"><![CDATA[
+\\@if ec.simpleList
+<div class="element \${rowStyle} \${levels} \${extraClasses} \${col.group ? col.group.styles.ss.groupClassNames : (row.group ? row.group.styles.ss.groupClassNames : "")} \${col.styles.ss.colClassNames} \${row.styles.ss.rowClassNames} \${isClickable ? "clickableCell" : ""}"\${extra}>
+     ${elementInner}
+</div>
+\\@else
+<\${tag} \${headers} class="cell nonempty element \${levels} \${this.grouping.cols ? "desktop" : "mobile"} border-collapse \${extraClasses} \${col.group ? col.group.styles.ss.groupClassNames : (row.group ? row.group.styles.ss.groupClassNames : "")} \${col.styles.ss.colClassNames} \${row.styles.ss.rowClassNames} \${isClickable ? "clickableCell" : ""}"\${extra}>
+     ${elementInner}
+</\${tag}>
+\\@endif
+]]></style>`;
+
+    const xmlContent = questionTopLegendItem + "\n\n" + questionElement;
+    getActiveEditor().replaceSelection(xmlContent + "\n");
+
+    const modal = bootstrap.Modal.getInstance(document.getElementById("surveyModal"));
+    if (modal)
+        modal.hide();
+
+}
+
+function genDisableContinue() {
+    const qLabels = document.getElementById("disableLabels").value;
+    const duration = document.getElementById("disableDuration").value;
+
+    const xmlContent = `
+    <style name="buttons" mode="after" with="${qLabels}" wrap="ready" arg:timeout="${duration}"><![CDATA[
+$ ("#btn_continue,#btn_finish").prop("disabled", true);
+setTimeout(function() {
+	$ ("#btn_continue,#btn_finish").prop("disabled", false);
+}, $(timeout)*1000);
+]]></style>`;
+    getActiveEditor().replaceSelection(xmlContent + "\n");
+
+    const modal = bootstrap.Modal.getInstance(document.getElementById("surveyModal"));
+    if (modal)
+        modal.hide();
+
+}
