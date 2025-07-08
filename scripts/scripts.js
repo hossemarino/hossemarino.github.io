@@ -19,6 +19,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let commandSuggestions = document.getElementById("commandSuggestions");
 
     const surveyLanguageDropdown = document.getElementById("surveyLanguage");
+    const newSurvey = document.getElementById("newSurvey");
     const controlElements = document.getElementById("controlElements");
     const questionTypes = document.getElementById("questionTypes");
     const questionElements = document.getElementById("questionElements");
@@ -33,6 +34,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const stylesTab = document.getElementById("styleCreation");
     const stylesTabXML = document.getElementById("styleCreationXML");
+    const stylesReadyToUse = document.getElementById("readyToUse");
+    const stylesComponents = document.getElementById("sstyleComponents");
 
     const increaseFontButton = document.getElementById("increaseFont");
     const decreaseFontButton = document.getElementById("decreaseFont");
@@ -40,6 +43,10 @@ document.addEventListener("DOMContentLoaded", () => {
     editor = getActiveEditor();
 
     const commandGroups = {
+        newsurvey: {
+            "new sago survey": () => openModal("new-survey"),
+            "new sago ihut survey": () => openModal('new-ihut'),
+        },
         control: {
             "add term": addTerm,
             "add quota": addQuota,
@@ -103,7 +110,11 @@ document.addEventListener("DOMContentLoaded", () => {
             "add values h-l": addValuesHigh,
             "add alt label": addAltlabel,
             "add rating direction reversed": addRatingDirection,
+            "add row class": addRowClassNames,
+            "add col class": addColClassNames,
+            "add choice class": addChoiceClassNames,
             "swap rows and cols": swapRowCol,
+
         },
         preposttext: {
             "add pretext": addPreText,
@@ -121,6 +132,8 @@ document.addEventListener("DOMContentLoaded", () => {
             "ol": makeOl,
             "ul": makeUl,
             "make link href": makeHref,
+            "add contact question": addContactQuestion,
+            "add ihut contact question": addContactQuestionIHUT,
         },
         standards: {
             "us states": makeStateOnly,
@@ -161,11 +174,24 @@ document.addEventListener("DOMContentLoaded", () => {
             "question specific css": addQuestionSpecificCSS,
             "question specific js (after question)": addQuestionSpecificJSAfterQ,
             "question specific js (in <head>)": addQuestionSpecificJSInHead,
+        },
+        stylesreadytouse: {
+            "pipe number question in table": () => openModal("pipe-in-number"),
+            "left-blank legend": addLeftBlankLegend,
+            "disable continue button": () => openModal("disable-continue"),
+            "add max diff style": addMaxDiff,
+            "add element labels display": addPretestLabelsDisplay,
+
+        },
+        stylescomponents: {
+            "add colfix declaration": addColFixDeclaration,
+            "add colfix call": addColFixCall,
         }
 
     };
 
     const containers = {
+        newsurvey: newSurvey,
         control: controlElements,
         types: questionTypes,
         elements: questionElements,
@@ -177,7 +203,9 @@ document.addEventListener("DOMContentLoaded", () => {
         mouseoverpopup: mouseoverPopUp,
         standardsmisc: standardMiscelaneousCommands,
         styles: stylesTab,
-        stylesxml: stylesTabXML
+        stylesxml: stylesTabXML,
+        stylesreadytouse: stylesReadyToUse,
+        stylescomponents: stylesComponents
     };
 
     document.getElementById("addTabButton").onclick = () => openModal("tab");
@@ -507,8 +535,13 @@ document.addEventListener("DOMContentLoaded", () => {
                 }, {
                     selector: ".new-style",
                     action: () => document.getElementById("genNewStyle").click()
+                }, {
+                    selector: ".pipe-in-number",
+                    action: () => document.getElementById("genPipeNumber").click()
+                }, {
+                    selector: ".disable-continue",
+                    action: () => document.getElementById("genDisableContinue").click()
                 }
-
             ];
 
             for (const { selector, action } of actions) {
@@ -759,7 +792,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
             const reader = new FileReader();
             reader.onload = (e) => {
-                editor.setValue(e.target.result);
+                editor.replaceSelection(e.target.result);
             };
 
             reader.readAsText(file);
