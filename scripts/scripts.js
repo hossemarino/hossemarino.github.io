@@ -130,7 +130,7 @@ document.addEventListener("DOMContentLoaded", () => {
             "add comment class": () => addSurveyClassNames("comment"),
             "add question class": () => addSurveyClassNames("question"),
             "add colwidth": addColWidth,
-            "add legendColWidth (set left/right legend)": addLegendColWidth,
+            "add legend col width (left/right legend)": addLegendColWidth,
         },
         misc: {
             "make note": makeNote,
