@@ -26,7 +26,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const questionAttributes = document.getElementById("attributesCommands");
     const prePostText = document.getElementById("prePostText");
     const miscelaneousCommands = document.getElementById("miscellaneousCommands");
-    const stylesCommands = document.getElementById("stylesCommands");
 
     const standardsTab = document.getElementById("standardQuestions");
     const copyProtection = document.getElementById("standardCopyProtection");
@@ -94,7 +93,7 @@ document.addEventListener("DOMContentLoaded", () => {
             "make pipe": makePipe
         },
         attr: {
-            "add open-end": addOpen,
+            "open-end": addOpen,
             "add exclusive": addExclusive,
             "add aggregate": addAggregate,
             "add randomize='0'": addRandomize0,
@@ -111,6 +110,9 @@ document.addEventListener("DOMContentLoaded", () => {
             "add values h-l": addValuesHigh,
             "add alt label": addAltlabel,
             "add rating direction reversed": addRatingDirection,
+            "add row class": addRowClassNames,
+            "add col class": addColClassNames,
+            "add choice class": addChoiceClassNames,
             "swap rows and cols": swapRowCol,
 
         },
@@ -122,16 +124,6 @@ document.addEventListener("DOMContentLoaded", () => {
             "add posttext (internal)": addPostTextInternal,
             "make posttext res (internal)": makePostTextResInternal,
         },
-        stylescommands: {
-            "add row class": () => addSurveyClassNames("row"),
-            "add col class": () => addSurveyClassNames("col"),
-            "add choice class": () => addSurveyClassNames("choice"),
-            "add group class": () => addSurveyClassNames("group"),
-            "add comment class": () => addSurveyClassNames("comment"),
-            "add question class": () => addSurveyClassNames("question"),
-            "add colwidth": addColWidth,
-            "add legendColWidth (set left/right legend)": addLegendColWidth,
-        },
         misc: {
             "make note": makeNote,
             "brbr": brbr,
@@ -140,7 +132,6 @@ document.addEventListener("DOMContentLoaded", () => {
             "ol": makeOl,
             "ul": makeUl,
             "make link href": makeHref,
-            "relabel elements": relabelSelection,
             "add contact question": addContactQuestion,
             "add ihut contact question": addContactQuestionIHUT,
         },
@@ -206,7 +197,6 @@ document.addEventListener("DOMContentLoaded", () => {
         elements: questionElements,
         attr: questionAttributes,
         preposttext: prePostText,
-        stylescommands:stylesCommands,
         misc: miscelaneousCommands,
         standards: standardsTab,
         copyprotection: copyProtection,
@@ -963,4 +953,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
             select.appendChild(group);
         });
+        document.querySelectorAll(".commands-header.collapsible").forEach(header => {
+            header.addEventListener("click", () => {
+                const body = header.nextElementSibling;
+                if (body.classList.contains("collapsed")) {
+                    body.classList.remove("collapsed");
+                } else {
+                    body.classList.add("collapsed");
+                }
+            });
+        });
+
     });

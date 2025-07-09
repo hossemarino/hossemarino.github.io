@@ -1,6 +1,5 @@
 // editor selection
 function getInputOrLine() {
-    editor = getActiveEditor();
     const sel = editor.getSelection();
     return sel.trim() || editor.getLine(editor.getCursor().line)?.trim() || "";
 }
@@ -713,69 +712,20 @@ function addGroupingRows() {
 }
 
 //add class names
-function addSurveyClassNames(type = "row") {
-    const editor = getActiveEditor();
-    const selection = editor.getSelection();
-    const isCursorOnly = selection.length === 0;
-
-    const typeMap = {
-        row: {
-            tags: ["row"],
-            attr: 'ss:rowClassNames=""'
-        },
-        col: {
-            tags: ["col"],
-            attr: 'ss:colClassNames=""'
-        },
-        choice: {
-            tags: ["choice"],
-            attr: 'ss:choiceClassNames=""'
-        },
-        group: {
-            tags: ["group"],
-            attr: 'ss:groupClassNames=""'
-        },
-        comment: {
-            tags: ["comment"],
-            attr: 'ss:commentClassNames=""'
-        },
-        question: {
-            tags: ["radio", "checkbox", "select", "text", "textarea", "number", "float"],
-            attr: 'ss:questionClassNames=""'
-        }
-    };
-
-    const rule = typeMap[type.toLowerCase()];
-    if (!rule)
-        return;
-
-    if (isCursorOnly) {
-        // No selection: just insert attribute at cursor
-        editor.replaceSelection(" " + rule.attr);
-    } else {
-        // Update selected text
-        const updated = selection.split("\n").map(line => {
-            for (const tag of rule.tags) {
-                const tagRegex = new RegExp(`<${tag}\\b`);
-                if (tagRegex.test(line.trim()) && !line.includes(rule.attr)) {
-                    return line.replace(/<(\w+)(\s|>)/, `<$1 ${rule.attr}$2`);
-                }
-            }
-            return line;
-        }).join("\n");
-
-        editor.replaceSelection(updated);
-    }
-}
-
-//add Add colWidth
-function addColWidth() {
-    xmlItems = ` ss:colWidth=""`;
+//add Add rowclassnames
+function addRowClassNames() {
+    xmlItems = ` ss:rowClassNames=""`;
     window.editor.replaceSelection(xmlItems);
 }
-//add Add legendColWidth
-function addLegendColWidth() {
-    xmlItems = ` ss:legendColWidth=""`;
+
+//add Add colclassnames
+function addColClassNames() {
+    xmlItems = ` ss:colClassNames=""`;
+    window.editor.replaceSelection(xmlItems);
+}
+//add Add choiceclassnames
+function addChoiceClassNames() {
+    xmlItems = ` ss:choiceClassNames=""`;
     window.editor.replaceSelection(xmlItems);
 }
 
@@ -1026,13 +976,11 @@ function makeUl() {
     }
 }
 
+
 // pre texts
 function addPreText() {
     const selectedText = getInputOrLine();
-    const xmlContent = ` ss:preText="\${res.$ {
-            selectedText.trim()
-        }
-}"`;
+    const xmlContent = ` ss:preText="\${res.${selectedText.trim()}}"`;
     window.editor.replaceSelection(xmlContent);
 }
 
@@ -1051,10 +999,7 @@ function makePreTextResInternal() {
 // post text
 function addPostText() {
     const selectedText = getInputOrLine();
-    const xmlContent = ` ss:postText="\${res.$ {
-            selectedText.trim()
-        }
-}"`;
+    const xmlContent = ` ss:postText="\${res.${selectedText.trim()}}"`;
     window.editor.replaceSelection(xmlContent);
 }
 
@@ -1070,6 +1015,7 @@ function makePostTextResInternal() {
     window.editor.replaceSelection(xmlContent);
 }
 
+
 // add contact q
 function addContactQuestion() {
     const xmlContent = CONTACT_QUESTION;
@@ -1079,44 +1025,4 @@ function addContactQuestion() {
 function addContactQuestionIHUT() {
     const xmlContent = CONTACT_QUESTION_IHUT;
     window.editor.replaceSelection(xmlContent);
-}
-
-function relabelSelection() {
-    const editor = getActiveEditor(); // Assumes your existing method
-    const inputText = editor.getSelection();
-    if (!inputText)
-        return;
-
-    const lines = inputText.trim().split("\n");
-    if (!lines.length)
-        return;
-
-    const labelMatch = lines[0].match(/label=['"](\w+)['"]/);
-    const elementMatch = lines[0].match(/<col|<row|<choice/);
-
-    if (!labelMatch || !elementMatch)
-        return;
-
-    const startLabel = labelMatch[1];
-    const startElement = elementMatch[0].slice(1);
-    const nonAlphaPart = startLabel.replace(/[a-zA-Z]*/g, "");
-    const isAlphanumeric = /^\d+$/.test(nonAlphaPart);
-    const baseValue = isAlphanumeric
-         ? parseInt(nonAlphaPart, 10)
-         : startLabel.charCodeAt(0);
-
-    let count = -1;
-
-    const updated = lines.map(line => {
-        if (new RegExp(`<${startElement}`).test(line.trim())) {
-            count++;
-            const newLabel = isAlphanumeric
-                 ? startLabel.replace(/\d+/, baseValue + count)
-                 : String.fromCharCode(baseValue + count);
-            return line.replace(/label=['"]\w+['"]/, `label="${newLabel}"`);
-        }
-        return line;
-    });
-
-    editor.replaceSelection(updated.join("\n"));
 }
