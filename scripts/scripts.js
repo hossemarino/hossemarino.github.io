@@ -140,6 +140,7 @@ document.addEventListener("DOMContentLoaded", () => {
             "ol": makeOl,
             "ul": makeUl,
             "make link href": makeHref,
+            "make image": makeImageTags,
             "relabel elements": relabelSelection,
             "add contact question": addContactQuestion,
             "add ihut contact question": addContactQuestionIHUT,

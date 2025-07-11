@@ -19,7 +19,7 @@ function groupStylesByPrefix(definitions) {
     return Object.fromEntries(Object.entries(groups).sort(([a], [b]) => a.localeCompare(b)));
 }
 function getSurveyStyles() {
-    mode = ` mode="${document.getElementById("styleDropdownMode").value}"` || "";
+    mode = document.getElementById("styleDropdownMode").value !== 'instead'? ` mode="${document.getElementById("styleDropdownMode").value}"` : "";
     return SURVEY_STYLE_DEFINITIONS.map(({
             label,
             body
@@ -179,19 +179,19 @@ function addMaxDiff() {
 
 function addColFixDeclaration(){
     const xmlContent = `<style label="colFix" name="question.element"> <![CDATA[
-\@if ec.simpleList
+\\@if ec.simpleList
 <div class="element \$(rowStyle) \$(levels) \$(extraClasses) \${col.group.styles.ss.groupClassNames if col.group else (row.group.styles.ss.groupClassNames if row.group else "")} \$(col.styles.ss.colClassNames) \$(row.styles.ss.rowClassNames) \${"clickableCell" if isClickable else ""} row-\${ec.row.label if ec.row.label else "1"} col-\${ec.col.label if ec.col.label else "1"}" data-row="\${ec.row.label if ec.row.label else "1"}" data-col="\${ec.col.label if ec.col.label else "1"}"\$(extra)>
     \${v2_insertStyle('el.label.start')}
     \$(text)
     \${v2_insertStyle('el.label.end')}
 </div>
-\@else
+\\@else
 <\$(tag) \$(headers) class="cell nonempty element \$(levels) \${"desktop" if this.grouping.cols else "mobile"} border-collapse \$(extraClasses) \${col.group.styles.ss.groupClassNames if col.group else (row.group.styles.ss.groupClassNames if row.group else "")} \$(col.styles.ss.colClassNames) \$(row.styles.ss.rowClassNames) \${"clickableCell" if isClickable else ""} row-\${ec.row.label if ec.row.label else "1"} col-\${ec.col.label if ec.col.label else "1"}" data-row="\${ec.row.label if ec.row.label else "1"}" data-col="\${ec.col.label if ec.col.label else "1"}"\$(extra)>
     \${v2_insertStyle('el.label.start')}
     \$(text)
     \${v2_insertStyle('el.label.end')}
 </\$(tag)>
-\@endif
+\\@endif
 ]]></style>
 <style label="colFix" name="el.select.element"> <![CDATA[
 <option value="\$(value)" \$(selected) class="\${choice.styles.ss.choiceClassNames if ec.choice else ""} ch-\${choice.label if choice.label else "1"}" data-choice="\${choice.label if choice.label else "1"}">\$(text)</option>

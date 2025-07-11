@@ -262,3 +262,46 @@ function renderTabs() {
             tab.classList.add("active");
     });
 }
+
+
+// TABs
+function addTab() {
+    openModal("tab");
+}
+
+let tabPendingDeletion = null;
+
+function requestTabDeletion(tabName) {
+    tabPendingDeletion = tabName;
+    openModal("delete-tab", tabName); // Show confirmation modal
+}
+
+function truncateLabel(label, max = 12) {
+    return label.length > max ? label.slice(0, max) + "…" : label;
+}
+
+function confirmTabCreation() {
+    const tabNameInput = document.getElementById("tab_name");
+    const errorDisplay = document.getElementById("tabError");
+    const tabName = tabNameInput.value.trim();
+
+    errorDisplay.textContent = "";
+    errorDisplay.style.display = "none";
+
+    if (!tabName) {
+        errorDisplay.textContent = "Tab name cannot be empty.";
+        errorDisplay.style.display = "block";
+        return;
+    }
+
+    if (tabs[tabName]) {
+        errorDisplay.textContent = "A tab with this name already exists.";
+        errorDisplay.style.display = "block";
+        return;
+    }
+
+    createTab(tabName);
+
+    tabNameInput.value = "";
+    bootstrap.Modal.getInstance(document.getElementById("surveyModal")).hide();
+}
