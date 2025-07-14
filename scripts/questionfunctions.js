@@ -188,7 +188,7 @@ function makeCheckbox() {
             const execLabel = label.trim();
             const hiddenTitle = `HIDDEN: record ${label.trim()} answers`;
 
-            const recodeBlock =`\n<text label="h${execLabel}" where="execute,survey,report">
+            const recodeBlock = `\n<text label="h${execLabel}" where="execute,survey,report">
   <title>${hiddenTitle}</title>
   <exec>
 chkbox_recode(thisQuestion)
@@ -359,23 +359,23 @@ function makeText() {
     try {
         input = selectedText.trim();
 
-        //  Convert numbering format (e.g., "1.2" → "1_2")
+        // Convert numbering format (e.g., "1.2" → "1_2")
         input = input.replace(/^(\w?\d+)\.(\d+)/, "$1_$2");
 
-        //  Extract label
+        // Extract label
         let labelMatch = input.match(/^([a-zA-Z0-9-_]+)(\.|:|\)|\s)/);
         let label = labelMatch ? labelMatch[1] : "Unknown";
         input = input.replace(/^([a-zA-Z0-9-_]+)(\.|:|\)|\s)/, "");
 
-        //  Remove blank lines
+        // Remove blank lines
         input = input.replace(/\n\n+/g, "\n");
 
-        //  Ensure label starts with "Q" if it's numeric
+        // Ensure label starts with "Q" if it's numeric
         if (!isNaN(label[0])) {
             label = "Q" + label;
         }
 
-        //  Capture title
+        // Capture title
         let title = "";
         if (input.includes("@")) {
             title = input.substring(0, input.indexOf("@"));
@@ -386,21 +386,32 @@ function makeText() {
             title = input.substring(0, inputIndex);
         }
 
-        //  Remove title from input
         input = input.replace(title, "").trim();
 
-        //  Determine comment based on content
+        // Determine comment
         let comment = "";
-        if (!input.includes("<comment>")) {
+        const hasComment = input.includes("<comment>");
+        if (!hasComment) {
             const set = comments[surveyLanguage] || comments.english;
             comment = `<comment>${set.text}</comment>\n`;
         }
-        //  Compose final question output
-        let xmlItems = input.includes("<comment>")
-             ? `<text label="${label.trim()}" size="40" optional="0">\n  <title>${title.trim()}</title>\n  ${input}\n</text>\n<suspend/>`
-             : `<text label="${label.trim()}" size="40" optional="0">\n  <title>${title.trim()}</title>\n  ${comment}  ${input}\n</text>\n<suspend/>`;
 
-        window.editor.replaceSelection(xmlItems)
+        const bodyContent = input.trim();
+        const finalComment = !hasComment ? comment.trim() : "";
+
+        // Compose final output
+        let xmlItems = `<text label="${label.trim()}" size="40" optional="0">\n  <title>${title.trim()}</title>\n`;
+
+        if (finalComment || bodyContent) {
+            if (finalComment)
+                xmlItems += `  ${finalComment}\n`;
+            if (bodyContent)
+                xmlItems += `  ${bodyContent}\n`;
+        }
+
+        xmlItems += `</text>\n<suspend/>`;
+
+        window.editor.replaceSelection(xmlItems);
         return xmlItems;
 
     } catch (error) {
@@ -457,11 +468,23 @@ function makeTextarea() {
             const set = comments[surveyLanguage] || comments.english;
             comment = `<comment>${set.text}</comment>\n`
         }
-        //  Compose final question output
-        let xmlItems = input.includes("<comment>")
-             ? `<textarea label="${label.trim()}" optional="0">\n  <title>${title.trim()}</title>\n  ${input}\n</textarea>\n<suspend/>`
-             : `<textarea label="${label.trim()}" optional="0">\n  <title>${title.trim()}</title>\n  ${comment}  ${input}\n</textarea>\n<suspend/>`;
 
+        
+        //  Trim any blank lines after comment (and entire body if empty)
+        const bodyContent = input.trim();
+        const needsComment = !input.includes("<comment>");
+        const finalComment = needsComment ? `${comment.trim()}\n` : "";
+
+        let xmlItems = `<textarea label="${label.trim()}" optional="0">\n  <title>${title.trim()}</title>\n`;
+
+        if (finalComment || bodyContent) {
+            if (finalComment)
+                xmlItems += `  ${finalComment}`;
+            if (bodyContent)
+                xmlItems += `  ${bodyContent}\n`;
+        }
+
+        xmlItems += `</textarea>\n<suspend/>`;
         window.editor.replaceSelection(xmlItems)
         return xmlItems;
 
@@ -521,9 +544,20 @@ function makeNumber() {
         }
 
         //  Compose final question output
-        let xmlItems = input.includes("<comment>")
-             ? `<number label="${label.trim()}" size="3" optional="0" verify="range(0,99999)">\n  <title>${title.trim()}</title>\n  ${input}\n</number>\n<suspend/>`
-             : `<number label="${label.trim()}" size="3" optional="0" verify="range(0,99999)">\n  <title>${title.trim()}</title>\n  ${comment}  ${input}\n</number>\n<suspend/>`;
+        const bodyContent = input.trim();
+        const needsComment = !input.includes("<comment>");
+        const finalComment = needsComment ? `${comment.trim()}\n` : "";
+
+        let xmlItems = `<number label="${label.trim()}" size="3" optional="0" verify="range(0,99999)">\n  <title>${title.trim()}</title>\n`;
+
+        if (finalComment || bodyContent) {
+            if (finalComment)
+                xmlItems += `  ${finalComment}`;
+            if (bodyContent)
+                xmlItems += `  ${bodyContent}\n`;
+        }
+
+        xmlItems += `</number>\n<suspend/>`;
 
         window.editor.replaceSelection(xmlItems)
         return xmlItems;
@@ -582,13 +616,32 @@ function makeSlidernumber() {
             const set = comments[surveyLanguage] || comments.english;
             comment = `<comment>${set.slidernumber}</comment>\n`
         }
-        let legends = `<res label="lLegend">LeftLegend Text</res>\n  <res label="mLegend">MidLegend Text</res>\n  <res label="rLegend">RightLegend Text</res>`
+        const bodyContent = input.trim();
+        const needsComment = !input.includes("<comment>");
+        const finalComment = needsComment ? `${comment.trim()}\n` : "";
+        const legendsBlock = `  <res label="lLegend">LeftLegend Text</res>\n  <res label="mLegend">MidLegend Text</res>\n  <res label="rLegend">RightLegend Text</res>`;
 
-            //  Compose final radio question output
-            let xmlItems = input.includes("<comment>")
-             ? `<number label="${label.trim()}"\n  size="3"\n  optional="0"\n  verify="range(0,100)"\n  slidernumber:handle_active_css="background: #8de no-repeat; border-color:#8de;"\n  slidernumber:handle_css="background: #8de no-repeat; border-color:#8de;"\n  slidernumber:handle_offscale_css="background: #8de no-repeat; border-color:#8de;"\n  slidernumber:leftLegend="\${res['${label.trim()},lLegend']}"\n  slidernumber:midLegend="\${res['${label.trim()},mLegend']}"\n  slidernumber:rightLegend="\${res['${label.trim()},rLegend']}"\n  slidernumber:track_range_css="background-color: rgb(107,193,116);"\n  uses="slidernumber.6">\n  <title>${title.trim()}</title>\n  ${input}\n</number>\n<suspend/>`
-             : `<number label="${label.trim()}"\n  size="3"\n  optional="0"\n  verify="range(0,100)"\n  slidernumber:handle_active_css="background: #8de no-repeat; border-color:#8de;"\n  slidernumber:handle_css="background: #8de no-repeat; border-color:#8de;"\n  slidernumber:handle_offscale_css="background: #8de no-repeat; border-color:#8de;"\n  slidernumber:leftLegend="\${res['${label.trim()},lLegend']}"\n  slidernumber:midLegend="\${res['${label.trim()},mLegend']}"\n  slidernumber:rightLegend="\${res['${label.trim()},rLegend']}"\n  slidernumber:track_range_css="background-color: rgb(107,193,116);"\n  uses="slidernumber.6">\n  <title>${title.trim()}</title>\n  ${comment}\n  ${input}\n  ${legends}\n</number>\n<suspend/>`;
+        let xmlItems = `<number label="${label.trim()}"
+  size="3"
+  optional="0"
+  verify="range(0,100)"
+  slidernumber:handle_active_css="background: #8de no-repeat; border-color:#8de;"
+  slidernumber:handle_css="background: #8de no-repeat; border-color:#8de;"
+  slidernumber:handle_offscale_css="background: #8de no-repeat; border-color:#8de;"
+  slidernumber:leftLegend="\${res['${label.trim()},lLegend']}"
+  slidernumber:midLegend="\${res['${label.trim()},mLegend']}"
+  slidernumber:rightLegend="\${res['${label.trim()},rLegend']}"
+  slidernumber:track_range_css="background-color: rgb(107,193,116);"
+  uses="slidernumber.6">\n  <title>${title.trim()}</title>\n`;
 
+        if (finalComment || bodyContent) {
+            if (finalComment)
+                xmlItems += `  ${finalComment}`;
+            if (bodyContent)
+                xmlItems += `  ${bodyContent}\n`;
+        }
+
+        xmlItems += `${legendsBlock}\n</number>\n<suspend/>`;
         window.editor.replaceSelection(xmlItems)
         return xmlItems;
 
@@ -648,10 +701,20 @@ function makeFloat() {
         }
 
         //  Compose final question output
-        let xmlItems = input.includes("<comment>")
-             ? `<float label="${label.trim()}" size="3" optional="0" range="0,99999">\n  <title>${title.trim()}</title>\n  ${input}\n</float>\n<suspend/>`
-             : `<float label="${label.trim()}" size="3" optional="0" range="0,99999">\n  <title>${title.trim()}</title>\n  ${comment}\n  ${input}\n</float>\n<suspend/>`;
+        const bodyContent = input.trim();
+        const needsComment = !input.includes("<comment>");
+        const finalComment = needsComment ? `${comment.trim()}\n` : "";
 
+        let xmlItems = `<float label="${label.trim()}" size="3" optional="0" range="0,99999">\n  <title>${title.trim()}</title>\n`;
+
+        if (finalComment || bodyContent) {
+            if (finalComment)
+                xmlItems += `  ${finalComment}`;
+            if (bodyContent)
+                xmlItems += `  ${bodyContent}\n`;
+        }
+
+        xmlItems += `</float>\n<suspend/>`;
         window.editor.replaceSelection(xmlItems)
         return xmlItems;
 
@@ -734,7 +797,7 @@ function makeAutosum() {
 
         let xmlItems = input.includes("<comment>")
              ? `<number label="${label.trim()}" verify="range(0,99999)" size="3" optional="1" uses="autosum.5">\n  <title>${title.trim()}</title>\n  ${validation}${output}</number>\n<suspend/>\n\n<exec>\nif ${label.trim()}.displayed:\n\tfor eachRow in ${label.trim()}.rows:\n\t\tfor eachCol in ${label.trim()}.cols:\n\t\t\tif eachRow.displayed and eachCol.displayed and eachRow[eachCol.index].val in ['', None]:\n\t\t\t\teachRow[eachCol.index].val = 0\n</exec>`
-             : `<number label="${label.trim()}" verify="range(0,99999)" size="3" optional="1" uses="autosum.5">\n  <title>${title.trim()}</title>\n  ${comment}\n${validation}${output}</number>\n<suspend/>\n\n<exec>\nif ${label.trim()}.displayed:\n\tfor eachRow in ${label.trim()}.rows:\n\t\tfor eachCol in ${label.trim()}.cols:\n\t\t\tif eachRow.displayed and eachCol.displayed and eachRow[eachCol.index].val in ['', None]:\n\t\t\t\teachRow[eachCol.index].val = 0\n</exec>`;
+             : `<number label="${label.trim()}" verify="range(0,99999)" size="3" optional="1" uses="autosum.5">\n  <title>${title.trim()}</title>\n  ${comment}${validation}${output}</number>\n<suspend/>\n\n<exec>\nif ${label.trim()}.displayed:\n\tfor eachRow in ${label.trim()}.rows:\n\t\tfor eachCol in ${label.trim()}.cols:\n\t\t\tif eachRow.displayed and eachCol.displayed and eachRow[eachCol.index].val in ['', None]:\n\t\t\t\teachRow[eachCol.index].val = 0\n</exec>`;
 
         window.editor.replaceSelection(xmlItems);
         return xmlItems;

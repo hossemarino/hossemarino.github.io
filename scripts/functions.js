@@ -752,11 +752,11 @@ function addGroups() {
         let changesMade = false;
 
         const modifiedText = selectedText.replace(
-                /<(\w+)([^>]*?)>/g,
-                (full, tagName, attrs) => {
+                /^(\s*)<(\w+)([^>]*?)>/gm,
+                (full, indent, tagName, attrs) => {
                 if (targetTags.includes(tagName) && !/groups\s*=/.test(attrs)) {
                     changesMade = true;
-                    return `<${tagName}${attrs} groups="">`;
+                    return `${indent}<${tagName}${attrs} groups="">`;
                 }
                 return full;
             });
