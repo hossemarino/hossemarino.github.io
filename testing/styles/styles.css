@@ -275,7 +275,7 @@ html {
     width: 230px;
 }
 
-.CodeMirror {
+.cm-editor {
     min-height: 80vh;
     max-height: 85vh;
     line-height: 1;
@@ -440,16 +440,16 @@ html {
     display: block;
 }
 
-.CodeMirror.dragging {
+.cm-editor.dragging {
     border-color: #28a745;
 }
 
-.CodeMirror-dialog-top {
+.cm-editor-dialog-top {
     height: 35px;
     background: #ffef17;
 }
 
-.CodeMirror-dialog-top .CodeMirror-search-label {
+.cm-editor-dialog-top .cm-editor-search-label {
     color: rgb(102, 102, 102);
 }
 

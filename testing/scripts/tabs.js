@@ -1,161 +1,127 @@
+// tabs.js or main.js — depending on where you want it
+import * as fx from "./functions.js";
+
 const tabs = {};
 let activeTab = "default";
 let editorArea;
 
-function getCodeMirrorSettings(theme, wordWrap) {
-    return {
-        mode: "application/xml",
-        theme: theme,
-        lineNumbers: true,
-        autoCloseTags: false,
-        smartIndent: false,
-        indentWithTabs: false,
-        indentUnit: 4,
-        autoCloseBrackets: true,
-        matchTags: {
-            bothTags: true
-        },
-        lineWrapping: wordWrap,
-
-        foldGutter: true,
-        foldOptions: {
-            rangeFinder: CodeMirror.helpers.fold.custom
-        },
-        gutters: ["CodeMirror-linenumbers", "CodeMirror-foldgutter"],
-
-        extraKeys: {
-            "Ctrl-Q": function (cm) {
-                cm.foldCode(cm.getCursor());
-            },
-            "Ctrl-B": () => wrapSelection("b"),
-            "Ctrl-I": () => wrapSelection("i"),
-            "Ctrl-U": () => wrapSelection("u"),
-            "Esc": () => {
-                const editor = getActiveEditor();
-                const isBoxVisible = commandBox.style.display !== "none";
-
-                if (isBoxVisible) {
-                    commandBox.style.display = "none";
-                    commandInput.value = "";
-                    selectedIndex = -1;
-                    editor.focus();
-                } else {
-                    positionCommandBox();
-                    commandBox.style.display = "block";
-                    commandInput.value = lastCommand || "";
-                    updateSuggestions(commandInput.value);
-                    commandInput.focus();
-                    commandInput.select();
-                    updateSuggestions(commandInput.value);
-                }
-            },
-            Tab: (cm) => cm.replaceSelection("\t", "end"),
-            Enter: (cm) => {
-                const cur = cm.getCursor();
-                const line = cm.getLine(cur.line);
-                const indentMatch = line.match(/^([ \t]+)/);
-                const indent = indentMatch ? indentMatch[1] : "";
-                cm.replaceSelection("\n" + indent, "start");
-
-                // Move the cursor to the correct position after insertion
-                const newPos = {
-                    line: cur.line + 1,
-                    ch: indent.length
-                };
-                cm.setCursor(newPos);
-            }
-
-        }
-    };
+// 🧠 Create a new EditorView instance
+export function createEditorView(doc = "", theme = oneDark, wrap = true) {
+    return new EditorView({
+        parent: editorArea,
+        state: EditorState.create({
+            doc,
+            extensions: [
+                basicSetup,
+                lineNumbers(),
+                foldGutter(),
+                indentUnit.of("   "),
+                xml(),
+                bracketMatching(),
+                closeBrackets(),
+                wrap ? EditorView.lineWrapping : [],
+                theme,
+                keymap.of([{
+                            key: "Tab",
+                            run: view => {
+                                view.dispatch(view.state.replaceSelection("\t"));
+                                return true;
+                            }
+                        }, {
+                            key: "Enter",
+                            run: view => {
+                                const { from } = view.state.selection.main;
+                                const line = view.state.doc.lineAt(from);
+                                const indent = line.text.match(/^([ \t]+)/)?.[1] || "";
+                                view.dispatch(view.state.replaceSelection("\n" + indent));
+                                return true;
+                            }
+                        }, {
+                            key: "Ctrl-b",
+                            run: () => fx.wrapSelection(tabs[activeTab].editor, "b")
+                        }, {
+                            key: "Ctrl-i",
+                            run: () => fx.wrapSelection(tabs[activeTab].editor, "i")
+                        }, {
+                            key: "Ctrl-u",
+                            run: () => fx.wrapSelection(tabs[activeTab].editor, "u")
+                        }
+                    ])
+            ]
+        })
+    });
 }
 
-function initTabs(targetArea) {
-    editorArea = targetArea;
-    const savedTabs = JSON.parse(localStorage.getItem("editorTabs")) || {};
+export function initTabs(container) {
+    editorArea = container;
+    const savedTabs = JSON.parse(localStorage.getItem("editorTabs") || "{}");
     activeTab = localStorage.getItem("activeTab") || "default";
 
     Object.entries(savedTabs).forEach(([name, data]) => {
-        if (name === "default" && tabs["default"])
-            return;
-
-        const textarea = document.createElement("textarea");
-        editorArea.appendChild(textarea);
-
-        const editor = CodeMirror.fromTextArea(textarea, getCodeMirrorSettings(savedTheme, savedWordWrap));
-        editor.setValue(data.content);
-        editor.getWrapperElement().style.display = "none";
-
-        configureEditor(editor);
+        const editor = createEditorView(data.content);
+        editor.dom.style.display = "none";
+        container.appendChild(editor.dom);
         tabs[name] = {
-            editor,
-            textarea
+            editor
         };
     });
 
-    if (!tabs["default"]) {
+    if (!tabs["default"])
         createTab("default");
-    }
-    if (tabs["default"]?.editor && savedTabs["default"]?.content) {
-        tabs["default"].editor.setValue(savedTabs["default"].content);
-    }
 
     renderTabs();
     switchTab(tabs[activeTab] ? activeTab : "default");
 }
 
-function createTab(name) {
+export function createTab(name) {
     if (tabs[name])
         return;
 
-    const textarea = document.createElement("textarea");
-    editorArea.appendChild(textarea);
-
-    const editor = CodeMirror.fromTextArea(textarea, getCodeMirrorSettings(savedTheme, savedWordWrap));
-    configureEditor(editor);
-    editor.getWrapperElement().style.display = "none";
-
+    const editor = createEditorView("");
+    editor.dom.style.display = "none";
+    editorArea.appendChild(editor.dom);
     tabs[name] = {
-        editor,
-        textarea
+        editor
     };
-    activeTab = name;
 
+    activeTab = name;
     saveAllTabs();
     renderTabs();
     switchTab(name);
 }
 
-function switchTab(name) {
+export function switchTab(name) {
     activeTab = name;
-
-    document.querySelectorAll(".tab").forEach(tab => tab.classList.remove("active"));
-    document.querySelector(`[data-tab="${name}"]`)?.classList.add("active");
 
     Object.values(tabs).forEach(({
             editor
         }) => {
-        editor.getWrapperElement().style.display = "none";
+        editor.dom.style.display = "none";
     });
 
-    const editor = tabs[name]?.editor;
-    if (editor) {
-        editor.getWrapperElement().style.display = "block";
-        editor.focus();
+    const activeEditor = tabs[name]?.editor;
+    if (activeEditor) {
+        activeEditor.dom.style.display = "block";
+        activeEditor.focus();
     }
 
     localStorage.setItem("activeTab", name);
+
+    document.querySelectorAll(".tab").forEach(tab => tab.classList.remove("active"));
+    document.querySelector(`[data-tab="${name}"]`)?.classList.add("active");
 }
 
-function closeTab(name) {
+export function closeTab(name) {
     if (name === "default")
         return;
 
     const tab = tabs[name];
     if (!tab)
         return;
-    requestTabDeletion(name)
-    tab.editor.getWrapperElement()?.remove();
-    tab.textarea?.remove();
+
+    requestTabDeletion(name); // you can adapt this later
+    tab.editor.destroy();
+    tab.editor.dom.remove();
     delete tabs[name];
 
     const savedTabs = JSON.parse(localStorage.getItem("editorTabs") || "{}");
@@ -164,101 +130,88 @@ function closeTab(name) {
 
     document.querySelector(`[data-tab="${name}"]`)?.remove();
 
-    if (activeTab === name) {
+    if (activeTab === name)
         switchTab("default");
-    }
 
     renderTabs();
     saveAllTabs();
 }
 
-function configureEditor(editor) {
-    CodeMirror.registerHelper("fold", "custom", customTagRangeFinder);
-
-    editor.setOption("foldOptions", {
-        widget: (from, to) => {
-            const startLine = editor.getLine(from.line);
-            const tagMatch = startLine.match(/<([a-zA-Z0-9_-]+)/);
-            const tagName = tagMatch ? tagMatch[1] : "…";
-            return `<${tagName}><--></${tagName}>`;
-        }
-    });
-
-    editor.on("change", saveAllTabs);
-}
-
-function getActiveEditor() {
+export function getActiveEditor() {
     return tabs[activeTab]?.editor;
 }
 
-function saveAllTabs() {
-    const toSave = {};
-    Object.entries(tabs).forEach(([name, tab]) => {
-        toSave[name] = {
-            content: tab.editor.getValue(),
-            theme: tab.editor.getOption("theme"),
-            wordWrap: tab.editor.getOption("lineWrapping")
+export function saveAllTabs() {
+    const saved = {};
+    for (const [name, {
+                editor
+            }
+        ] of Object.entries(tabs)) {
+        saved[name] = {
+            content: editor.state.doc.toString()
         };
-    });
-
-    localStorage.setItem("editorTabs", JSON.stringify(toSave));
+    }
+    localStorage.setItem("editorTabs", JSON.stringify(saved));
     localStorage.setItem("activeTab", activeTab);
 }
 
-function renderTabs() {
+export function renderTabs() {
     const tabsContainer = document.getElementById("tabs");
     if (!tabsContainer)
         return;
 
-    tabsContainer.innerHTML = ""; // Start fresh
+    tabsContainer.innerHTML = "";
 
-    Object.keys(tabs).forEach(tabName => {
+    for (const tabName of Object.keys(tabs)) {
         const tabElement = document.createElement("div");
         tabElement.className = "tab";
         tabElement.dataset.tab = tabName;
-        tabElement.style.position = "relative";
+        tabElement.title = tabName;
 
         const tabText = document.createElement("span");
         tabText.className = "tab-label";
         tabText.textContent = truncateLabel(tabName);
-        tabText.title = tabName;
-
         tabElement.appendChild(tabText);
 
         if (tabName !== "default") {
-            const closeButton = document.createElement("button");
-            closeButton.textContent = "✖";
-            closeButton.className = "close-tab";
-            closeButton.onclick = (e) => {
+            const closeBtn = document.createElement("button");
+            closeBtn.textContent = "✖";
+            closeBtn.className = "close-tab";
+            closeBtn.onclick = e => {
                 e.stopPropagation();
                 requestTabDeletion(tabName);
             };
-            tabElement.appendChild(closeButton);
-
-            tabElement.addEventListener("mousedown", (e) => {
-                if (e.button === 1) {
-                    e.preventDefault();
-                    requestTabDeletion(tabName);
-                }
-            });
+            tabElement.appendChild(closeBtn);
         }
 
         tabElement.onclick = () => switchTab(tabName);
         tabsContainer.appendChild(tabElement);
-    });
+    }
 
-    // "Add Tab" button
-    const addTabButton = document.createElement("button");
-    addTabButton.id = "addTabButton";
-    addTabButton.title = "Add New Tab";
-    addTabButton.textContent = "➕";
-    addTabButton.onclick = () => openModal("tab");
-    tabsContainer.appendChild(addTabButton);
+    const addTabBtn = document.createElement("button");
+    addTabBtn.id = "addTabButton";
+    addTabBtn.title = "Add New Tab";
+    addTabBtn.textContent = "➕";
+    addTabBtn.onclick = () => openModal("tab");
+    tabsContainer.appendChild(addTabBtn);
 
-    // Highlight active
-    document.querySelectorAll(".tab").forEach(tab => {
-        tab.classList.remove("active");
-        if (tab.dataset.tab === activeTab)
-            tab.classList.add("active");
+    tabsContainer.querySelectorAll(".tab").forEach(tab => {
+        tab.classList.toggle("active", tab.dataset.tab === activeTab);
     });
+}
+
+export function confirmTabCreation() {
+  // your logic for creating a tab — maybe from modal input
+  const tabNameInput = document.getElementById("tab_name");
+  const tabName = tabNameInput.value.trim();
+
+  if (!tabName) return alert("Tab name required.");
+
+  createTab(tabName);
+  tabNameInput.value = "";
+  // Close modal if needed
+}
+
+export function addTab() {
+    openModal("tab");
 }

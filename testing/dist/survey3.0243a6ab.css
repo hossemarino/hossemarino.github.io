@@ -1,0 +1,451 @@
+.hidden {
+  display: none;
+}
+
+html {
+  background: #1d1d1d;
+}
+
+.commands-header {
+  color: #eb3f3f;
+}
+
+.survey-commands a {
+  flex: auto;
+  min-width: 120px;
+}
+
+.survey-commands {
+  color: #fff;
+  background: #252526;
+  border: 1px solid #444;
+  border-radius: 5px;
+  flex-direction: column;
+  gap: 0;
+  padding: 10px;
+  display: flex;
+}
+
+.survey-commands > * {
+  margin-left: 20px;
+  list-style-type: disc;
+  display: list-item;
+}
+
+.editor-toolbar {
+  color: #fff;
+  background: #252526;
+  border-bottom: 1px solid #444;
+  padding: 10px;
+}
+
+#toolbar {
+  resize: none;
+  flex-direction: column;
+  height: 160px;
+  min-height: 120px;
+  max-height: 160px;
+  display: flex;
+  position: relative;
+  overflow: hidden;
+}
+
+.toolbar-inner {
+  flex: 1;
+  justify-content: space-between;
+  padding: 10px;
+  display: flex;
+  overflow: auto;
+}
+
+.resize-handle.vertical {
+  cursor: row-resize;
+  background: #444;
+  width: 100%;
+  height: 5px;
+}
+
+.editor-toolbar.collapsed .editor-toolbar-body {
+  opacity: 0;
+  max-height: 0;
+}
+
+.toolbar-toggle {
+  z-index: 10;
+  color: #fff;
+  cursor: pointer;
+  background: none;
+  border: none;
+  font-size: 18px;
+  position: absolute;
+  bottom: 4px;
+  right: 10px;
+}
+
+.editor-toolbar button, .editor-toolbar .tabs button {
+  width: 35px;
+}
+
+.editor-toolbar button#toggleFoldBtn {
+  width: max-content;
+}
+
+.editor-toolbar .right-side, .editor-toolbar .middle, .editor-toolbar .left-side {
+  flex-flow: column wrap;
+  align-content: space-evenly;
+  gap: 5px;
+  display: flex;
+}
+
+.editor-toolbar .save-buttons {
+  flex-direction: column;
+  gap: 5px;
+  display: flex;
+}
+
+.editor-toolbar .save-buttons button {
+  text-align: left;
+  width: 145px;
+}
+
+.editor-container select, .editor-container input {
+  color: #fff;
+  background: #333;
+  border: none;
+  padding: 5px;
+  font-size: 14px;
+}
+
+.container-fluid {
+  background-color: #1d1d1d;
+}
+
+.container {
+  background-color: #1d1d1d;
+  flex-wrap: nowrap;
+  height: 90vh;
+  display: flex;
+}
+
+#mainEditorWrapper {
+  flex: 1;
+  min-width: 0;
+  height: 100vh;
+}
+
+.toolbox .commands-header {
+  text-transform: uppercase;
+  padding-left: 5px;
+}
+
+.toolbox {
+  color: #fff;
+  background: #252526;
+  width: auto;
+  min-width: 200px;
+  max-width: 500px;
+  height: 98vh;
+  padding: 20px;
+  transition: width .2s;
+  position: relative;
+  overflow: auto;
+}
+
+#toolboxWrapper {
+  max-width: 100%;
+  height: 100%;
+  width: inherit;
+  flex-direction: column;
+  transition: width .3s;
+  display: flex;
+  position: relative;
+  overflow: hidden;
+}
+
+#toolbar {
+  flex: 1;
+  min-height: 100px;
+  overflow: auto;
+}
+
+#toolboxWrapper.collapsed {
+  width: 40px;
+}
+
+#toolboxWrapper.collapsed .commands-header, #toolboxWrapper.collapsed .survey-commands {
+  display: none;
+}
+
+.toolbox-toggle {
+  color: #fff;
+  cursor: pointer;
+  z-index: 5;
+  background: none;
+  border: 1px solid silver;
+  border-radius: 5px;
+  height: 100%;
+  font-size: 30px;
+  position: absolute;
+  top: 10px;
+  left: 6px;
+}
+
+.resize-handle.horizontal {
+  cursor: ew-resize;
+  cursor: col-resize;
+  background: #444;
+  width: 5px;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  right: 0;
+}
+
+.nav-tabs .nav-item {
+  white-space: nowrap;
+}
+
+.nav-tabs .nav-link {
+  color: #ccc;
+}
+
+.nav-tabs .nav-link.active {
+  color: #fff;
+  background-color: #343a40;
+  border-color: #495057 #495057 #212529;
+}
+
+.editor-container {
+  background-color: #1d1d1d;
+  flex-grow: 1;
+  min-width: 60%;
+  overflow: hidden;
+}
+
+.editor {
+  background: #1e1e1e;
+  width: 100%;
+  height: 90vh;
+  min-height: 85vh;
+  padding: 10px;
+}
+
+.modal {
+  background: #00000080;
+  width: 100%;
+  height: 100%;
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+}
+
+.modal-content {
+  background: #fff;
+  width: max-content;
+  max-width: 600px;
+  margin: 10% auto auto;
+  padding: 20px;
+}
+
+.modal select, .modal input {
+  width: 230px;
+}
+
+.cm-editor {
+  min-height: 80vh;
+  max-height: 85vh;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.command-box {
+  color: #fff;
+  z-index: 100;
+  background: #252526;
+  border: 1px solid #444;
+  border-radius: 5px;
+  padding: 10px;
+  display: none;
+  position: absolute;
+}
+
+.command-box input {
+  color: #fff;
+  background: #333;
+  border: none;
+  width: 200px;
+  padding: 5px;
+  font-size: 14px;
+}
+
+.secondary-commands {
+  color: #fff;
+  background: #252526;
+  border: 1px solid #444;
+  border-radius: 5px;
+  max-height: 150px;
+  padding: 5px;
+  list-style-type: none;
+  overflow-y: auto;
+}
+
+.secondary-commands li {
+  cursor: pointer;
+  padding: 5px;
+}
+
+.secondary-commands li:hover, .secondary-commands li.selected {
+  background: #444;
+}
+
+#saveNotification {
+  color: #fff;
+  background-color: #257428;
+  border-radius: 5px;
+  padding: 10px;
+  font-weight: bold;
+  display: none;
+  position: fixed;
+  top: 10px;
+  right: 10px;
+}
+
+#tabs {
+  border-bottom: 2px solid #ccc;
+  padding: 5px;
+  display: flex;
+}
+
+#addTabButton {
+  width: 50px;
+  height: 25px;
+  font-size: 12px;
+}
+
+.tab {
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  background-color: #f8f9fa;
+  border: 1px solid #ccc;
+  border-radius: .375rem;
+  justify-content: space-between;
+  align-items: center;
+  width: 65px;
+  max-width: 70px;
+  height: 25px;
+  margin-right: .5rem;
+  padding: .5rem .75rem;
+  font-size: 12px;
+  display: inline-flex;
+  position: relative;
+  overflow: hidden;
+}
+
+.tab-label {
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  flex-grow: 1;
+  margin-right: .5rem;
+  overflow: hidden;
+}
+
+.tab:hover {
+  white-space: normal;
+  z-index: 1000;
+  background: #fff;
+  overflow: visible;
+}
+
+.tab.active {
+  color: #fff;
+  background: #4caf50;
+  font-weight: bold;
+}
+
+.tab span {
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+  max-width: 100px;
+  display: inline-block;
+  overflow: hidden;
+}
+
+.close-tab {
+  color: #888;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 6px;
+  line-height: 1;
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+}
+
+.close-tab:hover {
+  color: #ff4d4d;
+}
+
+#tabContextMenu.dropdown-menu {
+  z-index: 1060;
+  background-color: var(--bs-body-bg);
+  min-width: 180px;
+  color: var(--bs-body-color);
+  border-radius: .375rem;
+  width: fit-content;
+  padding: .5rem 0;
+  transition: opacity .15s ease-in-out;
+  display: none;
+  position: absolute;
+  box-shadow: 0 .25rem .75rem #00000026;
+}
+
+#tabContextMenu .dropdown-item:hover {
+  background-color: var(--bs-dropdown-link-hover-bg);
+  color: var(--bs-dropdown-link-hover-color);
+}
+
+.dropdown-menu.show {
+  display: block;
+}
+
+.cm-editor.dragging {
+  border-color: #28a745;
+}
+
+.cm-editor-dialog-top {
+  background: #ffef17;
+  height: 35px;
+}
+
+.cm-editor-dialog-top .cm-editor-search-label {
+  color: #666;
+}
+
+.resizable {
+  position: relative;
+}
+
+.commands-header.collapsible {
+  cursor: pointer;
+  user-select: none;
+  background-color: #f0f0f0;
+  padding: .5rem;
+  font-weight: bold;
+}
+
+.collapsible-body {
+  transition: max-height .2s ease-out;
+  overflow: hidden;
+}
+
+.collapsible-body.collapsed {
+  max-height: 0;
+  padding: 0 !important;
+}
+/*# sourceMappingURL=survey3.0243a6ab.css.map */

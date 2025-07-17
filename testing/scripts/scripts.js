@@ -1,3 +1,33 @@
+import { EditorView, keymap } from "@codemirror/view";
+import { EditorState } from "@codemirror/state";
+import { basicSetup } from "codemirror";
+import { xml } from "@codemirror/lang-xml";
+import { python } from "@codemirror/lang-python";
+import { keymap } from "@codemirror/view";
+import { defaultKeymap } from "@codemirror/commands";
+import { Compartment } from "@codemirror/state";
+
+import { oneDark } from "@codemirror/theme-one-dark";
+import { indentUnit } from "@codemirror/language";
+import { bracketMatching } from "@codemirror/autocomplete";
+import { closeBrackets } from "@codemirror/autocomplete";
+import { lineNumbers } from "@codemirror/view";
+
+import { foldGutter, foldEffect, unfoldEffect, foldService } from "@codemirror/language";
+
+const myFoldExtension = foldGutter({
+    openText: "▼",
+    closedText: "▶"
+});
+
+const savedDoc = localStorage.getItem("lastEditorContent");
+const startDoc = savedDoc ?? "";
+
+import * as fx from "./functions.js";
+import * as tab from "./tabs.js";
+import * as cv from "./vars.js";
+import * as s from "./styles.js";
+
 let savedTheme;
 let savedWordWrap;
 let savedFontSize
@@ -5,10 +35,14 @@ let savedLanguage
 function getActiveEditor() {
     return tabs[activeTab]?.editor;
 }
+
 let lastCommand = "";
 
+let activeTab = "default";
+
 document.addEventListener("DOMContentLoaded", () => {
-    editorArea = document.getElementById("editorArea");
+    const editorArea = document.getElementById("editorArea");
+
     savedTheme = localStorage.getItem("editorTheme") || "default";
     savedWordWrap = localStorage.getItem("wordWrap") === "true";
     savedLanguage = localStorage.getItem("surveyLanguage") || "english";
@@ -40,152 +74,164 @@ document.addEventListener("DOMContentLoaded", () => {
     const increaseFontButton = document.getElementById("increaseFont");
     const decreaseFontButton = document.getElementById("decreaseFont");
 
-    editor = getActiveEditor();
-
     const commandGroups = {
         newsurvey: {
             "new sago survey": () => openModal("new-survey"),
             "new sago ihut survey": () => openModal('new-ihut'),
         },
         control: {
-            "add term": addTerm,
-            "add quota": addQuota,
-            "validate tag": validateTag,
-            "exec tag": execTag,
-            "resource tag": makeRes,
-            "block tag": wrapInBlock,
-            "block tag (randomize children)": wrapInBlockRandomize,
-            "loop tag": addLoopBlock,
-            "make looprows": makeLooprows,
-            "make markers": makeMarker,
-            "make condition": makeCondition,
+            /*
+            "add term": () => fx.addTerm(editorView),
+            "add quota": () => fx.addQuota(editorView),
+            "validate tag": () => validateTag(editorView),
+            "exec tag": () => execTag(editorView),
+            "resource tag": () => makeRes(editorView),
+            "block tag": () => wrapInBlock(editorView),
+            "block tag (randomize children)": () => wrapInBlockRandomize(editorView),
+            "loop tag": () => addLoopBlock(editorView),
+            "make looprows": () => makeLooprows(editorView),
+            "make markers": () => makeMarker(editorView),
+            "make condition": () => makeCondition(editorView),*/
         },
         elements: {
-            "make rows": makeRows,
-            "make rows (rating l-h)": makeRowsLow,
-            "make rows (rating h-l)": makeRowsHigh,
-            "make columns": makeCols,
-            "make columns (rating l-h)": makeColsLow,
-            "make columns (rating h-l)": makeColsHigh,
-            "make choices": makeChoices,
-            "make choices (rating l-h)": makeChoicesLow,
-            "make noanswer": makeNoAnswer,
-            "make groups": makeGroups,
-            "make question comment": addCommentQuestion,
-            "make case": makeCase,
-            "make autofill rows": makeAutoFillRows
+            "make rows": () => fx.makeRows(editorView),
+            "make rows (rating l-h)": () => fx.makeRows(editorView, 'low'),
+            "make rows (rating h-l)": () => fx.makeRows(editorView, 'high'),
+            "make columns": () => fx.makeCols(editorView),
+            "make columns (rating l-h)": () => fx.makeCols(editorView, 'low'),
+            "make columns (rating h-l)": () => fx.makeCols(editorView, 'high'),
+            "make choices": () => fx.makeChoices(editorView),
+            "make choices (rating l-h)": () => fx.makeChoices(editorView, 'low'),
+            "make choices (rating h-l)": () => fx.makeChoices(editorView, 'high'),
+            "make noanswer": () => fx.makeNoAnswer(editorView),
+            "make groups": () => fx.makeGroups(editorView),
+            "make question comment": () => fx.addCommentQuestion(editorView),
+            "make case": () => fx.makeCase(editorView),
+            "make autofill rows": () => fx.makeAutoFillRows(editorView),
         },
         types: {
-            "make radio": makeRadio,
-            "make rating": makeRating,
-            "make starrating": makeStarrating,
-            "make checkbox": makeCheckbox,
-            "make select": makeSelect,
-            "make sliderpoints": makeSliderpoints,
-            "make text": makeText,
-            "make textarea": makeTextarea,
-            "make number": makeNumber,
-            "make slidernumber": makeSlidernumber,
-            "make float": makeFloat,
-            "make autosum": makeAutosum,
-            "make autosum (percent)": makeAutosumPercent,
-            "make survey comment": makeSurveyComment,
-            "make pipe": makePipe
+            /*
+            "make radio": () => makeRadio(editorView),
+            "make rating": () => makeRating(editorView),
+            "make starrating": () => makeStarrating(editorView),
+            "make checkbox": () => makeCheckbox(editorView),
+            "make select": () => makeSelect(editorView),
+            "make sliderpoints": () => makeSliderpoints(editorView),
+            "make text": () => makeText(editorView),
+            "make textarea": () => makeTextarea(editorView),
+            "make number": () => makeNumber(editorView),
+            "make slidernumber": () => makeSlidernumber(editorView),
+            "make float": () => makeFloat(editorView),
+            "make autosum": () => makeAutosum(editorView),
+            "make autosum (percent)": () => makeAutosumPercent(editorView),
+            "make survey comment": () => makeSurveyComment(editorView),
+            "make pipe": () => makePipe(editorView),*/
         },
         attr: {
-            "open-end": addOpen,
-            "add exclusive": addExclusive,
-            "add aggregate": addAggregate,
-            "add randomize='0'": addRandomize0,
-            "add optional": addOptional,
-            "add shuffle rows": addShuffleRows,
-            "add shuffle cols": addShuffleCols,
-            "add shuffle rows/cols": addShuffleRowsCols,
-            "add where='execute'": addExecute,
-            "add grouping/adim cols": addGroupingCols,
-            "add grouping/adim rows": addGroupingRows,
-            "add groups": addGroups,
-            "add values": addValues,
-            "add values l-h": addValuesLow,
-            "add values h-l": addValuesHigh,
-            "add alt label": addAltlabel,
-            "add rating direction reversed": addRatingDirection,
-            "add row class": addRowClassNames,
-            "add col class": addColClassNames,
-            "add choice class": addChoiceClassNames,
-            "swap rows and cols": swapRowCol,
+            /*
+            "open-end": () => addOpen(editorView),
+            "add exclusive": () => addExclusive(editorView),
+            "add aggregate": () => addAggregate(editorView),
+            "add randomize='0'": () => addRandomize0(editorView),
+            "add optional": () => addOptional(editorView),
+            "add shuffle rows": () => addShuffleRows(editorView),
+            "add shuffle cols": () => addShuffleCols(editorView),
+            "add shuffle rows/cols": () => addShuffleRowsCols(editorView),
+            "add where='execute'": () => addExecute(editorView),
+            "add grouping/adim cols": () => addGroupingCols(editorView),
+            "add grouping/adim rows": () => addGroupingRows(editorView),
+            "add groups": () => addGroups(editorView),
+            "add values": () => addValues(editorView),
+            "add values l-h": () => addValuesLow(editorView),
+            "add values h-l": () => addValuesHigh(editorView),
+            "add alt label": () => addAltlabel(editorView),
+            "add rating direction reversed": () => addRatingDirection(editorView),
+            "add row class": () => addRowClassNames(editorView),
+            "add col class": () => addColClassNames(editorView),
+            "add choice class": () => addChoiceClassNames(editorView),
+            "swap rows and cols": () => swapRowCol(editorView),*/
 
         },
         preposttext: {
-            "add pretext": addPreText,
-            "add pretext (internal)": addPreTextInternal,
-            "make pretext res (internal)": makePreTextResInternal,
-            "add posttext": addPostText,
-            "add posttext (internal)": addPostTextInternal,
-            "make posttext res (internal)": makePostTextResInternal,
+            /*
+            "add pretext": () => addPreText(editorView),
+            "add pretext (internal)": () => addPreTextInternal(editorView),
+            "make pretext res (internal)": () => makePreTextResInternal(editorView),
+            "add posttext": () => addPostText(editorView),
+            "add posttext (internal)": () => addPostTextInternal(editorView),
+            "make posttext res (internal)": () => makePostTextResInternal(editorView),*/
         },
         misc: {
-            "make note": makeNote,
-            "brbr": brbr,
-            "br": br,
-            "lis": lis,
-            "ol": makeOl,
-            "ul": makeUl,
-            "make link href": makeHref,
-            "add contact question": addContactQuestion,
-            "add ihut contact question": addContactQuestionIHUT,
+            /*
+            "make note": () => makeNote(editorView),
+            "brbr": () => brbr(editorView),
+            "br": () => br(editorView),
+            "lis": () => lis(editorView),
+            "ol": () => makeOl(editorView),
+            "ul": () => makeUl(editorView),
+            "make link href": () => makeHref(editorView),
+            "add contact question": () => addContactQuestion(editorView),
+            "add ihut contact question": () => addContactQuestionIHUT(editorView),*/
         },
         standards: {
-            "us states": makeStateOnly,
-            "us states + region recode": makeStateWithRecode,
-            "us states checkbox": makeStateCheckbox,
-            "countries": makeCountrySelectISO,
+            /*
+            "us states": () => makeStateOnly(editorView),
+            "us states + region recode": () => makeStateWithRecode(editorView),
+            "us states checkbox": () => makeStateCheckbox(editorView),
+            "countries": () => makeCountrySelectISO(editorView),*/
 
         },
         copyprotection: {
-            "add survey copy protection": addCopyProtection,
-            "make unselectable (span)": makeUnselectableSpan,
-            "make unselectable (div)": makeUnselectableDiv,
-            "add unselectable attributes": addUnselectableAttributes
+            /*
+            "add survey copy protection": () => addCopyProtection(editorView),
+            "make unselectable (span)": () => makeUnselectableSpan(editorView),
+            "make unselectable (div)": () => makeUnselectableDiv(editorView),
+            "add unselectable attributes": () => addUnselectableAttribute(editorView),*/
 
         },
         mouseoverpopup: {
+            /*
             "mouseover": () => openModal("new-mouseover"),
-            "mouseover (template)": addMouseoverTemplate,
+            "mouseover (template)": () => addMouseoverTemplate(editorView),
             "popup": () => openModal("new-popup"),
-            "popup (template)": addPopupTemplate,
+            "popup (template)": () => addPopupTemplate(editorView),*/
         },
         standardsmisc: {
-            "add status virtual": addvStatusVirtual,
-            "add change virtual": addvChange,
-            "shuffle rows virtual": addShuffleRowsVirtual,
+            /*
+            "add status virtual": () => addvStatusVirtual(editorView),
+            "add change virtual": () => addvChange(editorView),
+            "shuffle rows virtual": () => addShuffleRowsVirtual(editorView),
             "random order tracker": () => openModal("random-order-tracker"),
-            "dupe check by variable": () => openModal("dupe-check"),
+            "dupe check by variable": () => openModal("dupe-check"),*/
         },
         styles: {
+            /*
             "new style": () => openModal("new-style"),
-            "new style (blank)": addNewStyleBlank,
+            "new style (blank)": () => addNewStyleBlank(editorView),*/
         },
         stylesxml: {
-            "new style wtih label": addNewStyleBlankwithLabel,
-            "style copy/call": addStyleCopy,
-            "survey wide css": addSurveyWideCSS,
-            "survey wide js": addSurveyWideJS,
-            "question specific css": addQuestionSpecificCSS,
-            "question specific js (after question)": addQuestionSpecificJSAfterQ,
-            "question specific js (in <head>)": addQuestionSpecificJSInHead,
+            /*
+            "new style wtih label": () => addNewStyleBlankwithLabel(editorView),
+            "style copy/call": () => addStyleCopy(editorView),
+            "survey wide css": () => addSurveyWideCSS(editorView),
+            "survey wide js": () => addSurveyWideJS(editorView),
+            "question specific css": () => addQuestionSpecificCSS(editorView),
+            "question specific js (after question)": () => addQuestionSpecificJSAfterQ(editorView),
+            "question specific js (in <head>)": () => addQuestionSpecificJSInHead(editorView),*/
         },
         stylesreadytouse: {
+            /*
             "pipe number question in table": () => openModal("pipe-in-number"),
-            "left-blank legend": addLeftBlankLegend,
+            "left-blank legend": () => addLeftBlankLegend(editorView),
             "disable continue button": () => openModal("disable-continue"),
-            "add max diff style": addMaxDiff,
-            "add element labels display": addPretestLabelsDisplay,
+            "add max diff style": () => addMaxDiff(editorView),
+            "add element labels display": () => addPretestLabelsDisplay(editorView),*/
 
         },
         stylescomponents: {
-            "add colfix declaration": addColFixDeclaration,
-            "add colfix call": addColFixCall,
+            /*
+            "add colfix declaration": () => addColFixDeclaration,
+            "add colfix call": () => addColFixCall,*/
         }
 
     };
@@ -209,117 +255,218 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     document.getElementById("addTabButton").onclick = () => openModal("tab");
-    document.getElementById("createTabBtn").onclick = confirmTabCreation;
+    document.getElementById("createTabBtn").onclick = tab.confirmTabCreation;
 
     let selectedIndex = -1;
 
-    // Create & append default textarea
-    const defaultTextArea = document.createElement("textarea");
-    editorArea.appendChild(defaultTextArea);
-
     // Initialize CodeMirror
-    const defaultEditor = CodeMirror.fromTextArea(defaultTextArea, {
-        mode: "application/xml",
-        theme: savedTheme,
-        lineNumbers: true,
-        smartIndent: false,
-        indentWithTabs: true,
-        indentUnit: 4,
-        autoCloseTags: false,
-        autoCloseBrackets: true,
-        matchTags: {
-            bothTags: true
-        },
-        lineWrapping: savedWordWrap,
+    function getSurroundingTag(code) {
+        const openTags = [...code.matchAll(/<([a-zA-Z0-9]+)(\s[^>]*)?>/g)];
+        const closeTags = [...code.matchAll(/<\/([a-zA-Z0-9]+)>/g)];
 
-        foldGutter: true,
-        foldOptions: {
-            rangeFinder: CodeMirror.helpers.fold.custom
-        },
-        gutters: ["CodeMirror-linenumbers", "CodeMirror-foldgutter"],
+        if (openTags.length === 0)
+            return null;
 
-        extraKeys: {
-            "Ctrl-Q": function (cm) {
-                cm.foldCode(cm.getCursor());
-            },
-            "Ctrl-B": () => wrapSelection("b"),
-            "Ctrl-I": () => wrapSelection("i"),
-            "Ctrl-U": () => wrapSelection("u"),
-            "Esc": () => {
-                const editor = getActiveEditor();
-                const isBoxVisible = commandBox.style.display !== "none";
+        // Find the deepest open tag that isn't yet closed
+        for (let i = openTags.length - 1; i >= 0; i--) {
+            const tagName = openTags[i][1];
+            const stillOpen = closeTags.filter(t => t[1] === tagName).length < openTags.filter(t => t[1] === tagName).length;
+            if (stillOpen)
+                return tagName;
+        }
 
-                if (isBoxVisible) {
-                    commandBox.style.display = "none";
-                    commandInput.value = "";
-                    selectedIndex = -1;
-                    editor.focus();
-                } else {
-                    positionCommandBox();
-                    commandBox.style.display = "block";
-                    commandInput.value = lastCommand || "";
-                    updateSuggestions(commandInput.value);
-                    commandInput.focus();
-                    commandInput.select();
-                    updateSuggestions(commandInput.value);
-                }
-            },
-            Tab: (cm) => cm.replaceSelection("\t", "end"),
-            Enter: (cm) => {
-                const cur = cm.getCursor();
-                const line = cm.getLine(cur.line);
-                const indentMatch = line.match(/^([ \t]+)/);
-                const indent = indentMatch ? indentMatch[1] : "";
-                cm.replaceSelection("\n" + indent, "start");
-
-                // Move the cursor to the correct position after insertion
-                const newPos = {
-                    line: cur.line + 1,
-                    ch: indent.length
-                };
-                cm.setCursor(newPos);
+        // Fallback: return last open tag
+        return openTags[openTags.length - 1][1];
+    }
+    function conditionalPython() {
+        return EditorState.transactionFilter.of(tr => {
+            const code = tr.newDoc.sliceString(tr.newSelection.main.from, tr.newSelection.main.to);
+            const parentTag = getSurroundingTag(code);
+            if (["exec", "validate", "virtual"].includes(parentTag)) {
+                return [tr, {
+                        effects: EditorView.updateListener.of(() => editorView.dispatch({
+                                effects: python()
+                            }))
+                    }
+                ];
             }
-
+            return [tr];
+        });
+    }
+    const autoSaveListener = EditorView.updateListener.of(update => {
+        if (update.docChanged) {
+            const content = update.state.doc.toString();
+            localStorage.setItem("lastEditorContent", content);
         }
     });
+    const themeCompartment = new Compartment();
+    const wrapCompartment = new Compartment();
+
+    const editorView = new EditorView({
+        doc: startDoc,
+        extensions: [
+            basicSetup,
+            xml(),
+            oneDark,
+            conditionalPython(),
+            themeCompartment.of(oneDark),
+            wrapCompartment.of(EditorView.lineWrapping),
+
+            autoSaveListener,
+            foldService.of(customTagFold),
+            keymap.of([
+                    ...defaultKeymap, // include CM6's default commands
+                    {
+                        key: "Tab",
+                        run: view => {
+                            const tab = "\t";
+                            view.dispatch(view.state.replaceSelection(tab));
+                            return true;
+                        }
+                    }, {
+                        key: "Enter",
+                        run: view => {
+                            const { state } = view;
+                            const { from } = state.selection.main;
+                            const line = state.doc.lineAt(from);
+                            const match = line.text.match(/^([ \t]+)/);
+                            const indent = match ? match[1] : "";
+                            view.dispatch(state.replaceSelection("\n" + indent));
+                            return true;
+                        }
+                    }, {
+                        key: "Ctrl-b",
+                        run: view => {
+                            fx.wrapSelection(view, "b");
+                            return true;
+                        }
+                    }, {
+                        key: "Ctrl-i",
+                        run: view => {
+                            fx.wrapSelection(view, "i");
+                            return true;
+                        }
+                    }, {
+                        key: "Ctrl-u",
+                        run: view => {
+                            fx.wrapSelection(view, "u");
+                            return true;
+                        }
+                    }, {
+                        key: "Esc",
+                        run: () => {
+                            const isBoxVisible = commandBox.style.display !== "none";
+
+                            if (isBoxVisible) {
+                                commandBox.style.display = "none";
+                                commandInput.value = "";
+                                selectedIndex = -1;
+                                editorView.focus(); ;
+                            } else {
+                                positionCommandBox();
+                                commandBox.style.display = "block";
+                                commandInput.value = lastCommand || "";
+                                updateSuggestions(commandInput.value);
+                                commandInput.focus();
+                                commandInput.select();
+                                updateSuggestions(commandInput.value);
+                            }
+                        },
+                    }
+
+                    // ... other shortcuts like Ctrl-B, Ctrl-I, etc.
+                ])
+        ],
+        parent: editorArea
+    });
+
+    function customTagFold(state, lineStart) {
+        const line = state.doc.lineAt(lineStart);
+        const match = line.text.match(/<([a-zA-Z0-9_-]+)([^>]*)>/);
+        const tagName = match?.[1];
+
+        if (!tagName)
+            return null;
+
+        for (let i = line.number + 1; i <= state.doc.lines; i++) {
+            const next = state.doc.line(i);
+            if (next.text.includes(`</${tagName}>`)) {
+                return {
+                    from: line.from,
+                    to: next.to
+                };
+            }
+        }
+
+        return null;
+    }
+
+    // Assuming you have access to the EditorView instance as `editorView`
+    document.getElementById("boldBtn").addEventListener("click", () => fx.wrapSelection(editorView, "b"));
+    document.getElementById("italicBtn").addEventListener("click", () => fx.wrapSelection(editorView, "i"));
+    document.getElementById("underlineBtn").addEventListener("click", () => fx.wrapSelection(editorView, "u"));
+    document.getElementById("superscriptBtn").addEventListener("click", () => fx.wrapSelection(editorView, "sup"));
+    document.getElementById("subscriptBtn").addEventListener("click", () => fx.wrapSelection(editorView, "sub"));
+
+    document.getElementById("toggleFoldBtn").addEventListener("click", () => {
+        const transaction = editorView.state.update({
+            effects: foldAllEffect.of(isFolded ? "unfold" : "fold")
+        });
+        editorView.dispatch(transaction);
+        isFolded = !isFolded;
+    });
+    document.getElementById("addTabButton").addEventListener("click", () => tab.addTab());
 
     tabs["default"] = {
-        editor: defaultEditor,
-        textarea: defaultTextArea
+        editor: editorView // uses global CM6 EditorView
     };
 
-    configureEditor(defaultEditor);
-    initTabs(editorArea);
+    //configureEditor(editorView);
+    //initTabs(editorArea);
 
-    // Register fold helpers
-    CodeMirror.registerHelper("fold", "custom", customTagRangeFinder);
 
-    defaultEditor.setOption("foldOptions", {
-        widget: (from, to) => {
-            const startLine = defaultEditor.getLine(from.line);
-            const tagMatch = startLine.match(/<([a-zA-Z0-9_-]+)/);
-            const tagName = tagMatch ? tagMatch[1] : "…";
-            return `<${tagName}><--></${tagName}>`;
+    const myUpdateListener = EditorView.updateListener.of(update => {
+        if (update.docChanged) {
+            tab.saveEditorContent();
+            tab.saveAllTabs();
         }
     });
 
-    defaultEditor.on("change", () => {
-        saveEditorContent();
-        saveAllTabs();
-    });
-    const editorInput = defaultEditor.getInputField();
+    editorView.focus();
 
     // fold all button
     let isFolded = false;
 
-    document.getElementById("toggleFoldBtn").onclick = () => {
-        const totalLines = editor.lineCount();
+    document.getElementById("toggleFoldBtn").addEventListener("click", () => {
+        const editor = getActiveEditor();
+        const ranges = [];
 
-        for (let i = 0; i < totalLines; i++) {
-            editor.foldCode(CodeMirror.Pos(i, 0), null, isFolded ? "unfold" : "fold");
+        for (let i = 1; i <= editor.state.doc.lines; i++) {
+            const line = editor.state.doc.line(i);
+            if (/<([a-zA-Z0-9_-]+)([^>]*)>/.test(line.text)) {
+                const tag = RegExp.$1;
+                // Find matching closing tag (very basic; could be replaced with syntaxTree)
+                for (let j = i + 1; j <= editor.state.doc.lines; j++) {
+                    const close = editor.state.doc.line(j);
+                    if (close.text.includes(`</${tag}>`)) {
+                        ranges.push({
+                            from: line.from,
+                            to: close.to
+                        });
+                        break;
+                    }
+                }
+            }
         }
+
+        editor.dispatch({
+            effects: isFolded
+             ? ranges.map(r => unfoldEffect.of(r))
+             : ranges.map(r => foldEffect.of(r))
+        });
+
         isFolded = !isFolded;
-    };
+    });
 
     // editor font size edit. Saves and loads the custom setting in the localstorage
     let fontSize = parseInt(localStorage.getItem("fontSize") || 14); // Initialize at top
@@ -331,7 +478,7 @@ document.addEventListener("DOMContentLoaded", () => {
         Object.values(tabs).forEach(({
                 editor
             }) => {
-            editor.getWrapperElement().style.fontSize = `${fontSize}px`;
+            editor.dom.style.fontSize = `${fontSize}px`;
         });
 
         document.querySelector(".fsize").textContent = `${fontSize}px`;
@@ -376,12 +523,12 @@ document.addEventListener("DOMContentLoaded", () => {
             Object.keys(commands).forEach(cmd => {
                 const link = document.createElement("a");
                 link.href = "javascript:void(0);";
-                link.textContent = toTitleCase(cmd);
+                link.textContent = fx.toTitleCase(cmd);
                 link.onclick = () => validateAndExecuteCommand(cmd);
                 container.appendChild(link);
 
                 const suggestion = document.createElement("li");
-                suggestion.textContent = toTitleCase(cmd);
+                suggestion.textContent = fx.toTitleCase(cmd);
                 suggestion.addEventListener("click", () => {
                     commandInput.value = cmd;
                     validateAndExecuteCommand(cmd);
@@ -440,14 +587,14 @@ document.addEventListener("DOMContentLoaded", () => {
             commandBox.style.display = "none";
             commandInput.value = "";
             selectedIndex = -1;
-            editor.focus();
+            editorView.focus(); ;
             break;
         case "Escape":
             event.preventDefault();
             commandBox.style.display = "none";
             commandInput.value = "";
             selectedIndex = -1;
-            editor.focus();
+            editorView.focus(); ;
             break;
         case "Tab":
             event.preventDefault();
@@ -468,38 +615,48 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // hide the command pallette box when clicked outside of it
     document.addEventListener("click", (event) => {
-        let commandBox = document.getElementById("commandBox");
-        editor = getActiveEditor();
+        const commandBox = document.getElementById("commandBox");
+        const clickedInside = commandBox.contains(event.target);
 
-        if (commandBox.style.display !== "none" && !commandBox.contains(event.target)) {
+        if (commandBox.style.display !== "none" && !clickedInside) {
             commandBox.style.display = "none";
             commandInput.value = "";
             selectedIndex = -1;
-            editor.focus();
+
+            if (typeof editorView !== "undefined") {
+                editorView.focus();
+            }
         }
     });
 
     populateCommands();
+
     // auto loads and sets the values for theme and wordwrap
     document.getElementById("themeSelector").value = savedTheme;
     document.getElementById("wordWrapToggle").checked = savedWordWrap;
 
     // define the editor theme and save it in the localstorage
     document.getElementById("themeSelector").addEventListener("change", function () {
-        editor = getActiveEditor();
-        let selectedTheme = this.value;
-        editor.setOption("theme", selectedTheme);
+        const selectedTheme = this.value;
         localStorage.setItem("editorTheme", selectedTheme);
+        const newTheme = selectedTheme === "dark" ? oneDark : oneLight;
+
+        editorView.dispatch({
+            effects: themeCompartment.reconfigure(newTheme)
+        });
     });
 
     // toggle word wrap and save it in the localstorage
     document.getElementById("wordWrapToggle").addEventListener("change", function () {
-        editor = getActiveEditor();
-        let isChecked = this.checked;
-        editor.setOption("lineWrapping", isChecked);
+        const isChecked = this.checked;
         localStorage.setItem("wordWrap", isChecked);
-    });
 
+        editorView.dispatch({
+            effects: wrapCompartment.reconfigure(
+                isChecked ? EditorView.lineWrapping : [])
+        });
+
+    });
     // when creating new tab or survey, and enter is pressed, call error if something's wrong, else continue
     document.addEventListener("keydown", (event) => {
         const modal = document.getElementById("surveyModal");
@@ -569,7 +726,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
             Object.entries(commandGroups).forEach(([group, commands]) => {
                 Object.keys(commands).forEach(cmd => {
-                    const label = toTitleCase(cmd);
+                    const label = fx.toTitleCase(cmd);
                     const cmdLower = cmd.toLowerCase();
                     const labelLower = label.toLowerCase();
 
@@ -636,35 +793,39 @@ document.addEventListener("DOMContentLoaded", () => {
             });
         }
         // positioning of the command pallette box
-        window.positionCommandBox = function positionCommandBox() {
-            editor = getActiveEditor();
-            let cursor = editor.cursorCoords();
-            commandBox.style.left = `${cursor.left}px`;
-            commandBox.style.top = `${cursor.top - 30}px`;
+        function positionCommandBox() {
+            const editor = window.editorView || getActiveEditor?.();
+            if (!editor)
+                return;
+
+            const pos = editor.state.selection.main.head;
+            const coords = editor.coordsAtPos(pos);
+
+            if (coords) {
+                commandBox.style.left = `${coords.left}px`;
+                commandBox.style.top = `${coords.top - 30}px`;
+            }
         }
         // if command is valid, execute it
         // fail if not
-
-
         function validateAndExecuteCommand(command) {
-            editor = getActiveEditor();
+            const editor = window.editorView || getActiveEditor?.();
             if (!command) {
                 alert("Command cannot be empty!");
                 return;
             }
             lastCommand = command;
             processCommand(command);
-            editor.focus();
-
+            editor?.focus();
         }
+
         //process the command
         function processCommand(command) {
             const normalized = command.toLowerCase();
 
-            // Search across all groups in commandGroups
             for (const group of Object.values(commandGroups)) {
                 if (group[normalized]) {
-                    group[normalized]();
+                    group[normalized](); // Run the matched command
                     return;
                 }
             }
@@ -774,49 +935,50 @@ document.addEventListener("DOMContentLoaded", () => {
 
             document.getElementById("tabContextMenu").style.display = "none";
         });
-
+        /*
         // drag and drop event
         editor = getActiveEditor();
         editor.getWrapperElement().addEventListener("dragover", (event) => {
-            event.preventDefault(); // Prevent default browser behavior
-            event.dataTransfer.dropEffect = "copy";
+        event.preventDefault(); // Prevent default browser behavior
+        event.dataTransfer.dropEffect = "copy";
         });
 
         editor.getWrapperElement().addEventListener("drop", (event) => {
-            editor = getActiveEditor();
-            event.preventDefault();
+        editor = getActiveEditor();
+        event.preventDefault();
 
-            const file = event.dataTransfer.files[0];
-            if (!file)
-                return;
+        const file = event.dataTransfer.files[0];
+        if (!file)
+        return;
 
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                editor.replaceSelection(e.target.result);
-            };
+        const reader = new FileReader();
+        reader.onload = (e) => {
+        editor.replaceSelection(e.target.result);
+        };
 
-            reader.readAsText(file);
+        reader.readAsText(file);
         });
 
         editor.getWrapperElement().addEventListener("dragenter", () => {
-            editor = getActiveEditor();
-            editor.getWrapperElement().classList.add("dragging");
+        editor = getActiveEditor();
+        editor.getWrapperElement().classList.add("dragging");
         });
 
         editor.getWrapperElement().addEventListener("dragleave", () => {
-            editor = getActiveEditor();
-            editor.getWrapperElement().classList.remove("dragging");
+        editor = getActiveEditor();
+        editor.getWrapperElement().classList.remove("dragging");
         });
-
+         */
         // custom tools - question comments
         function renderCommentEditor(language = "english") {
             const container = document.getElementById("commentInputs");
             container.innerHTML = "";
             const saved = localStorage.getItem(`comments_${language}`);
             if (saved) {
-                comments[language] = JSON.parse(saved);
+                cv.comments[language] = JSON.parse(saved);
+                cv.comments
             }
-            Object.entries(comments[language]).forEach(([type, text]) => {
+            Object.entries(cv.comments[language]).forEach(([type, text]) => {
 
                 const label = document.createElement("label");
                 label.textContent = `${type} comment:`;
@@ -829,8 +991,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 input.onchange = (e) => {
                     const type = e.target.dataset.type;
-                    comments[language][type] = e.target.value;
-                    localStorage.setItem(`comments_${language}`, JSON.stringify(comments[language]));
+                    cv.comments[language][type] = e.target.value;
+                    localStorage.setItem(`comments_${language}`, JSON.stringify(cv.comments[language]));
                 };
 
                 container.appendChild(label);
@@ -849,7 +1011,7 @@ document.addEventListener("DOMContentLoaded", () => {
         // reset custom comments to defalt
         function resetComments(language) {
             localStorage.removeItem(`comments_${language}`);
-            comments[language] = JSON.parse(JSON.stringify(defaultComments[language]));
+            cv.comments[language] = JSON.parse(JSON.stringify(cv.defaultComments[language]));
             renderCommentEditor(language);
         }
 
@@ -896,9 +1058,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
         //resize
         function makeResizable(wrapperId, direction = "vertical") {
-            editor = getActiveEditor();
             const wrapper = document.getElementById(wrapperId);
-            const handle = wrapper.querySelector(".resize-handle." + direction);
+            const handle = wrapper?.querySelector(`.resize-handle.${direction}`);
+            if (!handle || !wrapper)
+                return;
+
             let isResizing = false;
 
             handle.addEventListener("mousedown", e => {
@@ -917,11 +1081,15 @@ document.addEventListener("DOMContentLoaded", () => {
                 } else {
                     const maxWidth = 500;
                     const minWidth = 200;
-                    const newWidth = Math.min(Math.max(e.clientX - wrapper.getBoundingClientRect().left, minWidth), maxWidth);
+                    const newWidth = Math.min(
+                            Math.max(e.clientX - wrapper.getBoundingClientRect().left, minWidth),
+                            maxWidth);
                     wrapper.style.width = newWidth + "px";
                 }
-                if (editor.refresh)
-                    editor.refresh(); // for CodeMirror
+
+                // Refresh editor layout in CM6
+                const editor = window.editorView || getActiveEditor?.();
+                editor?.requestMeasure(); // Triggers layout recalculation
             });
 
             document.addEventListener("mouseup", () => {
@@ -931,6 +1099,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
             });
         }
+
         const toolbox = document.getElementById("toolbox");
         toolbox.style.width = "350px"; // or your default width
 
@@ -938,7 +1107,7 @@ document.addEventListener("DOMContentLoaded", () => {
         makeResizable("toolbox", "horizontal");
 
         const select = document.getElementById("styleDropdown");
-        const grouped = groupStylesByPrefix(SURVEY_STYLE_DEFINITIONS);
+        const grouped = s.groupStylesByPrefix(cv.SURVEY_STYLE_DEFINITIONS);
 
         Object.entries(grouped).forEach(([prefix, labels]) => {
             const group = document.createElement("optgroup");

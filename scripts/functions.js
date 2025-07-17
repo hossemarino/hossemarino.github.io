@@ -169,7 +169,7 @@ ${selectedText.trim()}
     window.editor.replaceSelection(html);
 }
 
-// validate tag
+// exec tag
 function execTag() {
     const selectedText = getInputOrLine();
 
@@ -177,6 +177,17 @@ function execTag() {
 ${selectedText.trim()}
 
   </exec>`;
+    window.editor.replaceSelection(html);
+}
+
+// virtual tag
+function virtualTag() {
+    const selectedText = getInputOrLine();
+
+    const html = `  <virtual>
+${selectedText.trim()}
+
+  </virtual>`;
     window.editor.replaceSelection(html);
 }
 

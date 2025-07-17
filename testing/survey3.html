@@ -7,41 +7,23 @@
     <title>Survey Builder</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.9/codemirror.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.9/theme/monokai.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.9/theme/dracula.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.9/theme/material.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.9/theme/eclipse.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.9/theme/ambiance.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.9/theme/3024-night.min.css">
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.9/codemirror.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.9/mode/xml/xml.min.js"></script>
-
-    <script src="./scripts/CodeMirror/foldcode.js"></script>
-    <script src="./scripts/CodeMirror/foldgutter.js"></script>
-    <script src="./scripts/CodeMirror/xml-fold.js"></script>
-    <script src="./scripts/CodeMirror/search.js"></script>
-    <script src="./scripts/CodeMirror/searchcursor.js"></script>
-    <script src="./scripts/CodeMirror/dialog.js"></script>
-    <script src="./scripts/CodeMirror/matchtags.js"></script>
-    <script src="./scripts/CodeMirror/closetag.js"></script>
-    <script src="./scripts/CodeMirror/closebrackets.js"></script>
-    <script src="./scripts/CodeMirror/matchbrackets.js"></script>
 
     <link rel="stylesheet" href="./styles/dialog.css">
     <link rel="stylesheet" href="./styles/styles.css">
     <link rel="stylesheet" href="./styles/bootstrap-theme.css">
     <link rel="stylesheet" href="./styles/foldgutter.css">
-    <script src="./scripts/vars.js"></script>
-    <script src="./scripts/tabs.js"></script>
-    <script src="./scripts/scripts.js"></script>
+    <script src="./scripts/scripts.js" type="module"></script>
+    <!--<script src="./scripts/tabs.js" type="module"></script>
+
+    <script src="./scripts/vars.js" type="module"></script>
+    <script src="./scripts/tabs.js" type="module"></script>
     <script src="./scripts/modals.js"></script>
     <script src="./scripts/functions.js"></script>
     <script src="./scripts/standards.js"></script>
     <script src="./scripts/styles.js"></script>
-    <script src="./scripts/questionfunctions.js"></script>
+    <script src="./scripts/questionfunctions.js"></script>-->
 
 </head>
 
@@ -84,26 +66,26 @@
 
                     <div class="tab-content" id="toolboxTabContent">
                         <div class="tab-pane fade show active" id="main-tools" role="tabpanel">
-                            <div class="commands-header collapsible">New Survey</div>
-                            <div class="survey-commands collapsible-body" id="newSurvey"></div>
+                            <div class="commands-header ">New Survey</div>
+                            <div class="survey-commands " id="newSurvey"></div>
                             <hr>
-                            <div class="commands-header collapsible">Control Elements:</div>
-                            <div class="survey-commands collapsible-body" id="controlElements"></div>
+                            <div class="commands-header ">Control Elements:</div>
+                            <div class="survey-commands " id="controlElements"></div>
                             <hr>
-                            <div class="commands-header collapsible">Question Types</div>
-                            <div class="survey-commands collapsible-body" id="questionTypes"></div>
+                            <div class="commands-header ">Question Types</div>
+                            <div class="survey-commands " id="questionTypes"></div>
                             <hr>
-                            <div class="commands-header collapsible">Question Elements</div>
-                            <div class="survey-commands collapsible-body" id="questionElements"></div>
+                            <div class="commands-header ">Question Elements</div>
+                            <div class="survey-commands " id="questionElements"></div>
                             <hr>
-                            <div class="commands-header collapsible">Question Attributes</div>
-                            <div class="survey-commands collapsible-body" id="attributesCommands"></div>
+                            <div class="commands-header ">Question Attributes</div>
+                            <div class="survey-commands " id="attributesCommands"></div>
                             <hr>
-                            <div class="commands-header collapsible">pretext and posttext</div>
-                            <div class="survey-commands collapsible-body" id="prePostText"></div>
+                            <div class="commands-header ">pretext and posttext</div>
+                            <div class="survey-commands " id="prePostText"></div>
                             <hr>
-                            <div class="commands-header collapsible">Miscellaneous</div>
-                            <div class="survey-commands collapsible-body" id="miscellaneousCommands"></div>
+                            <div class="commands-header ">Miscellaneous</div>
+                            <div class="survey-commands " id="miscellaneousCommands"></div>
                         </div>
 
                         <div class="tab-pane fade" id="standard-tools" role="tabpanel">
@@ -181,16 +163,15 @@
                                 <!-- Formatting Tools -->
                                 <div class="formatting-tools">
                                     <label>Formatting:</label>
-                                    <button title="bold" class="btn btn-secondary btn-sm" onclick="wrapSelection('b')"
-                                        id="boldBtn"><b>B</b></button>
-                                    <button title="italic" class="btn btn-secondary btn-sm" onclick="wrapSelection('i')"
-                                        id="italicBtn"><i>I</i></button>
-                                    <button title="underline" class="btn btn-secondary btn-sm"
-                                        onclick="wrapSelection('u')" id="underlineBtn"><u>U</u></button>
-                                    <button title="superscript" class="btn btn-secondary btn-sm"
-                                        onclick="wrapSelection('sup')" id="superscriptBtn">X<sup>2</sup></button>
-                                    <button title="subscript" class="btn btn-secondary btn-sm"
-                                        onclick="wrapSelection('sub')" id="subscriptBtn">X<sub>2</sub></button>
+                                    <button id="boldBtn" title="bold" class="btn btn-secondary btn-sm"><b>B</b></button>
+                                    <button id="italicBtn" title="italic"
+                                        class="btn btn-secondary btn-sm"><i>I</i></button>
+                                    <button id="underlineBtn" title="underline"
+                                        class="btn btn-secondary btn-sm"><u>U</u></button>
+                                    <button id="superscriptBtn" title="superscript"
+                                        class="btn btn-secondary btn-sm">X<sup>2</sup></button>
+                                    <button id="subscriptBtn" title="subscript"
+                                        class="btn btn-secondary btn-sm">X<sub>2</sub></button>
                                     <button id="toggleFoldBtn" class="btn btn-secondary btn-sm">Fold/Unfold All</button>
                                 </div>
 
@@ -210,13 +191,8 @@
                                 <div>
                                     <label for="themeSelector">Theme:</label>
                                     <select id="themeSelector">
-                                        <option value="default">Default</option>
-                                        <option value="monokai">Monokai</option>
-                                        <option value="dracula">Dracula</option>
-                                        <option value="material">Material</option>
-                                        <option value="eclipse">Eclipse</option>
-                                        <option value="ambiance">ambiance</option>
-                                        <option value="3024-night">3024-night</option>
+                                        <option value="light">Light</option>
+                                        <option value="dark">Dark</option>
                                     </select>
                                 </div>
                             </div>
@@ -243,7 +219,7 @@
 
                 <div id="tabContainer">
                     <div id="tabs">
-                        <button id="addTabButton" onclick="addTab()">➕</button>
+                        <button id="addTabButton">➕</button>
                     </div>
                 </div>
 

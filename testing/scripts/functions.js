@@ -1,630 +1,212 @@
-// editor selection
-function getInputOrLine() {
-    const sel = editor.getSelection();
-    return sel.trim() || editor.getLine(editor.getCursor().line)?.trim() || "";
-}
+// functions.js
 
-function setCursorAfterLine(l) {
-    editor = getActiveEditor();
-    editor.setCursor({
-        line: l,
-        ch: 0
+import { EditorSelection } from "@codemirror/state";
+
+// 🔧 Utility: Resolve editorView globally if not passed
+const getView = view => view || (typeof editorView !== "undefined" ? editorView : null);
+
+// ==============================
+// 🧩 TEXT FORMATTING & WRAPPING
+// ==============================
+export function wrapSelection(view, tag) {
+    view = getView(view);
+    const { state } = view;
+    const sel = state.selection.main;
+
+    if (sel.empty)
+        return false;
+
+    const txt = state.doc.slice(sel.from, sel.to).toString();
+    if (new RegExp(`^<${tag}>.*</${tag}>$`).test(txt))
+        return false;
+
+    const wrapped = `<${tag}>${txt}</${tag}>`;
+    const transaction = state.update({
+        changes: {
+            from: sel.from,
+            to: sel.to,
+            insert: wrapped
+        },
+        selection: EditorSelection.range(
+            sel.from + `<${tag}>`.length,
+            sel.from + wrapped.length - `</${tag}>`.length),
+        scrollIntoView: true
     });
+
+    view.dispatch(transaction);
+    return true;
 }
 
-// download files
-function sanitizeFilename(name) {
-    return name
-    .replace(/[^a-z0-9_\-\.]/gi, "_") // keep letters, numbers, underscores, hyphens, dots
-    .replace(/_+/g, "_") // collapse multiple underscores
-    .replace(/^_+|_+$/g, "") // trim leading/trailing underscores
-    .substring(0, 100); // limit length if needed
-}
-// folding for custom XML tags
-function customTagRangeFinder(cm, start) {
-    const lineText = cm.getLine(start.line);
-    const openTagMatch = lineText.match(/<([a-zA-Z0-9_-]+)(\s[^>]*)?>/);
-
-    if (!openTagMatch)
-        return null;
-
-    const tagName = openTagMatch[1];
-
-    const excludedTags = ["survey", "note"];
-    if (excludedTags.includes(tagName.toLowerCase()))
-        return null;
-
-    const startCh = lineText.indexOf("<" + tagName);
-    const startPos = CodeMirror.Pos(start.line, startCh);
-
-    let depth = 1;
-    const maxLine = cm.lastLine();
-
-    for (let i = start.line + 1; i <= maxLine; i++) {
-        const text = cm.getLine(i);
-
-        const selfClosing = new RegExp(`<${tagName}[^>]*?/>`, "g");
-        const openTags = (text.match(new RegExp(`<${tagName}(\\s[^>]*)?>`, "g")) || []).length;
-        const closeTags = (text.match(new RegExp(`</${tagName}>`, "g")) || []).length;
-        const selfClosingCount = (text.match(selfClosing) || []).length;
-
-        depth += openTags - closeTags - selfClosingCount;
-
-        if (depth === 0) {
-            const endCh = cm.getLine(i).indexOf(`</${tagName}>`) + `</${tagName}>`.length;
-            return {
-                from: startPos,
-                to: CodeMirror.Pos(i, endCh)
-            };
-        }
-    }
-
-    return null;
-}
-//Save/load functions
-function saveEditorContent() {
-    if (activeTab && tabs[activeTab]?.editor) {
-        const content = tabs[activeTab].editor.getValue();
-        localStorage.setItem(`editorTab_${activeTab}`, content);
-    }
-}
-
-function manualSaveEditorContent() {
-    saveEditorContent(); // Save all tabs
-
-    // Show notification
-    const notification = document.getElementById("saveNotification");
-    notification.style.display = "block";
-
-    setTimeout(() => {
-        notification.style.display = "none";
-    }, 3500);
-}
-
-function loadEditorContent(tabName) {
-    const savedContent = localStorage.getItem(`editorTab_${tabName}`);
-    if (savedContent && tabs[tabName]?.editor) {
-        tabs[tabName].editor.setValue(savedContent);
-    }
-}
-
-// TABs
-function addTab() {
-    openModal("tab");
-}
-
-let tabPendingDeletion = null;
-
-function requestTabDeletion(tabName) {
-    tabPendingDeletion = tabName;
-    openModal("delete-tab", tabName); // Show confirmation modal
-}
-
-function truncateLabel(label, max = 12) {
-    return label.length > max ? label.slice(0, max) + "…" : label;
-}
-
-function confirmTabCreation() {
-    const tabNameInput = document.getElementById("tab_name");
-    const errorDisplay = document.getElementById("tabError");
-    const tabName = tabNameInput.value.trim();
-
-    errorDisplay.textContent = "";
-    errorDisplay.style.display = "none";
-
-    if (!tabName) {
-        errorDisplay.textContent = "Tab name cannot be empty.";
-        errorDisplay.style.display = "block";
-        return;
-    }
-
-    if (tabs[tabName]) {
-        errorDisplay.textContent = "A tab with this name already exists.";
-        errorDisplay.style.display = "block";
-        return;
-    }
-
-    createTab(tabName);
-
-    tabNameInput.value = "";
-    bootstrap.Modal.getInstance(document.getElementById("surveyModal")).hide();
-}
-
-//FORMATTING STUFF:
-function wrapSelection(tag) {
-    let editor = window.editor;
-    let selection = getInputOrLine();
-
-    if (selection) {
-        let tagRegex = new RegExp(`^<${tag}>.*</${tag}>$`);
-        if (tagRegex.test(selection)) {
-            console.error(`Selection is already wrapped in <${tag}>!`);
-            return;
-        }
-
-        let from = editor.getCursor("from");
-        let to = editor.getCursor("to");
-
-        let wrappedText = `<${tag}>${selection}</${tag}>`;
-        editor.replaceRange(wrappedText, from, to);
-
-        let insertStart = editor.indexFromPos(from);
-        let insertEnd = insertStart + wrappedText.length;
-
-        let closingTagRegex = new RegExp(`</${tag}>`);
-        let match = closingTagRegex.exec(wrappedText);
-
-        if (match) {
-            let closingTagEndOffset = wrappedText.indexOf(match[0]) + match[0].length;
-            let newToPos = editor.posFromIndex(insertStart + closingTagEndOffset);
-            editor.setSelection(from, newToPos);
-        } else {
-            console.warn("Could not find closing tag position correctly.");
-        }
-
-        editor.focus();
-    }
-}
-
-function toTitleCase(str) {
+export function toTitleCase(str) {
     const acronyms = ["us", "uk", "eu", "xml", "id", "qa", "br", "brbr", "li", "ol", "ul", "css", "js", "ihut"];
     const lowercases = ["res"];
 
-    return str
-    .toLowerCase()
-    .split(/(\s|-)/) // keep spaces and hyphens
-    .map(part => {
-        if (acronyms.includes(part)) {
-            return part.toUpperCase();
-        }
-        if (lowercases.includes(part)) {
-            return part;
-        }
-        return /^[a-z]/.test(part) ? part.charAt(0).toUpperCase() + part.slice(1) : part;
-    })
+    return str.toLowerCase()
+    .split(/(\s|-)/)
+    .map(part => acronyms.includes(part) ? part.toUpperCase()
+         : lowercases.includes(part) ? part
+         : /^[a-z]/.test(part) ? part.charAt(0).toUpperCase() + part.slice(1) : part)
     .join("");
 }
 
-// CONTROL ELEMENTS
-// termination
-function addTerm() {
-    const selectedText = getInputOrLine();
-    const html = `<term label="term_" cond="${selectedText.trim()}"></term>`;
-    window.editor.replaceSelection(html);
+// =============================
+// 📩 BASIC INSERT HELPERS
+// =============================
+export function insertText(view, text) {
+    view = getView(view);
+    const sel = view.state.selection.main;
+    view.dispatch({
+        changes: {
+            from: sel.from,
+            to: sel.to,
+            insert: text
+        },
+        scrollIntoView: true
+    });
 }
 
-// quota tag
-function addQuota() {
-    const selectedText = getInputOrLine();
-    const html = `<quota label="quota_${selectedText.trim()}" sheet="${selectedText.trim()}" overquota="noqual"/>`;
-    window.editor.replaceSelection(html);
+export function getInputOrLine(view) {
+    view = getView(view);
+    const { state } = view;
+    const sel = state.selection.main;
+    const selected = state.doc.slice(sel.from, sel.to).toString().trim();
+    if (selected)
+        return selected;
+    return state.doc.lineAt(sel.from).text.trim();
 }
 
-// validate tag
-function validateTag() {
-    const selectedText = getInputOrLine();
-    const html = `  <validate>
-${selectedText.trim()}
-
-  </validate>`;
-    window.editor.replaceSelection(html);
+// ==============================
+// 📦 CONTROL TAG INSERTIONS
+// ==============================
+export function addTerm(view) {
+    const text = getInputOrLine(view);
+    insertText(view, `<term label="term_" cond="${text}"></term>`);
+}
+export function addQuota(view) {
+    const text = getInputOrLine(view);
+    insertText(view, `<quota label="quota_${text}" sheet="${text}" overquota="noqual"/>`);
+}
+export function validateTag(view) {
+    const text = getInputOrLine(view);
+    insertText(view, `<validate>\n${text}\n</validate>`);
+}
+export function virtualTag(view) {
+    const text = getInputOrLine(view);
+    insertText(view, `<virtual>\n${text}\n</virtual>`);
+}
+export function execTag(view) {
+    const text = getInputOrLine(view);
+    insertText(view, `<exec>\n${text}\n</exec>`);
 }
 
-// validate tag
-function execTag() {
-    const selectedText = getInputOrLine();
-
-    const html = `  <exec>
-${selectedText.trim()}
-
-  </exec>`;
-    window.editor.replaceSelection(html);
-}
-
-// res
-function makeRes() {
-    const editor = window.editor;
-    const selectedText = getInputOrLine();
-
-    try {
-        if (!selectedText.trim()) {
-            alert("No text selected!");
-            return;
-        }
-
-        let input = selectedText;
-
-        input = input.replace(/\t+/g, " ");
-        input = input.replace(/\n +\n/g, "\n\n");
-        input = input.replace(/\n{2,}/g, "\n");
-
-        const lines = input.trim().split("\n").map(line =>
-                line.replace(/^[a-zA-Z0-9]{1,2}[.:)]\s+/, "").trim());
-
-        const result = lines
-            .filter(Boolean)
-            .map(line => `<res label="">${line}</res>`)
-            .join("\n");
-
-        editor.replaceSelection(result); // ✅ Output applied here
-
-    } catch (err) {
-        console.error("makeRes() failed:", err);
-        alert("Could not process RES tags.");
-    }
-}
-// block tag
-function wrapInBlock() {
-    try {
-        const editor = window.editor;
-        const input = getInputOrLine().trim();
-
-        if (!input) {
-            alert("No content selected.");
-            return;
-        }
-
-        const xml = `<block label="" cond="1">
-${input}
-</block>`;
-
-        editor.replaceSelection(xml);
-    } catch (err) {
-        console.error("wrapInBlock() failed:", err);
-        alert("Could not wrap content in <block>.");
-    }
-}
-
-// block tag randomizeChildren
-function wrapInBlockRandomize() {
-    try {
-        const editor = window.editor;
-        const input = getInputOrLine().trim();
-
-        if (!input) {
-            alert("No content selected.");
-            return;
-        }
-
-        const xml = `<block label="" cond="1" randomizeChildren="1">
-${input}
-</block>`;
-
-        editor.replaceSelection(xml);
-    } catch (err) {
-        console.error("wrapInBlock() failed:", err);
-        alert("Could not wrap content in <block>.");
-    }
-}
-
-// LOOP tag
-function addLoopBlock() {
-    try {
-        const editor = window.editor;
-        const selection = getInputOrLine().trim();
-
-        if (!selection) {
-            alert("No content selected.");
-            return;
-        }
-
-        const tagPattern = /(radio|checkbox|text|textarea|block|number|float|select|html)/;
-
-        // Extract existing <looprow> elements
-        const looprowRegex = /<looprow[\s\S]*?<\/looprow>/gi;
-        const matchedLoopRows = selection.match(looprowRegex) || [];
-        const loopRows = matchedLoopRows
-            .map(row => `  ${row.trim()}\n`)
-            .join("\n");
-        const mainBlock = selection.replace(looprowRegex, "").trim();
-
-        // Extract all loopvar names
-        const loopVarNames = [];
-        const varMatchRegex = /<loopvar\s+name="([^"]+)"/gi;
-        let match;
-        while ((match = varMatchRegex.exec(loopRows))) {
-            const varName = match[1].trim();
-            if (varName && !loopVarNames.includes(varName)) {
-                loopVarNames.push(varName);
-            }
-        }
-
-        const varsAttr = loopVarNames.join(", ");
-
-        const hasAltLabel = mainBlock.includes("altlabel");
-
-        const updated = hasAltLabel
-             ? mainBlock.replace(
-                new RegExp(
-`<${tagPattern.source}([\\s\\S]*?)label="([^"]+)"([\\s\\S]*?)altlabel="([^"]+)"`,
-                    "g"),
-                (_match, tag, pre, label, between, alt) =>
-`<${tag}${pre}label="${label.trim()}_[loopvar: label]"${between}altlabel="${alt.trim()}_[loopvar:label]"`)
-             : mainBlock.replace(
-                new RegExp(`<${tagPattern.source}([\\s\\S]*?)label="([^"]+)"`, "g"),
-                (_match, tag, pre, label) =>
-`<${tag}${pre}label="${label.trim()}_[loopvar: label]"`);
-
-        const wrapped = `<loop label="" vars="${varsAttr}" title=" " suspend="0">
-  <block label="">
-
-${updated}
-
-  </block>
-
-${loopRows || `  <looprow label="" cond="">
-    <loopvar name=""></loopvar>
-  </looprow>`}
-
-</loop>`;
-
-        editor.replaceSelection(wrapped);
-    } catch (err) {
-        console.error("addLoopBlock() failed:", err);
-        alert("Could not process loop template.");
-    }
-}
-
-// make looprows
-function makeLooprows() {
-    try {
-        const editor = window.editor;
-        const rawInput = getInputOrLine().trim();
-
-        if (!rawInput) {
-            alert("No content selected.");
-            return;
-        }
-
-        // Clean tabs and normalize spacing
-        let cleaned = rawInput
-            .replace(/\t+/g, " ")
-            .replace(/\n +\n/g, "\n\n")
-            .replace(/\n{2,}/g, "\n")
-            .trim()
-            .split("\n")
-            .map(line => line.replace(/^[a-zA-Z0-9]{1,2}[.:)\s]+\s*/, "").trim())
-            .filter(line => line.length > 0);
-
-        const result = cleaned
-            .map((line, i) => `  <looprow label="${i + 1}">\n    <loopvar name="var">${line}</loopvar>\n  </looprow>`)
-            .join("\n");
-
-        editor.replaceSelection(result);
-    } catch (err) {
-        console.error("makeLooprows() failed:", err);
-        alert("Could not generate looprow XML.");
-    }
-}
-// make markers
-function makeMarker() {
-    let selectedText = getInputOrLine();
-    if (!selectedText.trim()) {
-        alert("No text selected!");
+// ==============================
+// 🔁 LIST GENERATORS (RES, ROW, COL, CHOICE, etc.)
+// ==============================
+export function makeRes(view) {
+    const raw = getInputOrLine(view);
+    if (!raw.trim())
         return;
-    }
 
-    let lines = selectedText.split("\n").map(line => line.trim()).filter(line => line);
-    let xmlItems = lines.map((line, index) => `<marker name="${line}" cond=""/>`).join("\n");
+    const lines = raw.replace(/\t+/g, " ")
+        .replace(/\n +\n/g, "\n\n")
+        .replace(/\n{2,}/g, "\n")
+        .trim()
+        .split("\n")
+        .map(line => line.replace(/^[a-zA-Z0-9]{1,2}[.:)]\s+/, "").trim());
 
-    window.editor.replaceSelection(xmlItems);
+    const output = lines.filter(Boolean)
+        .map(line => `<res label="">${line}</res>`)
+        .join("\n");
+
+    insertText(view, output);
 }
 
-// make markers
-function makeCondition() {
-    let selectedText = getInputOrLine();
-    if (!selectedText.trim()) {
-        alert("No text selected!");
+export function makeRows(view, numbered) {
+    const raw = getInputOrLine(view);
+    if (!raw.trim())
         return;
-    }
 
-    let lines = selectedText.split("\n").map(line => line.trim()).filter(line => line);
-    let xmlItems = lines.map((line, index) => `<condition label="" cond="">${line}</condition >`).join("\n");
+    const lines = raw.split("\n").map(l => l.trim()).filter(Boolean);
+    const count = lines.length;
 
-    window.editor.replaceSelection(xmlItems);
+    const output = lines.map((line, i) => {
+        const idx = numbered === "high" ? count - i : i + 1;
+        const valueAttr = numbered === "low" || numbered === "high" ? ` value="${idx}"` : "";
+        return `<row label="r${idx}"${valueAttr}>${line}</row>`;
+    }).join("\n");
+
+    insertText(view, output);
 }
 
-// FUNCTIONS FOR ROWS
-function makeRows() {
-    let selectedText = getInputOrLine();
-    if (!selectedText.trim()) {
-        alert("No text selected!");
+export function makeCols(view, numbered) {
+    const raw = getInputOrLine(view);
+    if (!raw.trim())
         return;
-    }
 
-    let lines = selectedText.split("\n").map(line => line.trim()).filter(line => line);
-    let xmlItems = lines.map((line, index) => `  <row label="r${index + 1}">${line}</row>`).join("\n");
+    const lines = raw.split("\n").map(l => l.trim()).filter(Boolean);
+    const count = lines.length;
 
-    window.editor.replaceSelection(xmlItems);
+    const output = lines.map((line, i) => {
+        const idx = numbered === "high" ? count - i : i + 1;
+        const valueAttr = numbered === "low" || numbered === "high" ? ` value="${idx}"` : "";
+        return `<col label="c${idx}"${valueAttr}>${line}</col>`;
+    }).join("\n");
+
+    insertText(view, output);
 }
 
-function makeRowsLow() {
-    let selectedText = getInputOrLine();
-    if (!selectedText.trim()) {
-        alert("No text selected!");
+export function makeChoices(view, numbered) {
+    const raw = getInputOrLine(view);
+    if (!raw.trim())
         return;
-    }
 
-    let lines = selectedText.split("\n").map(line => line.trim()).filter(line => line);
-    let xmlItems = lines.map((line, index) => `  <row label="r${index + 1}" value="${index + 1}">${line}</row>`).join("\n");
+    const lines = raw.split("\n").map(l => l.trim()).filter(Boolean);
+    const count = lines.length;
 
-    window.editor.replaceSelection(xmlItems);
-}
+    const output = lines.map((line, i) => {
+        const idx = numbered === "high" ? count - i : i + 1;
+        const valueAttr = numbered === "low" || numbered === "high" ? ` value="${idx}"` : "";
+        return `<choice label="ch${idx}"${valueAttr}>${line}</choice>`;
+    }).join("\n");
 
-function makeRowsHigh() {
-    let selectedText = getInputOrLine();
-    if (!selectedText.trim()) {
-        alert("No text selected!");
-        return;
-    }
-
-    let lines = selectedText.split("\n").map(line => line.trim()).filter(line => line);
-    let length = lines.length;
-
-    let xmlItems = lines.map((line, index) =>
-`  <row label="r${length - index}" value="${length - index}">${line}</row>`).join("\n");
-
-    window.editor.replaceSelection(xmlItems);
-}
-
-// FUNCTIONS FOR COLUMNS
-function makeCols() {
-    let selectedText = getInputOrLine();
-    if (!selectedText.trim()) {
-        alert("No text selected!");
-        return;
-    }
-
-    let lines = selectedText.split("\n").map(line => line.trim()).filter(line => line);
-    let xmlItems = lines.map((line, index) => `  <col label="c${index + 1}">${line}</col>`).join("\n");
-
-    window.editor.replaceSelection(xmlItems);
-}
-
-function makeColsLow() {
-    let selectedText = getInputOrLine();
-    if (!selectedText.trim()) {
-        alert("No text selected!");
-        return;
-    }
-
-    let lines = selectedText.split("\n").map(line => line.trim()).filter(line => line);
-    let xmlItems = lines.map((line, index) => `  <col label="c${index + 1}" value="${index + 1}">${line}</col>`).join("\n");
-
-    window.editor.replaceSelection(xmlItems);
-}
-
-function makeColsHigh() {
-    let selectedText = getInputOrLine();
-    if (!selectedText.trim()) {
-        alert("No text selected!");
-        return;
-    }
-
-    let lines = selectedText.split("\n").map(line => line.trim()).filter(line => line);
-    let length = lines.length;
-
-    let xmlItems = lines.map((line, index) =>
-`  <col label="c${length - index}" value="${length - index}">${line}</col>`).join("\n");
-
-    window.editor.replaceSelection(xmlItems);
-}
-
-// FUNCTIONS FOR CHOICES
-function makeChoices() {
-    let selectedText = getInputOrLine();
-    if (!selectedText.trim()) {
-        alert("No text selected!");
-        return;
-    }
-
-    let lines = selectedText.split("\n").map(line => line.trim()).filter(line => line);
-    let xmlItems = lines.map((line, index) => `  <choice label="ch${index + 1}">${line}</choice>`).join("\n");
-
-    window.editor.replaceSelection(xmlItems);
-}
-
-function makeChoicesLow() {
-    let selectedText = getInputOrLine();
-    if (!selectedText.trim()) {
-        alert("No text selected!");
-        return;
-    }
-
-    let lines = selectedText.split("\n").map(line => line.trim()).filter(line => line);
-    let xmlItems = lines.map((line, index) => `  <choice label="ch${index + 1}" value="${index + 1}">${line}</choice>`).join("\n");
-
-    window.editor.replaceSelection(xmlItems);
-}
-
-function makeChoicesHigh() {
-    let selectedText = getInputOrLine();
-    if (!selectedText.trim()) {
-        alert("No text selected!");
-        return;
-    }
-
-    let lines = selectedText.split("\n").map(line => line.trim()).filter(line => line);
-    let length = lines.length;
-
-    let xmlItems = lines.map((line, index) =>
-`  <choice label="ch${length - index}" value="${length - index}">${line}</choice>`).join("\n");
-
-    window.editor.replaceSelection(xmlItems);
+    insertText(view, output);
 }
 
 // NOANSWER
-function makeNoAnswer() {
-    let selectedText = getInputOrLine();
-    if (!selectedText.trim()) {
-        alert("No text selected!");
+export function makeNoAnswer(view) {
+    const raw = getInputOrLine(view);
+    if (!raw.trim())
         return;
-    }
 
-    let lines = selectedText.split("\n").map(line => line.trim()).filter(line => line);
+    const lines = raw.split("\n").map(l => l.trim()).filter(Boolean);
+
     let xmlItems = lines.map((line, index) => `  <noanswer label="n${index + 1}">${line}</noanswer>`).join("\n");
 
-    window.editor.replaceSelection(xmlItems);
+    insertText(view, xmlItems);
 }
 
-// GROUPS
-function makeGroups() {
-    let selectedText = getInputOrLine();
-    if (!selectedText.trim()) {
-        alert("No text selected!");
+// groups
+export function makeGroups(view) {
+    const raw = getInputOrLine(view);
+    if (!raw.trim())
         return;
-    }
 
-    let lines = selectedText.split("\n").map(line => line.trim()).filter(line => line);
+    const lines = raw.split("\n").map(l => l.trim()).filter(Boolean);
+
     let xmlItems = lines.map((line, index) => `  <group label="g${index + 1}">${line}</group>`).join("\n");
 
-    window.editor.replaceSelection(xmlItems);
+    insertText(view, xmlItems); 
 }
 
-// QUESTION COMMENT
-function addCommentQuestion() {
-    let selection = getInputOrLine();
-
-    if (selection) {
-        let xmlItems = `  <comment>${selection}</comment>`;
-        window.editor.replaceSelection(xmlItems);
-    } else {
-        alert("No text selected!");
-        return "";
-    }
-}
-
-// CASES for pipe
-function makeCase() {
-    let selectedText = getInputOrLine();
-
-    if (!selectedText.trim()) {
-        alert("No text selected!");
-        return;
-    }
-
-    let lines = selectedText.split("\n").map(line => line.trim()).filter(line => line);
-
-    let xmlItems = "";
-    lines.forEach((line, index) => {
-        xmlItems += `  <case label="c${index + 1}" cond="">${line}</case>\n`;
-    });
-
-    xmlItems += `  <case label="cn" cond="1">DEFAULT</case>\n`;
-
-    window.editor.replaceSelection(xmlItems);
-}
 
 // Autofill rows for pipe
-function makeAutoFillRows() {
-    let selectedText = getInputOrLine();
-
-    if (!selectedText.trim()) {
-        alert("No text selected!");
+export function makeAutoFillRows(view) {
+    const raw = getInputOrLine(view);
+    if (!raw.trim())
         return;
-    }
 
-    let lines = selectedText.split("\n").map(line => line.trim()).filter(line => line);
+
+    const lines = raw.split("\n").map(l => l.trim()).filter(Boolean);
 
     let xmlItems = "";
     lines.forEach((line, index) => {
@@ -633,396 +215,264 @@ function makeAutoFillRows() {
 
     xmlItems += `  <row label="none" autofill="thisQuestion.count == 0"><i>None of These Classifications Apply</i></row>\n`;
 
-    window.editor.replaceSelection(xmlItems);
+    insertText(view, xmlItems); 
 }
 
-//miscelaneous
-//add 2 break lines
-function brbr() {
-    xmlItems = `<br/><br/>`;
-    window.editor.replaceSelection(xmlItems);
+// ==============================
+// 🎛️ ATTRIBUTE HELPERS
+// ==============================
+export function addAttribute(view, attr) {
+    insertText(view, ` ${attr}`);
 }
-//add break line
-function br() {
-    xmlItems = `<br/>`;
-    window.editor.replaceSelection(xmlItems);
-}
+export const br = view => insertText(view, `<br/>`);
+export const brbr = view => insertText(view, `<br/><br/>`);
+export const addOpen = view => addAttribute(view, ` open="1" openSize="25" randomize="0"`);
+export const addExclusive = view => addAttribute(view, ` exclusive="1" randomize="0"`);
+export const addAggregate = view => addAttribute(view, ` aggregate="0" percentages="0"`);
+export const addOptional = view => addAttribute(view, `o ptional="1"`);
+export const addShuffleRows = view => addAttribute(view, ` shuffle="rows"`);
+export const addShuffleCols = view => addAttribute(view, ` shuffle="cols"`);
+export const addShuffleRowsCols = view => addAttribute(view, ` shuffle="rows,cols"`);
+export const addExecute = view => addAttribute(view, ` where="execute"`);
+export const addGroupingCols = view => addAttribute(view, ` grouping="cols" adim="cols"`);
+export const addGroupingRows = view => addAttribute(view, ` grouping="rows" adim="rows"`);
+export const addRowClassNames = view => addAttribute(view, ` ss:rowClassNames=""`);
+export const addColClassNames = view => addAttribute(view, ` ss:colClassNames=""`);
+export const addChoiceClassNames = view => addAttribute(view, ` ss:choiceClassNames=""`);
+export const addRatingDirection = view => addAttribute(view, ` ratingDirection="reverse"`);
 
-//add open end
-function addOpen() {
-    xmlItems = ` open="1" openSize="25" randomize="0"`;
-    window.editor.replaceSelection(xmlItems);
-}
-//add exclusive
-function addExclusive() {
-    xmlItems = ` exclusive="1" randomize="0"`;
-    window.editor.replaceSelection(xmlItems);
-}
-//add aggregate
-function addAggregate() {
-    xmlItems = ` aggregate="0" percentages="0"`;
-    window.editor.replaceSelection(xmlItems);
-}
-//add randomize="0"
-function addRandomize0() {
-    xmlItems = ` randomize="0"`;
-    window.editor.replaceSelection(xmlItems);
-}
-
-//add optional
-function addOptional() {
-    xmlItems = ` optional="1"`;
-    window.editor.replaceSelection(xmlItems);
-}
-
-//add shuffle rows
-function addShuffleRows() {
-    xmlItems = ` shuffle="rows"`;
-    window.editor.replaceSelection(xmlItems);
-}
-
-//add shuffle cols
-function addShuffleCols() {
-    xmlItems = ` shuffle="cols"`;
-    window.editor.replaceSelection(xmlItems);
-}
-
-//add shuffle rows and cols
-function addShuffleRowsCols() {
-    xmlItems = ` shuffle="rows,cols"`;
-    window.editor.replaceSelection(xmlItems);
-}
-
-//add where="execute"
-function addExecute() {
-    xmlItems = ` where="execute"`;
-    window.editor.replaceSelection(xmlItems);
-}
-
-//add Add Grouping/Adim Cols
-function addGroupingCols() {
-    xmlItems = ` grouping="cols" adim="cols"`;
-    window.editor.replaceSelection(xmlItems);
-}
-
-//add Add Grouping/Adim Rows
-function addGroupingRows() {
-    xmlItems = ` grouping="rows" adim="rows"`;
-    window.editor.replaceSelection(xmlItems);
-}
-
-//add class names
-//add Add rowclassnames
-function addRowClassNames() {
-    xmlItems = ` ss:rowClassNames=""`;
-    window.editor.replaceSelection(xmlItems);
-}
-
-//add Add colclassnames
-function addColClassNames() {
-    xmlItems = ` ss:colClassNames=""`;
-    window.editor.replaceSelection(xmlItems);
-}
-//add Add choiceclassnames
-function addChoiceClassNames() {
-    xmlItems = ` ss:choiceClassNames=""`;
-    window.editor.replaceSelection(xmlItems);
-}
-
-// add groups
-function addGroups() {
-    try {
-        const editor = window.editor;
-        const selectedText = getInputOrLine();
-
-        if (!selectedText.trim()) {
-            alert("Please select one or more lines to apply groups=\"\".");
-            return;
+// ==============================
+// 🧠 PRETEXT / POSTTEXT / RES WRAPPERS
+// ==============================
+export const addPreText = view => {
+    const val = getInputOrLine(view).trim();
+    insertText(view, ` ss:preText="\${res.$ {
+            val
         }
-
-        const targetTags = ["group", "col", "row", "choice"];
-        let changesMade = false;
-
-        const modifiedText = selectedText.replace(
-                /<(\w+)([^>]*?)>/g,
-                (full, tagName, attrs) => {
-                if (targetTags.includes(tagName) && !/groups\s*=/.test(attrs)) {
-                    changesMade = true;
-                    return `<${tagName}${attrs} groups="">`;
-                }
-                return full;
-            });
-
-        if (!changesMade) {
-            alert('No <group>, <choice>, <col>, or <row> tags missing groups="" found.');
-            return;
+}"`);
+};
+export const addPostText = view => {
+    const val = getInputOrLine(view).trim();
+    insertText(view, ` ss:postText="\${res.$ {
+            val
         }
+}"`);
+};
+export const makePreTextResInternal = view => {
+    const val = getInputOrLine(view).trim();
+    insertText(view, `<res label="preText">${val}</res>`);
+};
+export const makePostTextResInternal = view => {
+    const val = getInputOrLine(view).trim();
+    insertText(view, `<res label="postText">${val}</res>`);
+};
 
-        editor.replaceSelection(modifiedText);
-    } catch (err) {
-        console.error("addGroups() failed:", err);
-        alert("Something went wrong while adding groups=\"\" attributes.");
-    }
-}
-
-// add values
-function addValues() {
-    const editor = window.editor;
-    const selected = getInputOrLine();
-    const targetTags = ["row", "col", "choice"];
-    let changed = false;
-
-    const updated = selected.replace(
-            /<(\w+)([^>]*?)>/g,
-            (full, tag, attrs) => {
-            if (targetTags.includes(tag) && !/value\s*=/.test(attrs)) {
-                changed = true;
-                return `<${tag}${attrs} value="">`;
-            }
-            return full;
-        });
-
-    if (changed)
-        editor.replaceSelection(updated);
-    else
-        alert('No missing value="" attributes found on <row>, <col>, or <choice>.');
-}
-
-// add values L-H
-function addValuesLow() {
-    const editor = window.editor;
-    const selected = getInputOrLine();
-    const targetTags = ["row", "col", "choice"];
-    let count = 1;
-
-    const updated = selected.replace(
-            /<(\w+)([^>]*?)>/g,
-            (full, tag, attrs) => {
-            if (targetTags.includes(tag)) {
-                const cleaned = attrs.replace(/\svalue=".*?"/, ""); // Remove existing value
-                return `<${tag}${cleaned} value="${count++}">`;
-            }
-            return full;
-        });
-
-    editor.replaceSelection(updated);
-}
-// add values H-L
-function addValuesHigh() {
-    const editor = window.editor;
-    const selected = getInputOrLine();
-    const targetTags = ["row", "col", "choice"];
-    let matches = [...selected.matchAll(/<(\w+)([^>]*?)>/g)];
-    let total = matches.filter(([_, tag]) => targetTags.includes(tag)).length;
-    let count = total;
-
-    const updated = selected.replace(
-            /<(\w+)([^>]*?)>/g,
-            (full, tag, attrs) => {
-            if (targetTags.includes(tag)) {
-                const cleaned = attrs.replace(/\svalue=".*?"/, "");
-                return `<${tag}${cleaned} value="${count--}">`;
-            }
-            return full;
-        });
-
-    editor.replaceSelection(updated);
-}
-
-// swap rows and cols and vice versa
-function swapRowCol() {
-    try {
-        const editor = window.editor;
-        const selected = getInputOrLine();
-
-        if (!selected.trim()) {
-            alert("Please select some <row> or <col> tags to swap.");
-            return;
-        }
-
-        const lines = selected.split("\n");
-        const updated = lines.map(line => {
-            let modifiedLine = line;
-
-            if (/<row/.test(line)) {
-                modifiedLine = modifiedLine
-                    .replace(/(<|\/)row/g, "$1col")
-                    .replace(/label=(["'])r(\d)/g, 'label=$1c$2');
-            } else if (/<col/.test(line)) {
-                modifiedLine = modifiedLine
-                    .replace(/(<|\/)col/g, "$1row")
-                    .replace(/label=(["'])c(\d)/g, 'label=$1r$2');
-            }
-
-            return modifiedLine;
-        });
-
-        const result = updated.join("\n");
-        editor.replaceSelection(result);
-    } catch (err) {
-        console.error("swapRowCol() failed:", err);
-        alert("Something went wrong during row/col swapping.");
-    }
-}
-
-// add altlabel
-function addAltlabel() {
-    const selectedText = getInputOrLine();
-    const cleaned = selectedText.trim().replace(/\s+/g, "_");
-    const html = ` altlabel="${cleaned}"`;
-    window.editor.replaceSelection(html);
-}
-
-// add ratinDirection
-function addRatingDirection() {
-    const selectedText = getInputOrLine();
-    const html = ` ratingDirection="reverse"`;
-    window.editor.replaceSelection(html);
-}
-// make link href
-function makeHref() {
-    try {
-        const editor = window.editor;
-        const input = getInputOrLine().trim();
-
-        if (!input) {
-            alert("Please select or enter a URL.");
-            return;
-        }
-
-        const href = `<a href="${input}" target="_blank">${input}</a>`;
-        editor.replaceSelection(href);
-    } catch (err) {
-        console.error("makeHref() failed:", err);
-        alert("Something went wrong while generating the hyperlink.");
-    }
-}
-
-//make lis
-function lis() {
-    let selectedText = getInputOrLine();
-
-    if (!selectedText.trim()) {
-        alert("No text selected!");
+// ==============================
+// 🔄 ROW/COL SWAPPING
+// ==============================
+export function swapRowCol(view) {
+    const raw = getInputOrLine(view);
+    if (!raw.trim())
         return;
-    }
 
-    let lines = selectedText.split("\n").map(line => line.trim()).filter(line => line);
-
-    let xmlItems = "";
-    lines.forEach((line) => {
-        xmlItems += `  <li>${line}</li>\n`;
+    const lines = raw.split("\n").map(line => {
+        let modified = line;
+        if (/<row/.test(modified)) {
+            modified = modified.replace(/(<\/?)row/g, "$1col")
+                .replace(/label=(["'])r(\d)/g, 'label=$1c$2');
+        } else if (/<col/.test(modified)) {
+            modified = modified.replace(/(<\/?)col/g, "$1row")
+                .replace(/label=(["'])c(\d)/g, 'label=$1r$2');
+        }
+        return modified;
     });
 
-    window.editor.replaceSelection(xmlItems);
+    insertText(view, lines.join("\n"));
 }
-// make ordered list (<ol>)
-function makeOl() {
-    const selectedText = getInputOrLine();
-    if (!selectedText.trim()) {
-        alert("No text selected!");
+
+// ==============================
+// 🔗 MARKUPS & LINKS
+// ==============================
+export function makeHref(view) {
+    const text = getInputOrLine(view).trim();
+    if (!text)
         return;
-    }
-
-    try {
-        let input = selectedText.trim();
-
-        // Remove blank lines
-        input = input.replace(/\n\n+/g, "\n");
-
-        // Check if there is at least one <li>
-        if (!input.includes("<li")) {
-            alert("<ol> tag requires at least one <li> element.");
-            return;
-        }
-        const output = `<ol>\n  ${input}\n</ol>\n`;
-        window.editor.replaceSelection(output);
-        return output;
-
-    } catch (error) {
-        console.error("makeOl clip failed:", error);
-        alert("An error occurred while generating the <ol> tag.");
-        return "";
-    }
+    insertText(view, `<a href="${text}" target="_blank">${text}</a>`);
 }
 
-// make unordered list (<ul>)
-function makeUl() {
-    const selectedText = getInputOrLine();
-    if (!selectedText.trim()) {
-        alert("No text selected!");
+export function lis(view) {
+    const text = getInputOrLine(view).trim();
+    if (!text)
         return;
-    }
 
-    try {
-        let input = selectedText.trim();
+    const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
+    const output = lines.map(line => `  <li>${line}</li>`).join("\n");
+    insertText(view, output);
+}
 
-        // Remove blank lines
-        input = input.replace(/\n\n+/g, "\n");
+export function makeOl(view) {
+    const text = getInputOrLine(view).trim();
+    if (!text || !text.includes("<li"))
+        return;
+    insertText(view, `<ol>\n  ${text}\n</ol>`);
+}
 
-        // Check if there is at least one <li>
-        if (!input.includes("<li")) {
-            alert("<ul> tag requires at least one <li> element.");
-            return;
+export function makeUl(view) {
+    const text = getInputOrLine(view).trim();
+    if (!text || !text.includes("<li"))
+        return;
+    insertText(view, `<ul>\n  ${text}\n</ul>`);
+}
+
+// ==============================
+// 🧠 GROUPS / VALUES INJECTION
+// ==============================
+export function addGroups(view) {
+    const raw = getInputOrLine(view);
+    if (!raw.trim())
+        return;
+
+    const tags = ["group", "col", "row", "choice"];
+    let changed = false;
+
+    const updated = raw.replace(/<(\w+)([^>]*?)>/g, (full, tagName, attrs) => {
+        if (tags.includes(tagName) && !/groups\s*=/.test(attrs)) {
+            changed = true;
+            return `<${tagName}${attrs} groups="">`;
         }
-        const output = `<ul>\n  ${input}\n</ul>\n`;
-        window.editor.replaceSelection(output);
-        return output;
+        return full;
+    });
 
-    } catch (error) {
-        console.error("makeUl clip failed:", error);
-        alert("An error occurred while generating the <ul> tag.");
-        return "";
-    }
+    if (changed)
+        insertText(view, updated);
 }
 
+export function addValues(view) {
+    const raw = getInputOrLine(view);
+    if (!raw.trim())
+        return;
 
-// pre texts
-function addPreText() {
-    const selectedText = getInputOrLine();
-    const xmlContent = ` ss:preText="\${res.${selectedText.trim()}}"`;
-    window.editor.replaceSelection(xmlContent);
+    const tags = ["row", "col", "choice"];
+    let changed = false;
+
+    const updated = raw.replace(/<(\w+)([^>]*?)>/g, (full, tagName, attrs) => {
+        if (tags.includes(tagName) && !/value\s*=/.test(attrs)) {
+            changed = true;
+            return `<${tagName}${attrs} value="">`;
+        }
+        return full;
+    });
+
+    if (changed)
+        insertText(view, updated);
 }
 
-function addPreTextInternal() {
-    const selectedText = getInputOrLine();
-    const xmlContent = ` ss:preText="\${res['%s,preText' % this.label]}"`;
-    window.editor.replaceSelection(xmlContent);
+export function addValuesLow(view) {
+    const raw = getInputOrLine(view);
+    if (!raw.trim())
+        return;
+
+    const tags = ["row", "col", "choice"];
+    let count = 1;
+
+    const updated = raw.replace(/<(\w+)([^>]*?)>/g, (full, tag, attrs) => {
+        if (tags.includes(tag)) {
+            const cleaned = attrs.replace(/\svalue=".*?"/, "");
+            return `<${tag}${cleaned} value="${count++}">`;
+        }
+        return full;
+    });
+
+    insertText(view, updated);
 }
 
-function makePreTextResInternal() {
-    const selectedText = getInputOrLine();
-    const xmlContent = `<res label="preText">${selectedText.trim()}</res>`;
-    window.editor.replaceSelection(xmlContent);
+export function addValuesHigh(view) {
+    const raw = getInputOrLine(view);
+    if (!raw.trim())
+        return;
+
+    const tags = ["row", "col", "choice"];
+    const matches = [...raw.matchAll(/<(\w+)([^>]*?)>/g)];
+    let total = matches.filter(([_, tag]) => tags.includes(tag)).length;
+    let count = total;
+
+    const updated = raw.replace(/<(\w+)([^>]*?)>/g, (full, tag, attrs) => {
+        if (tags.includes(tag)) {
+            const cleaned = attrs.replace(/\svalue=".*?"/, "");
+            return `<${tag}${cleaned} value="${count--}">`;
+        }
+        return full;
+    });
+
+    insertText(view, updated);
 }
 
-// post text
-function addPostText() {
-    const selectedText = getInputOrLine();
-    const xmlContent = ` ss:postText="\${res.${selectedText.trim()}}"`;
-    window.editor.replaceSelection(xmlContent);
+// ==============================
+// 🗂️ COMMENT & CASE BLOCKS
+// ==============================
+export function addCommentQuestion(view) {
+    const text = getInputOrLine(view).trim();
+    if (text)
+        insertText(view, `<comment>${text}</comment>`);
 }
 
-function addPostTextInternal() {
-    const selectedText = getInputOrLine();
-    const xmlContent = ` ss:postText="\${res['%s,postText' % this.label]}"`;
-    window.editor.replaceSelection(xmlContent);
+export function makeCase(view) {
+    const text = getInputOrLine(view);
+    if (!text.trim())
+        return;
+
+    const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
+    let xml = lines.map((line, i) => `  <case label="c${i + 1}" cond="">${line}</case>`).join("\n");
+    xml += `\n  <case label="cn" cond="1">DEFAULT</case>`;
+    insertText(view, xml);
 }
 
-function makePostTextResInternal() {
-    const selectedText = getInputOrLine();
-    const xmlContent = `<res label="postText">${selectedText.trim()}</res>`;
-    window.editor.replaceSelection(xmlContent);
+export function makeCondition(view) {
+    const text = getInputOrLine(view);
+    if (!text.trim())
+        return;
+
+    const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
+    const xml = lines.map(line => `<condition label="" cond="">${line}</condition>`).join("\n");
+    insertText(view, xml);
 }
 
+// ==============================
+// 🔁 LOOP & VIRTUAL BLOCKS
+// ==============================
+export function makeLooprows(view) {
+    const raw = getInputOrLine(view).trim();
+    if (!raw)
+        return;
 
-// add contact q
-function addContactQuestion() {
-    const xmlContent = CONTACT_QUESTION;
-    window.editor.replaceSelection(xmlContent);
+    const lines = raw.replace(/\t+/g, " ").replace(/\n +\n/g, "\n\n").replace(/\n{2,}/g, "\n")
+        .split("\n").map(line => line.replace(/^[a-zA-Z0-9]{1,2}[.:)\s]+\s*/, "").trim()).filter(Boolean);
+
+    const output = lines.map((line, i) =>
+`  <looprow label="${i + 1}">\n    <loopvar name="var">${line}</loopvar>\n  </looprow>`).join("\n");
+
+    insertText(view, output);
 }
 
-function addContactQuestionIHUT() {
-    const xmlContent = CONTACT_QUESTION_IHUT;
-    window.editor.replaceSelection(xmlContent);
-}
+// You can expand this further with `addLoopBlock(view)` and others later
+
+// ==============================
+// 🧠 EXPORT DEFAULT (optional)
+// ==============================
+// Optional: export all functions together
+// export default {
+//   wrapSelection,
+//   makeRes,
+//   addTerm,
+//   addQuota,
+//   makeRows,
+//   makeCols,
+//   makeChoices,
+//   swapRowCol,
+//   makeOl,
+//   makeUl,
+//   makeHref,
+//   makeCase,
+//   makeCondition,
+//   ...
+// };

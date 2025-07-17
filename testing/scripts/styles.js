@@ -1,5 +1,5 @@
 // STYLES FUNCTIONS
-function groupStylesByPrefix(definitions) {
+export function groupStylesByPrefix(definitions) {
     const groups = {};
 
     definitions.forEach(({
@@ -18,7 +18,7 @@ function groupStylesByPrefix(definitions) {
 
     return Object.fromEntries(Object.entries(groups).sort(([a], [b]) => a.localeCompare(b)));
 }
-function getSurveyStyles() {
+export function getSurveyStyles() {
     mode = ` mode="${document.getElementById("styleDropdownMode").value}"` || "";
     return SURVEY_STYLE_DEFINITIONS.map(({
             label,
@@ -30,7 +30,7 @@ function getSurveyStyles() {
 }
 
 // styles elements and attributes
-function addNewStyleBlank() {
+export function addNewStyleBlank() {
     const selectedText = getInputOrLine();
     const xmlContent = `<style name=""> <![CDATA[
 
@@ -38,7 +38,7 @@ function addNewStyleBlank() {
     window.editor.replaceSelection(xmlContent);
 }
 
-function addNewStyleBlankwithLabel() {
+export function addNewStyleBlankwithLabel() {
     const selectedText = getInputOrLine();
     const xmlContent = `<style name="" label=""> <![CDATA[
 
@@ -46,13 +46,13 @@ function addNewStyleBlankwithLabel() {
     window.editor.replaceSelection(xmlContent);
 }
 
-function addStyleCopy() {
+export function addStyleCopy() {
     const selectedText = getInputOrLine();
     const xmlContent = `<style copy=""/>`;
     window.editor.replaceSelection(xmlContent);
 }
 
-function addSurveyWideCSS() {
+export function addSurveyWideCSS() {
     const selectedText = getInputOrLine();
     const xmlContent = `<style mode="after" name="respview.client.css"><![CDATA[
 <style type="text/css">
@@ -62,7 +62,7 @@ ${selectedText}
     window.editor.replaceSelection(xmlContent);
 }
 
-function addSurveyWideJS() {
+export function addSurveyWideJS() {
     const selectedText = getInputOrLine();
     const xmlContent = `<style mode="after" name="respview.client.js"> <![CDATA[
 <script>
@@ -72,7 +72,7 @@ ${selectedText}
     window.editor.replaceSelection(xmlContent);
 }
 
-function addQuestionSpecificCSS() {
+export function addQuestionSpecificCSS() {
     const selectedText = getInputOrLine();
     const xmlContent = `<style name="page.head"><![CDATA[
 <style type="text/css">
@@ -84,7 +84,7 @@ function addQuestionSpecificCSS() {
     window.editor.replaceSelection(xmlContent);
 }
 
-function addQuestionSpecificJSAfterQ() {
+export function addQuestionSpecificJSAfterQ() {
     const selectedText = getInputOrLine();
     const xmlContent = `<style name="question.footer" mode="after" wrap="ready" ><![CDATA[
 let $q = $ ("#question_$(this.label)");
@@ -92,7 +92,7 @@ let $q = $ ("#question_$(this.label)");
     window.editor.replaceSelection(xmlContent);
 }
 
-function addQuestionSpecificJSInHead() {
+export function addQuestionSpecificJSInHead() {
     const selectedText = getInputOrLine();
     const xmlContent = `<style name="page.head" wrap="ready" ><![CDATA[
 let $q = $ ("#question_$(this.label)");
@@ -101,7 +101,7 @@ let $q = $ ("#question_$(this.label)");
 }
 
 // pretest labels display
-function addPretestLabelsDisplay(){
+export function addPretestLabelsDisplay(){
     const xmlContent = `<style cond="list=='0'" arg:html_lbls="0" arg:qn_lbls="1" mode="after" name="respview.client.js"><![CDATA[
 <script>
 $ (document).ready(function(){
@@ -125,7 +125,7 @@ $ (document).ready(function(){
     window.editor.replaceSelection(xmlContent);
 }
 
-function addLeftBlankLegend() {
+export function addLeftBlankLegend() {
     const selectedText = getInputOrLine();
     const xmlContent = `  <res label="leftLegend">${selectedText}</res>
   <style name="question.left-blank-legend"><![CDATA[
@@ -135,7 +135,7 @@ function addLeftBlankLegend() {
 }
 
 
-function addMaxDiff() {
+export function addMaxDiff() {
     const xmlContent = `
 <style name="question.top-legend"> <![CDATA[
 \\@if ec.simpleList
@@ -177,7 +177,7 @@ function addMaxDiff() {
 }
 
 
-function addColFixDeclaration(){
+export function addColFixDeclaration(){
     const xmlContent = `<style label="colFix" name="question.element"> <![CDATA[
 \@if ec.simpleList
 <div class="element \$(rowStyle) \$(levels) \$(extraClasses) \${col.group.styles.ss.groupClassNames if col.group else (row.group.styles.ss.groupClassNames if row.group else "")} \$(col.styles.ss.colClassNames) \$(row.styles.ss.rowClassNames) \${"clickableCell" if isClickable else ""} row-\${ec.row.label if ec.row.label else "1"} col-\${ec.col.label if ec.col.label else "1"}" data-row="\${ec.row.label if ec.row.label else "1"}" data-col="\${ec.col.label if ec.col.label else "1"}"\$(extra)>
@@ -200,7 +200,7 @@ function addColFixDeclaration(){
 
 }
 
-function addColFixCall() {
+export function addColFixCall() {
     const xmlContent = `<style copy="colFix" />`;
     window.editor.replaceSelection(xmlContent);
 }

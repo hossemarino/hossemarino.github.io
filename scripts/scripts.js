@@ -53,6 +53,7 @@ document.addEventListener("DOMContentLoaded", () => {
             "add quota": addQuota,
             "validate tag": validateTag,
             "exec tag": execTag,
+            "virtual tag": virtualTag,
             "resource tag": makeRes,
             "block tag": wrapInBlock,
             "block tag (randomize children)": wrapInBlockRandomize,

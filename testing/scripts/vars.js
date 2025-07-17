@@ -1,4 +1,4 @@
-const LILLY = [`ss:includeCSS="https://survey.decipherinc.com/survey/selfserve/53c/jtsfiles/jts_static_104.css"
+export const LILLY = [`ss:includeCSS="https://survey.decipherinc.com/survey/selfserve/53c/jtsfiles/jts_static_104.css"
   ss:includeJS="https://survey.decipherinc.com/survey/selfserve/53c/jtsfiles/jts_static_108.js"`, `<style cond="list in ['0','1'] or (list in ['2'] and vendorid in ['1234','1235'])" name='survey.logo'> <![CDATA[
     <div class="logo logo-left">
         <img src="/survey/selfserve/53c/logo_6f97a8cc1003fe3a2de3a9761701e069.png" class="logo-image" alt="logo" />
@@ -7,7 +7,7 @@ const LILLY = [`ss:includeCSS="https://survey.decipherinc.com/survey/selfserve/5
 ]]></style>
 `];
 
-const SURVEY_SETUP = {
+export const SURVEY_SETUP = {
   english: {
     testRedirects: `  <samplesource list="1">
     <title>SAGO Test</title>
@@ -75,7 +75,7 @@ const SURVEY_SETUP = {
   }
 };
 
-const SAGO = [`ss:includeJS="https://surveys.sago.com/survey/selfserve/1819/jtsfiles/jts_static_108.js"
+export const SAGO = [`ss:includeJS="https://surveys.sago.com/survey/selfserve/1819/jtsfiles/jts_static_108.js"
   ss:includeCSS="https://surveys.sago.com/survey/selfserve/1819/jtsfiles/jts_static_104.css"`, `<style cond="list in ['0','1'] or (list in ['2'] and vendorid in ['1234','1235'])" name='survey.logo'> <![CDATA[
     <div class="logo logo-left">
         <img src="/survey/selfserve/1819/logo_6f97a8cc1003fe3a2de3a9761701e069.png" class="logo-image" alt="logo" />
@@ -84,7 +84,7 @@ const SAGO = [`ss:includeJS="https://surveys.sago.com/survey/selfserve/1819/jtsf
 ]]></style>
 `]
 
-const IHUT_LOGO = `
+export const IHUT_LOGO = `
 <style name='survey.logo'> <![CDATA[
     <div class="logo logo-left">
         <img src="/survey/selfserve/1819/logo_6f97a8cc1003fe3a2de3a9761701e069.png" class="logo-image" alt="logo" />
@@ -92,7 +92,7 @@ const IHUT_LOGO = `
     <!-- /.logo -->
 ]]></style>`;
 
-const GROUP_SHUFFLE = `
+export const GROUP_SHUFFLE = `
 <exec when="init">
 try:
 	def j_group_rows( grouped_rows ):
@@ -120,7 +120,7 @@ except:
 	pass
 </exec>`;
 
-const CHECKBOX_RECODE = `
+export const CHECKBOX_RECODE = `
 <exec when="init">
 def chkbox_recode(tq):
 	mq = eval(tq.label[1:])
@@ -128,7 +128,7 @@ def chkbox_recode(tq):
 	tq.val = ",".join(textList)
 </exec>`;
 
-const SAGO_CSS = `
+export const SAGO_CSS = `
 <style mode="after" name="respview.client.css"><![CDATA[
 <style type="text/css">
 .autosave-restart {
@@ -305,7 +305,7 @@ img {
 <note>LESS variables KB article:
 https://forstasurveys.zendesk.com/hc/en-us/articles/4409469885339-The-Less-Styles-System</note>`;
 
-const IHUT_OTS_CSS = `
+export const IHUT_OTS_CSS = `
 <style mode="after" name="respview.client.css"><![CDATA[
 <style type="text/css">
 .closing-screen {
@@ -318,7 +318,7 @@ const IHUT_OTS_CSS = `
 </style>
 ]]></style>`;
 
-const IHUT_CSS = `
+export const IHUT_CSS = `
 <style mode="after" name="respview.client.css"><![CDATA[
 <style type="text/css">
 .autosave-restart {
@@ -493,7 +493,7 @@ img {
 <note>LESS variables KB article:
 https://forstasurveys.zendesk.com/hc/en-us/articles/4409469885339-The-Less-Styles-System</note>`;
 
-const UI_DIALOG_CLOSE = `
+export const UI_DIALOG_CLOSE = `
 <style name="global.page.head" wrap="ready"> <![CDATA[
 /* Make the pop-up "Close" button translateable */
 setTimeout(function() {
@@ -502,7 +502,7 @@ setTimeout(function() {
 ]]></style>
 `;
 
-const COPY_PROTECTION = `
+export const COPY_PROTECTION = `
 <style label="copyProtection" mode="after" name="buttons"><![CDATA[
 <script>
 var exclusion_list = [
@@ -614,7 +614,7 @@ body > .ui-tooltip,
 </style>
 ]]></style>`;
 
-const PRETEST_LABELS_DISPLAY = `
+export const PRETEST_LABELS_DISPLAY = `
 <style cond="list=='0'" arg:html_lbls="0" arg:qn_lbls="1" mode="after" name="respview.client.js"><![CDATA[
 <script>
 $ (document).ready(function(){
@@ -635,7 +635,7 @@ $ (document).ready(function(){
 </script>
 ]]></style>`;
 
-const CONSENT_QUESTION = `
+export const CONSENT_QUESTION = `
 <pipe label="pConsentQuestionText" capture="">
   <case label="c1" cond="(allQuestions['CO'].DE if ('CO' in allQuestions.keys() and hasattr(allQuestions['CO'], 'DE')) else decLang == 'german' if decLang else gv.survey.root.lang == 'german')" translateable="0">Vielen Dank, dass Sie sich bereit erkl&amp;#228;rt haben, an dieser Online-Umfrage teilzunehmen. Bitte verwenden Sie immer die Schaltfl&amp;#228;che unten auf dem Bildschirm, um durch die Umfrage zu navigieren. <br /><br />Diese Umfrage dient ausschlie&amp;#223;lich Marktforschungszwecken.  Aufgrund Ihrer Teilnahme werden Sie weder Werbeangebote erhalten noch zu K&amp;#228;ufen animiert werden. Ihre individuellen Antworten werden vertraulich und anonym behandelt und nur in zusammengefasster Form gemeldet. Ihre Meinung ist uns sehr wichtig. Wir sind stolz darauf, unseren Kunden Informationen von h&amp;#246;chster Qualit&amp;#228;t zu liefern. Bitte lesen Sie jede Frage gr&amp;#252;ndlich durch und geben Sie durchdachte und ehrliche Antworten.<br /><br />Vielen Dank f&amp;#252;r Ihre Teilnahme! - Ihre Meinung z&amp;#228;hlt! Klicken Sie unten auf &amp;#132;Weiter&amp;#148;, nachdem Sie zugestimmt haben.</case>
   <case label="c2" cond="(allQuestions['CO'].FR if ('CO' in allQuestions.keys() and hasattr(allQuestions['CO'], 'FR')) else decLang == 'french' if decLang else gv.survey.root.lang == 'french')" translateable="0">Nous vous remercions d&amp;#039;avoir accept&amp;eacute; de participer &amp;agrave; cette enqu&amp;ecirc;te en ligne. Utilisez le bouton situ&amp;eacute; en bas de l&amp;#039;&amp;eacute;cran pour naviguer dans la plateforme. L&amp;#039;ensemble des r&amp;eacute;ponses de tous les participants seront anonymis&amp;eacute;es et agr&amp;eacute;g&amp;eacute;es et seront utilis&amp;eacute;es uniquement pour r&amp;eacute;pondre aux objectifs de l&amp;#039;&amp;eacute;tude de march&amp;eacute; &amp;agrave; laquelle vous participez. Nous ne ferons ni vente ni promotion suite &amp;agrave; votre participation. Afin de fournir des informations de la plus haute qualit&amp;eacute; &amp;agrave; nos clients, nous comptons sur vous pour lire attentivement chaque question et fournir des r&amp;eacute;ponses r&amp;eacute;fl&amp;eacute;chies et honn&amp;ecirc;tes. Votre opinion compte ! Pour continuer, vous devez donner votre consentement ci-dessous puis cliquer sur le bouton "Continuer".</case>
@@ -668,7 +668,7 @@ const CONSENT_QUESTION = `
   <row label="r1" alt="Check this box to confirm you have read and understood both the privacy notice and the non-disclosure agreement about this market research study https://sago.com/en/legal/participant-consent/). I voluntarily agree to take part in this study and authorize Sago and the recipients listed to use my personal information for market research purposes, including the processing of special categories of personal information, the transfer of personal information outside the State of my residence, the observation and the recording of the interviews in live or streaming."><span style="font-size: 12pt;">[pipe: pConsentCheckboxText]</span></row>
 </checkbox>`;
 
-const RESDEF = `
+export const RESDEF = `
 <block label="ResearchDefender_Search" cond="gv.request.variables.get('api') != '0'">
   <logic label="ResearchDefender" researchdefender_search:participant_id="\${uuid}" researchdefender_search:private_key="607b1eca-a3e5-4808-ad3e-565fbf6e0ba5" researchdefender_search:publishable_key="9ed35863-39a4-41b0-a30e-0de31b4e672b" researchdefender_search:survey_id="\${gv.survey.path.split('/', 1)[1].replace('/', '')}" uses="researchdefender_search.2">
     <title>Research Defender SEARCH Integration</title></logic>
@@ -702,7 +702,7 @@ except ValueError:
 </block>
 `;
 
-const S2S_TEXT = `
+export const S2S_TEXT = `
 <block label="bS2S" cond="list == '2'">
   <logic label="lS2S" api:data="{}" api:headers="{}" api:method="POST" api:params="{}" api:url="https://surveys.sample-cube.com/d93aeb68-af86-4ddb-be2d-66a6f77e8aff/\${RID}-ab26-104af510349d" uses="api.1">
     <title>API Integration</title>
@@ -716,7 +716,7 @@ thisQuestion.val = lS2S.r
 
 </block>`;
 
-const REVIEW_QUESTION = `
+export const REVIEW_QUESTION = `
 <note>/
 / ********************************************************************* /
 / ********************************************************************* /
@@ -752,7 +752,7 @@ const REVIEW_QUESTION = `
   <title>OE Flag</title>
 </logic>`;
 
-const STL_WF_TEXT = `
+export const STL_WF_TEXT = `
 <exec when="virtualInit">
 vl_systemQuestions = ["qtime","vbrowser","vos","vmobiledevice","vmobileos","vlist","status","vdropout","vterm","start_date","vco","vdecLang","vWF_","vWF","vSTL_","vSTL","pagetime","pageQ","RelevantID"]
 vl_qTags = ["Radio","Checkbox","Select","Number","Float","Text","Textarea"]
@@ -1014,7 +1014,7 @@ data.val = vSTL_.flag.val
 </text>`;
 
 //QUESTION COMMENTS
-const comments = {
+export const comments = {
   english: {
     radio: `Select one`,
     radio2d: `Select one in each row`,
@@ -1047,9 +1047,9 @@ const comments = {
   }
 };
 
-const defaultComments = JSON.parse(JSON.stringify(comments)); // deep clone at startup
+export const defaultComments = JSON.parse(JSON.stringify(comments)); // deep clone at startup
 
-const autosum_validate_rows = `
+export const autosum_validate_rows = `
 for eachRow in [x for x in this.rows if hasattr(x,"open")]:
 	if len([1 for eachCol in this.cols if this.rows[eachRow.index][eachCol.index].val not in [0, "", None]]) &gt; 0 and eachRow.open in ["", None]:
 		error(this.lget("extraInfo"), eachRow)
@@ -1057,7 +1057,7 @@ for eachRow in [x for x in this.rows if hasattr(x,"open")]:
 		error(this.lget("extraSelect"), eachRow)
 `;
 
-const autosum_validate_cols = `
+export const autosum_validate_cols = `
 for eachCol in [x for x in this.cols if hasattr(x,"open")]:
 	if len([1 for eachRow in this.rows if this.cols[eachCol.index][eachRow.index].val not in [0, "", None]]) &gt; 0 and eachCol.open in ["", None]:
 		error(this.lget("extraInfo"), eachCol)
@@ -1065,7 +1065,7 @@ for eachCol in [x for x in this.cols if hasattr(x,"open")]:
 		error(this.lget("extraSelect"), eachCol)
 `;
 
-const QUALBOARD_USER_CREATION_API_RES = `
+export const QUALBOARD_USER_CREATION_API_RES = `
 <res label="qual_email">Here is your login information for QualBoard (the online platform you will be using for this study).
 <br /><br />
 Name: <b>\${contact.r1.unsafe_val}</b>
@@ -1077,11 +1077,11 @@ Temporary password: <b>[pipe: pass_pipe]</b>
 Click <a href="https://qb4.qualboard.com" target="_blank">here to access QualBoard</a>. Please use the above credentials when logging in.</res>
 `;
 
-const CLTNOTE = `
+export const CLTNOTE = `
 <note>CREATE A LANDING PAGE SURVEY WITH AN OPEN LINK SAMPLE SOURCE AND A QUESTION ASKING FOR RESPONDENT ID THAT WILL REDIRECT TO THIS QUESTION
 REFERENCE ONCE LANDING PAGE SURVEYS FOR CLT PROJECTS IF NEEDED</note>`;
 
-const CONTACT_QUESTION = `
+export const CONTACT_QUESTION = `
 <text 
   label="contact"
   mls="english"
@@ -1132,7 +1132,7 @@ for erow in this.rows:
 <suspend/>
 `;
 
-const CONTACT_QUESTION_IHUT = `
+export const CONTACT_QUESTION_IHUT = `
 <text 
   label="contact"
   mls="english"
@@ -1191,7 +1191,7 @@ if this.r9.any and this.r8.any and (this.r9.val != this.r8.val):
 <suspend/>
 `;
 
-const OTS_API = `
+export const OTS_API = `
 <logic label="OTS_LIVE" api:headers="{'contentType': 'application/json', 'authkey':'Doj7FVeI9GceozZv2hqKOBXLcrXu75cHjHcuvVuDWte08jbRf'}" api:method="POST" api:url="https://otswsv2.overtheshoulder.com/OTSService.svc/Decipher/\${assignmentID}/\${participantID}" uses="api.1"/>
 <text 
   label="OTS_LIVE_RESPONSE"
@@ -1215,7 +1215,7 @@ print response.encode('utf-8-sig')
 <suspend/>
 `;
 
-const OTS_SCREENER_PART_1 = `
+export const OTS_SCREENER_PART_1 = `
 <block label="OTS_SCREENER_QUESTIONS">
   <radio 
    label="OTS1">
@@ -1385,7 +1385,7 @@ You will need this to log in so please take a screenshot or jot it down on a pie
   <suspend/>
 `;
 
-function OTS_SCREENER_PART_2(snumber) {
+export function OTS_SCREENER_PART_2(snumber) {
   return `
  <block label="bOTS_API" cond="not gv.isSST()">
     <textarea 
@@ -1528,7 +1528,7 @@ This is just a placeholder saying you AGREE to participate in the study.</html>
 `;
 }
 
-const VERITY_API = `<textarea
+export const VERITY_API = `<textarea
   label="Verity_DATA"
   where="execute,survey,report">
   <title>Hidden: Verity Request Data.</title>
@@ -1741,7 +1741,7 @@ for erow in Verity_response_lines.rows:
 
 <suspend/>`;
 
-const US_STATES = [
+export const US_STATES = [
   ["AL", "Alabama"], ["AK", "Alaska"], ["AZ", "Arizona"], ["AR", "Arkansas"],
   ["CA", "California"], ["CO", "Colorado"], ["CT", "Connecticut"], ["DE", "Delaware"],
   ["DC", "District of Columbia"], ["FL", "Florida"], ["GA", "Georgia"], ["HI", "Hawaii"],
@@ -1757,7 +1757,7 @@ const US_STATES = [
   ["WV", "West Virginia"], ["WI", "Wisconsin"], ["WY", "Wyoming"]
 ];
 
-const COUNTRIES = [
+export const COUNTRIES = [
   ["AF", "Afghanistan"], ["AL", "Albania"], ["DZ", "Algeria"], ["AD", "Andorra"],
   ["AO", "Angola"], ["AG", "Antigua and Barbuda"], ["AR", "Argentina"], ["AM", "Armenia"],
   ["AU", "Australia"], ["AT", "Austria"], ["AZ", "Azerbaijan"], ["BS", "Bahamas"],
@@ -1810,7 +1810,7 @@ const COUNTRIES = [
   ["ZM", "Zambia"], ["ZW", "Zimbabwe"]
 ];
 
-const VSTATUS = `
+export const VSTATUS = `
 <radio label="vStatus" title="Status">
 <virtual>
 if 'recovered' in markers:
@@ -1830,7 +1830,7 @@ else:
 </radio>
 `;
 
-function vChange(date) {
+export function vChange(date) {
   return `
 <exec>
 setMarker('vChange-${date}')
@@ -1849,14 +1849,14 @@ else:
 `;
 }
 
-const SHUFFLE_ROWS_VIRTUAL = `
+export const SHUFFLE_ROWS_VIRTUAL = `
 <number label="Q_order" size="2" title="Q order" onLoad="copy('Q', rows=True)">
 <virtual>
 assignRandomOrder("Q", "rows")
 </virtual>
 </number>`;
 
-const SURVEY_STYLE_DEFINITIONS = [{
+export const SURVEY_STYLE_DEFINITIONS = [{
     "label": "global.page.head",
     "body": ""
   }, {
@@ -2012,7 +2012,7 @@ const SURVEY_STYLE_DEFINITIONS = [{
   }
 ];
 
-function dupeCheckScript(dupeVarName) {
+export function dupeCheckScript(dupeVarName) {
   return `
 <exec when="init"> 
 db_${dupeVarName} = Database(name="${dupeVarName}") 
