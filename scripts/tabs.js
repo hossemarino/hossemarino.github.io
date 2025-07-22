@@ -144,6 +144,7 @@ function switchTab(name) {
     }
 
     localStorage.setItem("activeTab", name);
+    document.title = `Survey Editor – editing: ${name}`;
 }
 
 function closeTab(name) {
@@ -262,7 +263,6 @@ function renderTabs() {
             tab.classList.add("active");
     });
 }
-
 
 // TABs
 function addTab() {

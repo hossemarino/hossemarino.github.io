@@ -1017,7 +1017,7 @@ function makeImageTags() {
         .map(line => line.trim())
         .filter(line => line);
 
-    const imgTags = lines.map(src => `  <img src="${src}" />`).join("\n");
+    const imgTags = lines.map(src => `<img src="${src}" />`).join("\n");
 
     window.editor.replaceSelection(imgTags);
 }
