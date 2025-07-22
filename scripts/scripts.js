@@ -90,8 +90,8 @@ document.addEventListener("DOMContentLoaded", () => {
             "make number": makeNumber,
             "make slidernumber": makeSlidernumber,
             "make float": makeFloat,
-            "make autosum": makeAutosum,
-            "make autosum (percent)": makeAutosumPercent,
+            "make autosum": () => makeAutosum("number"),
+            "make autosum (percent)": () => makeAutosum("percent"),
             "make survey comment": makeSurveyComment,
             "make pipe": makePipe
         },
