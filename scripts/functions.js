@@ -395,134 +395,64 @@ function makeCondition() {
 }
 
 // FUNCTIONS FOR ROWS
-function makeRows() {
+function makeRows(numbered) {
     let selectedText = getInputOrLine();
     if (!selectedText.trim()) {
         alert("No text selected!");
         return;
     }
 
-    let lines = selectedText.split("\n").map(line => line.trim()).filter(line => line);
-    let xmlItems = lines.map((line, index) => `  <row label="r${index + 1}">${line}</row>`).join("\n");
+    const lines = selectedText.split("\n").map(line => line.trim()).filter(Boolean);
+    const count = lines.length;
 
-    window.editor.replaceSelection(xmlItems);
-}
-
-function makeRowsLow() {
-    let selectedText = getInputOrLine();
-    if (!selectedText.trim()) {
-        alert("No text selected!");
-        return;
-    }
-
-    let lines = selectedText.split("\n").map(line => line.trim()).filter(line => line);
-    let xmlItems = lines.map((line, index) => `  <row label="r${index + 1}" value="${index + 1}">${line}</row>`).join("\n");
-
-    window.editor.replaceSelection(xmlItems);
-}
-
-function makeRowsHigh() {
-    let selectedText = getInputOrLine();
-    if (!selectedText.trim()) {
-        alert("No text selected!");
-        return;
-    }
-
-    let lines = selectedText.split("\n").map(line => line.trim()).filter(line => line);
-    let length = lines.length;
-
-    let xmlItems = lines.map((line, index) =>
-`  <row label="r${length - index}" value="${length - index}">${line}</row>`).join("\n");
+    const xmlItems = lines.map((line, i) => {
+        const idx = numbered === "high" ? count - i : i + 1;
+        const valueAttr = numbered === "low" || numbered === "high" ? ` value="${idx}"` : "";
+        return `  <row label="r${idx}"${valueAttr}>${line}</row>`;
+    }).join("\n");
 
     window.editor.replaceSelection(xmlItems);
 }
 
 // FUNCTIONS FOR COLUMNS
-function makeCols() {
+function makeCols(numbered) {
     let selectedText = getInputOrLine();
     if (!selectedText.trim()) {
         alert("No text selected!");
         return;
     }
 
-    let lines = selectedText.split("\n").map(line => line.trim()).filter(line => line);
-    let xmlItems = lines.map((line, index) => `  <col label="c${index + 1}">${line}</col>`).join("\n");
+    const lines = selectedText.split("\n").map(line => line.trim()).filter(Boolean);
+    const count = lines.length;
 
-    window.editor.replaceSelection(xmlItems);
-}
-
-function makeColsLow() {
-    let selectedText = getInputOrLine();
-    if (!selectedText.trim()) {
-        alert("No text selected!");
-        return;
-    }
-
-    let lines = selectedText.split("\n").map(line => line.trim()).filter(line => line);
-    let xmlItems = lines.map((line, index) => `  <col label="c${index + 1}" value="${index + 1}">${line}</col>`).join("\n");
-
-    window.editor.replaceSelection(xmlItems);
-}
-
-function makeColsHigh() {
-    let selectedText = getInputOrLine();
-    if (!selectedText.trim()) {
-        alert("No text selected!");
-        return;
-    }
-
-    let lines = selectedText.split("\n").map(line => line.trim()).filter(line => line);
-    let length = lines.length;
-
-    let xmlItems = lines.map((line, index) =>
-`  <col label="c${length - index}" value="${length - index}">${line}</col>`).join("\n");
+    const xmlItems = lines.map((line, i) => {
+        const idx = numbered === "high" ? count - i : i + 1;
+        const valueAttr = numbered === "low" || numbered === "high" ? ` value="${idx}"` : "";
+        return `  <col label="c${idx}"${valueAttr}>${line}</col>`;
+    }).join("\n");
 
     window.editor.replaceSelection(xmlItems);
 }
 
 // FUNCTIONS FOR CHOICES
-function makeChoices() {
+function makeChoices(numbered) {
     let selectedText = getInputOrLine();
     if (!selectedText.trim()) {
         alert("No text selected!");
         return;
     }
 
-    let lines = selectedText.split("\n").map(line => line.trim()).filter(line => line);
-    let xmlItems = lines.map((line, index) => `  <choice label="ch${index + 1}">${line}</choice>`).join("\n");
+    const lines = selectedText.split("\n").map(line => line.trim()).filter(Boolean);
+    const count = lines.length;
+
+    const xmlItems = lines.map((line, i) => {
+        const idx = numbered === "high" ? count - i : i + 1;
+        const valueAttr = numbered === "low" || numbered === "high" ? ` value="${idx}"` : "";
+        return `  <choice label="ch${idx}"${valueAttr}>${line}</choice>`;
+    }).join("\n");
 
     window.editor.replaceSelection(xmlItems);
 }
-
-function makeChoicesLow() {
-    let selectedText = getInputOrLine();
-    if (!selectedText.trim()) {
-        alert("No text selected!");
-        return;
-    }
-
-    let lines = selectedText.split("\n").map(line => line.trim()).filter(line => line);
-    let xmlItems = lines.map((line, index) => `  <choice label="ch${index + 1}" value="${index + 1}">${line}</choice>`).join("\n");
-
-    window.editor.replaceSelection(xmlItems);
-}
-
-function makeChoicesHigh() {
-    let selectedText = getInputOrLine();
-    if (!selectedText.trim()) {
-        alert("No text selected!");
-        return;
-    }
-
-    let lines = selectedText.split("\n").map(line => line.trim()).filter(line => line);
-    let length = lines.length;
-
-    let xmlItems = lines.map((line, index) =>
-`  <choice label="ch${length - index}" value="${length - index}">${line}</choice>`).join("\n");
-
-    window.editor.replaceSelection(xmlItems);
-}
-
 // NOANSWER
 function makeNoAnswer() {
     let selectedText = getInputOrLine();
@@ -785,67 +715,51 @@ function addGroups() {
 }
 
 // add values
-function addValues() {
+function addValues(mode) {
     const editor = window.editor;
-    const selected = getInputOrLine();
+    const selected = getInputOrLine(editor);
     const targetTags = ["row", "col", "choice"];
+
+    let count = 1;
+    let total = 0;
     let changed = false;
 
-    const updated = selected.replace(
-            /<(\w+)([^>]*?)>/g,
-            (full, tag, attrs) => {
-            if (targetTags.includes(tag) && !/value\s*=/.test(attrs)) {
-                changed = true;
-                return `<${tag}${attrs} value="">`;
-            }
-            return full;
-        });
+    // Pre-count for "high" mode
+    if (mode === "high") {
+        const matches = [...selected.matchAll(/<(\w+)([^>]*?)>/g)];
+        total = matches.filter(([_, tag]) => targetTags.includes(tag)).length;
+        count = total;
+    }
 
-    if (changed)
+    const updated = selected.replace(/<(\w+)([^>]*?)>/g, (full, tag, attrs) => {
+        if (!targetTags.includes(tag))
+            return full;
+
+        const cleaned = attrs.replace(/\svalue=".*?"/, "");
+
+        if (mode === "low") {
+            return `<${tag}${cleaned} value="${count++}">`;
+        }
+
+        if (mode === "high") {
+            return `<${tag}${cleaned} value="${count--}">`;
+        }
+
+        // Default: add empty value only if missing
+        if (!/value\s*=/.test(attrs)) {
+            changed = true;
+            return `<${tag}${attrs} value="">`;
+        }
+
+        return full;
+    });
+
+    if (mode || changed) {
         editor.replaceSelection(updated);
-    else
+
+    } else {
         alert('No missing value="" attributes found on <row>, <col>, or <choice>.');
-}
-
-// add values L-H
-function addValuesLow() {
-    const editor = window.editor;
-    const selected = getInputOrLine();
-    const targetTags = ["row", "col", "choice"];
-    let count = 1;
-
-    const updated = selected.replace(
-            /<(\w+)([^>]*?)>/g,
-            (full, tag, attrs) => {
-            if (targetTags.includes(tag)) {
-                const cleaned = attrs.replace(/\svalue=".*?"/, ""); // Remove existing value
-                return `<${tag}${cleaned} value="${count++}">`;
-            }
-            return full;
-        });
-
-    editor.replaceSelection(updated);
-}
-// add values H-L
-function addValuesHigh() {
-    const editor = window.editor;
-    const selected = getInputOrLine();
-    const targetTags = ["row", "col", "choice"];
-    let matches = [...selected.matchAll(/<(\w+)([^>]*?)>/g)];
-    let total = matches.filter(([_, tag]) => targetTags.includes(tag)).length;
-    let count = total;
-
-    const updated = selected.replace(
-            /<(\w+)([^>]*?)>/g,
-            (full, tag, attrs) => {
-            if (targetTags.includes(tag)) {
-                const cleaned = attrs.replace(/\svalue=".*?"/, "");
-                return `<${tag}${cleaned} value="${count--}">`;
-            }
-            return full;
-        });
-
-    editor.replaceSelection(updated);
+    }
 }
 
 // swap rows and cols and vice versa
