@@ -7,10 +7,9 @@ function getCodeMirrorSettings(theme, wordWrap) {
         mode: "application/xml",
         theme: theme,
         lineNumbers: true,
-        autoCloseTags: false,
-        smartIndent: false,
-        indentWithTabs: false,
-        indentUnit: 4,
+        autoCloseTags: true,
+        smartIndent: true,
+
         autoCloseBrackets: true,
         matchTags: {
             bothTags: true
@@ -63,9 +62,15 @@ function getCodeMirrorSettings(theme, wordWrap) {
                     ch: indent.length
                 };
                 cm.setCursor(newPos);
-            }
+            },
+            "Ctrl-Space": "autocomplete",
+            "Shift-Alt-F": () => formatXml(),
 
+        },
+        hintOptions: {
+            schemaInfo: SURVEY_SCHEMA,
         }
+
     };
 }
 

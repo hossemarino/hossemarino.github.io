@@ -937,3 +937,28 @@ function makeNote() {
         return "";
     }
 }
+
+//make autofill
+function makeAutofill() {
+    const selectedText = getInputOrLine();
+    if (!selectedText.trim()) {
+        alert("No text selected!");
+        return;
+    }
+
+    try {
+        let input = selectedText.trim();
+
+        // Remove blank lines
+        input = input.replace(/\n\n+/g, "\n");
+
+        const output = `<autofill label="" where="execute,survey,report">\n  <title>Hidden: Autofill</title>\n  ${input}\n</autofill>\n`;
+        window.editor.replaceSelection(output);
+        return output;
+
+    } catch (error) {
+        console.error("makeAutofill clip failed:", error);
+        alert("An error occurred while generating the <autofill> tag.");
+        return "";
+    }
+}

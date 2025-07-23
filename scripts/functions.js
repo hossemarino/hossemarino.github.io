@@ -89,61 +89,6 @@ function loadEditorContent(tabName) {
     }
 }
 
-//FORMATTING STUFF:
-function wrapSelection(tag) {
-    let editor = window.editor;
-    let selection = getInputOrLine();
-
-    if (selection) {
-        let tagRegex = new RegExp(`^<${tag}>.*</${tag}>$`);
-        if (tagRegex.test(selection)) {
-            console.error(`Selection is already wrapped in <${tag}>!`);
-            return;
-        }
-
-        let from = editor.getCursor("from");
-        let to = editor.getCursor("to");
-
-        let wrappedText = `<${tag}>${selection}</${tag}>`;
-        editor.replaceRange(wrappedText, from, to);
-
-        let insertStart = editor.indexFromPos(from);
-        let insertEnd = insertStart + wrappedText.length;
-
-        let closingTagRegex = new RegExp(`</${tag}>`);
-        let match = closingTagRegex.exec(wrappedText);
-
-        if (match) {
-            let closingTagEndOffset = wrappedText.indexOf(match[0]) + match[0].length;
-            let newToPos = editor.posFromIndex(insertStart + closingTagEndOffset);
-            editor.setSelection(from, newToPos);
-        } else {
-            console.warn("Could not find closing tag position correctly.");
-        }
-
-        editor.focus();
-    }
-}
-
-function toTitleCase(str) {
-    const acronyms = ["us", "uk", "eu", "xml", "id", "qa", "br", "brbr", "li", "ol", "ul", "css", "js", "ihut"];
-    const lowercases = ["res"];
-
-    return str
-    .toLowerCase()
-    .split(/(\s|-)/) // keep spaces and hyphens
-    .map(part => {
-        if (acronyms.includes(part)) {
-            return part.toUpperCase();
-        }
-        if (lowercases.includes(part)) {
-            return part;
-        }
-        return /^[a-z]/.test(part) ? part.charAt(0).toUpperCase() + part.slice(1) : part;
-    })
-    .join("");
-}
-
 // CONTROL ELEMENTS
 // termination
 function addTerm() {

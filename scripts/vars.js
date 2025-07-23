@@ -2031,3 +2031,67 @@ if ${dupeVarName} != '':
 </exec>`;
 
 }
+
+const SURVEY_SCHEMA = {
+  "textarea": {
+    attrs: {
+      "label": null,
+      "optional": ["true", "false"],
+      "rows": null,
+      "cols": null
+    },
+    children: ["title", "row", "col", "comment"]
+  },
+  "row": {
+    attrs: {
+      "label": null,
+      "value": null,
+      "open": ["1", "0"],
+      "openOptional": ["1", "0"]
+    }
+  },
+  "col": {
+    attrs: {
+      "label": null,
+      "value": null,
+      "open": ["1", "0"],
+      "openOptional": ["1", "0"]
+    }
+  },
+  "choice": {
+    attrs: {
+      "label": null,
+      "value": null
+    }
+  },
+  "title": {},
+  "comment": {},
+  "number": {
+    attrs: {
+      "label": null,
+      "verify": [
+        "range(0,99999)",
+        "range(0,100)",
+        "regex(...)"
+      ],
+      "size": ["1", "2", "3", "4", "5"],
+      "optional": ["true", "false", "1", "0"],
+      "uses": ["autosum.5"],
+      "amount": null,
+      "autosum:postText": ["%", "$"]
+    },
+    children: ["title", "comment", "validate", "row", "col"]
+  },
+  "group": {
+    attrs: {
+      "label": null,
+      "optional": ["true", "false"]
+    },
+    children: ["title", "comment", "textarea", "number", "choice", "group"]
+  },
+  "validate": {
+    children: ["condition", "range", "regex"]
+  },
+  "exec": {},
+  "suspend": {}
+};

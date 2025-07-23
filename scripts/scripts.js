@@ -70,8 +70,8 @@ document.addEventListener("DOMContentLoaded", () => {
             "make columns (rating l-h)": () => makeCols("low"),
             "make columns (rating h-l)": () => makeCols("high"),
             "make choices": () => makeChoices(),
-            "make choices (rating l-h)":  () => makeChoices("low"),
-            "make choices (rating h-l)":  () => makeChoices("high"),
+            "make choices (rating l-h)": () => makeChoices("low"),
+            "make choices (rating h-l)": () => makeChoices("high"),
             "make noanswer": makeNoAnswer,
             "make groups": makeGroups,
             "make question comment": addCommentQuestion,
@@ -93,7 +93,8 @@ document.addEventListener("DOMContentLoaded", () => {
             "make autosum": () => makeAutosum("number"),
             "make autosum (percent)": () => makeAutosum("percent"),
             "make survey comment": makeSurveyComment,
-            "make pipe": makePipe
+            "make pipe": makePipe,
+            "make autofill": makeAutofill,
         },
         attr: {
             "add open-end": addOpen,
@@ -235,16 +236,14 @@ document.addEventListener("DOMContentLoaded", () => {
         mode: "application/xml",
         theme: savedTheme,
         lineNumbers: true,
-        smartIndent: false,
-        indentWithTabs: true,
-        indentUnit: 4,
-        autoCloseTags: false,
+        smartIndent: true,
+
+        autoCloseTags: true,
         autoCloseBrackets: true,
         matchTags: {
             bothTags: true
         },
         lineWrapping: savedWordWrap,
-
         foldGutter: true,
         foldOptions: {
             rangeFinder: CodeMirror.helpers.fold.custom
@@ -291,8 +290,14 @@ document.addEventListener("DOMContentLoaded", () => {
                     ch: indent.length
                 };
                 cm.setCursor(newPos);
-            }
+            },
+            "Ctrl-Space": "autocomplete",
+            "Shift-Alt-F": () => formatXml(),
 
+
+        },
+        hintOptions: {
+            schemaInfo: SURVEY_SCHEMA,
         }
     });
 
