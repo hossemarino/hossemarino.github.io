@@ -1,8 +1,33 @@
 //FORMATTING STUFF:
+function addLineBreaksBetweenTags(xmlString) {
+    const lines = xmlString.split("\n");
+    const output = [];
+
+    for (let i = 0; i < lines.length; i++) {
+        const current = lines[i].trim();
+        const next = lines[i + 1]?.trim();
+
+        output.push(lines[i]);
+
+        if (
+            current.startsWith("</") &&
+            next &&
+            next.startsWith("<") &&
+            !next.startsWith("</") &&
+            !next.startsWith("<![CDATA[") &&
+            !next.startsWith("<!--")) {
+            output.push(""); // insert blank line
+        }
+    }
+
+    return output.join("\n");
+}
+
 function formatXml() {
     const rawXml = editor.getValue();
-    const formatted = vkbeautify.xml(rawXml, 2); // 2 = indent size
-    editor.setValue(formatted);
+    const beautified = vkbeautify.xml(rawXml, 2);
+    const spaced = addLineBreaksBetweenTags(beautified);
+    editor.setValue(spaced);
 }
 
 function escapeRegex(str) {
