@@ -669,7 +669,7 @@ const CONSENT_QUESTION = `
 </checkbox>`;
 
 const RESDEF = `
-<block label="ResearchDefender_Search" cond="gv.request.variables.get('api') != '0'">
+<block label="ResearchDefender_Search" cond="not gv.isSST() and gv.request.variables.get('api') != '0'">
   <logic label="ResearchDefender" researchdefender_search:participant_id="\${uuid}" researchdefender_search:private_key="607b1eca-a3e5-4808-ad3e-565fbf6e0ba5" researchdefender_search:publishable_key="9ed35863-39a4-41b0-a30e-0de31b4e672b" researchdefender_search:survey_id="\${gv.survey.path.split('/', 1)[1].replace('/', '')}" uses="researchdefender_search.2">
     <title>Research Defender SEARCH Integration</title></logic>
   <suspend/>
@@ -2035,12 +2035,36 @@ if ${dupeVarName} != '':
 const SURVEY_SCHEMA = {
   "textarea": {
     attrs: {
-      "label": null,
-      "optional": ["true", "false"],
+      "label": "Q",
+      "optional": ["1", "0"],
       "rows": null,
       "cols": null
     },
-    children: ["title", "row", "col", "comment"]
+    children: ["title", "row", "col", "group", "net", "comment", "validate", "exec", "virtual"]
+  },
+  "text": {
+    attrs: {
+      "label": "Q",
+      "optional": ["1", "0"],
+      "verify": ["number", "zipcode", "phoneUS"],
+
+      "rows": null,
+      "cols": null
+    },
+    children: ["title", "row", "col", "group", "net", "comment", "validate", "exec", "virtual"]
+  },
+  "number": {
+    attrs: {
+      "label": null,
+      "verify": "range(0,99999)",
+      "size": ["1", "2", "3", "4", "5"],
+      "optional": ["1", "0"],
+      "uses": ["autosum.5"],
+      "amount": null,
+      "autosum:postText": ["%", "$"],
+      "ss:postText": null,
+    },
+    children: ["title", "row", "col", "group", "net", "comment", "validate", "exec", "virtual"]
   },
   "row": {
     attrs: {
@@ -2066,22 +2090,7 @@ const SURVEY_SCHEMA = {
   },
   "title": {},
   "comment": {},
-  "number": {
-    attrs: {
-      "label": null,
-      "verify": [
-        "range(0,99999)",
-        "range(0,100)",
-        "regex(...)"
-      ],
-      "size": ["1", "2", "3", "4", "5"],
-      "optional": ["true", "false", "1", "0"],
-      "uses": ["autosum.5"],
-      "amount": null,
-      "autosum:postText": ["%", "$"]
-    },
-    children: ["title", "comment", "validate", "row", "col"]
-  },
+
   "group": {
     attrs: {
       "label": null,
@@ -2095,3 +2104,4 @@ const SURVEY_SCHEMA = {
   "exec": {},
   "suspend": {}
 };
+

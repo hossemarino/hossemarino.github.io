@@ -339,7 +339,43 @@ function makeCondition() {
     window.editor.replaceSelection(xmlItems);
 }
 
-// FUNCTIONS FOR ROWS
+// FUNCTIONS FOR ROWS, COLS and CHOICES
+function extractNumberAndText(line) {
+    const match = line.match(/^(\d+)\.\s*(.*)/);
+    if (match) {
+        return { number: match[1], text: match[2] };
+    }
+    return null;
+}
+
+function buildXmlTag(tagName, lines, numbered) {
+    const count = lines.length;
+
+    return lines.map((line, i) => {
+        const parsed = extractNumberAndText(line);
+        let idx, label, valueAttr, content;
+
+        if (numbered === "low" || numbered === "high") {
+            idx = numbered === "high" ? count - i : i + 1;
+            label = `${tagName[0]}${idx}`;
+            valueAttr = ` value="${idx}"`;
+            content = parsed ? parsed.text : line;
+        } else {
+            if (parsed) {
+                idx = parsed.number;
+                content = parsed.text;
+            } else {
+                idx = i + 1;
+                content = line;
+            }
+            label = `${tagName[0]}${idx}`;
+            valueAttr = "";
+        }
+
+        return `  <${tagName} label="${label}"${valueAttr}>${content}</${tagName}>`;
+    }).join("\n");
+}
+
 function makeRows(numbered) {
     let selectedText = getInputOrLine();
     if (!selectedText.trim()) {
@@ -348,18 +384,10 @@ function makeRows(numbered) {
     }
 
     const lines = selectedText.split("\n").map(line => line.trim()).filter(Boolean);
-    const count = lines.length;
-
-    const xmlItems = lines.map((line, i) => {
-        const idx = numbered === "high" ? count - i : i + 1;
-        const valueAttr = numbered === "low" || numbered === "high" ? ` value="${idx}"` : "";
-        return `  <row label="r${idx}"${valueAttr}>${line}</row>`;
-    }).join("\n");
-
+    const xmlItems = buildXmlTag("row", lines, numbered);
     window.editor.replaceSelection(xmlItems);
 }
 
-// FUNCTIONS FOR COLUMNS
 function makeCols(numbered) {
     let selectedText = getInputOrLine();
     if (!selectedText.trim()) {
@@ -368,18 +396,10 @@ function makeCols(numbered) {
     }
 
     const lines = selectedText.split("\n").map(line => line.trim()).filter(Boolean);
-    const count = lines.length;
-
-    const xmlItems = lines.map((line, i) => {
-        const idx = numbered === "high" ? count - i : i + 1;
-        const valueAttr = numbered === "low" || numbered === "high" ? ` value="${idx}"` : "";
-        return `  <col label="c${idx}"${valueAttr}>${line}</col>`;
-    }).join("\n");
-
+    const xmlItems = buildXmlTag("col", lines, numbered);
     window.editor.replaceSelection(xmlItems);
 }
 
-// FUNCTIONS FOR CHOICES
 function makeChoices(numbered) {
     let selectedText = getInputOrLine();
     if (!selectedText.trim()) {
@@ -388,16 +408,10 @@ function makeChoices(numbered) {
     }
 
     const lines = selectedText.split("\n").map(line => line.trim()).filter(Boolean);
-    const count = lines.length;
-
-    const xmlItems = lines.map((line, i) => {
-        const idx = numbered === "high" ? count - i : i + 1;
-        const valueAttr = numbered === "low" || numbered === "high" ? ` value="${idx}"` : "";
-        return `  <choice label="ch${idx}"${valueAttr}>${line}</choice>`;
-    }).join("\n");
-
+    const xmlItems = buildXmlTag("choice", lines, numbered);
     window.editor.replaceSelection(xmlItems);
 }
+
 // NOANSWER
 function makeNoAnswer() {
     let selectedText = getInputOrLine();
@@ -965,4 +979,17 @@ function makeImageTags() {
     const imgTags = lines.map(src => `<img src="${src}" />`).join("\n");
 
     window.editor.replaceSelection(imgTags);
+}
+
+// reusable list functions
+function makeReusableList() {
+    const selectedText = getInputOrLine();
+    const xmlContent = `<define label="">\n  ${selectedText.trim()}\n</define>`;
+    window.editor.replaceSelection(xmlContent);
+}
+
+function callReusableList() {
+    const selectedText = getInputOrLine();
+    const xmlContent = `<insert source="${selectedText.trim()}"/>`;
+    window.editor.replaceSelection(xmlContent);
 }

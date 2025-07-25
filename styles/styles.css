@@ -2,6 +2,11 @@
     display: none;
 }
 
+.bunny-mode,
+.bunny-mode * {
+    cursor: url("./bunny_cursor.png"), auto !important;
+}
+
 html {
     background: #1d1d1d;
 }

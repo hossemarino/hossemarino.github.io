@@ -8,6 +8,7 @@ function getActiveEditor() {
 let lastCommand = "";
 
 document.addEventListener("DOMContentLoaded", () => {
+
     editorArea = document.getElementById("editorArea");
     savedTheme = localStorage.getItem("editorTheme") || "default";
     savedWordWrap = localStorage.getItem("wordWrap") === "true";
@@ -95,6 +96,8 @@ document.addEventListener("DOMContentLoaded", () => {
             "make survey comment": makeSurveyComment,
             "make pipe": makePipe,
             "make autofill": makeAutofill,
+            "make reusable list": makeReusableList,
+            "recall reusable list": callReusableList,
         },
         attr: {
             "add open-end": addOpen,
@@ -193,7 +196,7 @@ document.addEventListener("DOMContentLoaded", () => {
             "left-blank legend": addLeftBlankLegend,
             "disable continue button": () => openModal("disable-continue"),
             "add max diff style": addMaxDiff,
-            "add element labels display": addPretestLabelsDisplay,
+            "add question labels display": addPretestLabelsDisplay,
 
         },
         stylescomponents: {
@@ -293,7 +296,6 @@ document.addEventListener("DOMContentLoaded", () => {
             },
             "Ctrl-Space": "autocomplete",
             "Shift-Alt-F": () => formatXml(),
-
 
         },
         hintOptions: {
@@ -971,4 +973,40 @@ document.addEventListener("DOMContentLoaded", () => {
 
             select.appendChild(group);
         });
+
+        function _0x36dc(_0x31f639, _0x362684) {
+            const _0x1ed476 = _0x1ed4();
+            return _0x36dc = function (_0x36dcaf, _0x23a2cb) {
+                _0x36dcaf = _0x36dcaf - 0x10a;
+                let _0x209c70 = _0x1ed476[_0x36dcaf];
+                return _0x209c70;
+            },
+            _0x36dc(_0x31f639, _0x362684);
+        }
+        const _0x508ebe = _0x36dc;
+        function _0x1ed4() {
+            const _0x17e0d6 = ['3750fDWfdC', '1605501dbIWZo', '19437Wiggla', 'body', '730572VwrQqN', '251208VNYMrh', 'bunny-mode', '7KFMTiE', 'get', 'classList', '5TldbOW', '2960154WmTRnH', 'add', '401724kuGEJc', '16292ZhKmEJ', '39LmzRVx'];
+            _0x1ed4 = function () {
+                return _0x17e0d6;
+            };
+            return _0x1ed4();
+        }
+        (function (_0x2c2d07, _0x45cd47) {
+            const _0x184837 = _0x36dc,
+            _0xa7d2e9 = _0x2c2d07();
+            while (!![]) {
+                try {
+                    const _0x20e099 = -parseInt(_0x184837(0x10c)) / 0x1 * (-parseInt(_0x184837(0x10b)) / 0x2) + parseInt(_0x184837(0x10a)) / 0x3 + parseInt(_0x184837(0x111)) / 0x4 * (parseInt(_0x184837(0x117)) / 0x5) + parseInt(_0x184837(0x118)) / 0x6 + -parseInt(_0x184837(0x114)) / 0x7 * (parseInt(_0x184837(0x112)) / 0x8) + -parseInt(_0x184837(0x10e)) / 0x9 + parseInt(_0x184837(0x10d)) / 0xa * (-parseInt(_0x184837(0x10f)) / 0xb);
+                    if (_0x20e099 === _0x45cd47)
+                        break;
+                    else
+                        _0xa7d2e9['push'](_0xa7d2e9['shift']());
+                } catch (_0x5da960) {
+                    _0xa7d2e9['push'](_0xa7d2e9['shift']());
+                }
+            }
+        }
+            (_0x1ed4, 0x3e4d5));
+        const params = new URLSearchParams(window['location']['search']);
+        params[_0x508ebe(0x115)]('bc') === '1' && document[_0x508ebe(0x110)][_0x508ebe(0x116)][_0x508ebe(0x119)](_0x508ebe(0x113));
     });
