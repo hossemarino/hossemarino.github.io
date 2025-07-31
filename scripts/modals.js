@@ -927,20 +927,21 @@ function genPipeNumber() {
     const qLabel = document.getElementById("pipeNumberLabel").value;
     const qMultiCol = document.getElementById("pipeNumberMultiCol").value === "Yes" ? true : false;
     const questionTopLegendItem = `
-<style name="question.top-legend-item" arg:colText="Replace with res tag" mode="before" cond="col.index == 0"><![CDATA[
+<res label="colText_1">added col text</res>
+<style name="question.top-legend-item" arg:colText="\${res['%s,colText_1' % thisQuestion.label]}" mode="before" cond="col.index == 0"><![CDATA[
 \\@if ec.simpleList
-    <div id="\${this.label}_\${col.label}" class="legend col-legend col-legend-top col-legend-basic \${levels} \${this.grouping.cols && (col.group || col.index!=0) && ec.haveLeftLegend && ec.haveRightLegend ? "col-legend-space" : "border-collapse"} \${col.styles.ss.colClassNames} \${col.group ? col.group.styles.ss.groupClassNames : ""} \${colError}">
-        \${colText}
+    <div id="$(this.label)_$(col.label)" class="legend col-legend col-legend-top col-legend-basic $(levels) \${"col-legend-space" if this.grouping.cols and (col.group or col.index!=0) and ec.haveLeftLegend and ec.haveRightLegend else "border-collapse"} $(col.styles.ss.colClassNames) \${col.group.styles.ss.groupClassNames if col.group else ""} $(colError)">
+        $(colText)
     </div>
 \\@else
 \\@if this.styles.ss.colWidth
-    <\${tag} scope="col" id="\${this.label}_\${col.label}" class="cell nonempty legend col-legend col-legend-top col-legend-basic \${levels} \${this.grouping.cols ? "desktop" : "mobile"} \${this.grouping.cols && (col.group || col.index!=0) && ec.haveLeftLegend && ec.haveRightLegend ? "col-legend-space" : "border-collapse"} \${col.styles.ss.colClassNames} \${col.group ? col.group.styles.ss.groupClassNames : ""} \${colError}" style="width:\${this.styles.ss.colWidth}; min-width:\${this.styles.ss.colWidth}">
-        \${colText}
-    </\${tag}>
+    <$(tag) scope="col" id="$(this.label)_$(col.label)" class="cell nonempty legend col-legend col-legend-top col-legend-basic $(levels) \${"desktop" if this.grouping.cols else "mobile"} \${"col-legend-space" if this.grouping.cols and (col.group or col.index!=0) and ec.haveLeftLegend and ec.haveRightLegend else "border-collapse"} $(col.styles.ss.colClassNames) \${col.group.styles.ss.groupClassNames if col.group else ""} $(colError)" style="width:\${this.styles.ss.colWidth}; min-width:\${this.styles.ss.colWidth}">
+        $(colText)
+    </$(tag)>
 \\@else
-    <\${tag} scope="col" id="\${this.label}_\${col.label}" class="cell nonempty legend col-legend col-legend-top col-legend-basic \${levels} \${this.grouping.cols ? "desktop" : "mobile"} \${this.grouping.cols && (col.group || col.index!=0) && ec.haveLeftLegend && ec.haveRightLegend ? "col-legend-space" : "border-collapse"} \${col.styles.ss.colClassNames} \${col.group ? col.group.styles.ss.groupClassNames : ""} \${colError}">
-        \${colText}
-    </\${tag}>
+    <$(tag) scope="col" id="$(this.label)_$(col.label)" class="cell nonempty legend col-legend col-legend-top col-legend-basic $(levels) \${"desktop" if this.grouping.cols else "mobile"} \${"col-legend-space" if this.grouping.cols and (col.group or col.index!=0) and ec.haveLeftLegend and ec.haveRightLegend else "border-collapse"} $(col.styles.ss.colClassNames) \${col.group.styles.ss.groupClassNames if col.group else ""} $(colError)">
+        $(colText)
+    </$(tag)>
 \\@endif
 \\@endif
 ]]></style>`;
@@ -949,16 +950,15 @@ function genPipeNumber() {
          ? `\${${qLabel}.rows[row.index][0].ival}`
          : `\${${qLabel}.rows[row.index].ival}`;
 
-    const questionElement = `
-<style name="question.element" mode="before" cond="col.index == 0"><![CDATA[
+    const questionElement = `<style name="question.element" mode="before" cond="col.index == 0"><![CDATA[
 \\@if ec.simpleList
-<div class="element \${rowStyle} \${levels} \${extraClasses} \${col.group ? col.group.styles.ss.groupClassNames : (row.group ? row.group.styles.ss.groupClassNames : "")} \${col.styles.ss.colClassNames} \${row.styles.ss.rowClassNames} \${isClickable ? "clickableCell" : ""}"\${extra}>
+<div class="element $(rowStyle) $(levels) $(extraClasses) \${col.group.styles.ss.groupClassNames if col.group else (row.group.styles.ss.groupClassNames if row.group else "")} $(col.styles.ss.colClassNames) $(row.styles.ss.rowClassNames) \${"clickableCell" if isClickable else ""}"$(extra)>
      ${elementInner}
 </div>
 \\@else
-<\${tag} \${headers} class="cell nonempty element \${levels} \${this.grouping.cols ? "desktop" : "mobile"} border-collapse \${extraClasses} \${col.group ? col.group.styles.ss.groupClassNames : (row.group ? row.group.styles.ss.groupClassNames : "")} \${col.styles.ss.colClassNames} \${row.styles.ss.rowClassNames} \${isClickable ? "clickableCell" : ""}"\${extra}>
+<$(tag) $(headers) class="cell nonempty element $(levels) \${"desktop" if this.grouping.cols else "mobile"} border-collapse $(extraClasses) \${col.group.styles.ss.groupClassNames if col.group else (row.group.styles.ss.groupClassNames if row.group else "")} $(col.styles.ss.colClassNames) $(row.styles.ss.rowClassNames) \${"clickableCell" if isClickable else ""}"$(extra)>
      ${elementInner}
-</\${tag}>
+</$(tag)>
 \\@endif
 ]]></style>`;
 
