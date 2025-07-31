@@ -364,12 +364,12 @@ function buildXmlTag(tagName, lines, numbered) {
             if (parsed) {
                 idx = parsed.number;
                 content = parsed.text;
+                valueAttr = ` value="${idx}"`;
             } else {
                 idx = i + 1;
                 content = line;
             }
             label = `${tagName[0]}${idx}`;
-            valueAttr = "";
         }
 
         return `  <${tagName} label="${label}"${valueAttr}>${content}</${tagName}>`;
