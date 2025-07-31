@@ -341,11 +341,18 @@ function makeCondition() {
 
 // FUNCTIONS FOR ROWS, COLS and CHOICES
 function extractNumberAndText(line) {
-    const match = line.match(/^(\d+)\.\s*(.*)/);
-    if (match) {
-        return { number: match[1], text: match[2] };
-    }
-    return null;
+    const match = line.match(/^([A-Za-z0-9]+)[.)]\s*(.*)$/);
+    if (!match)
+        return null;
+
+    const prefix = match[1];
+    const text = match[2];
+
+    const isNumber = /^\d+$/.test(prefix);
+    return {
+        number: isNumber ? parseInt(prefix, 10) : null,
+        text
+    };
 }
 
 function buildXmlTag(tagName, lines, numbered) {
@@ -353,23 +360,26 @@ function buildXmlTag(tagName, lines, numbered) {
 
     return lines.map((line, i) => {
         const parsed = extractNumberAndText(line);
-        let idx, label, valueAttr, content;
+        let label,
+        valueAttr = "",
+        content;
 
         if (numbered === "low" || numbered === "high") {
-            idx = numbered === "high" ? count - i : i + 1;
+            const idx = numbered === "high" ? count - i : i + 1;
             label = `${tagName[0]}${idx}`;
             valueAttr = ` value="${idx}"`;
             content = parsed ? parsed.text : line;
-        } else {
-            if (parsed) {
-                idx = parsed.number;
-                content = parsed.text;
-                valueAttr = ` value="${idx}"`;
+        } else if (parsed) {
+            content = parsed.text;
+            if (parsed.number !== null) {
+                label = `${tagName[0]}${parsed.number}`;
+                valueAttr = ` value="${parsed.number}"`;
             } else {
-                idx = i + 1;
-                content = line;
+                label = `${tagName[0]}${i + 1}`;
             }
-            label = `${tagName[0]}${idx}`;
+        } else {
+            label = `${tagName[0]}${i + 1}`;
+            content = line;
         }
 
         return `  <${tagName} label="${label}"${valueAttr}>${content}</${tagName}>`;
