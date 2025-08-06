@@ -1023,7 +1023,8 @@ const comments = {
     float: `Please enter a number`,
     autosumPercent: `Please enter a whole number. Your answers should total 100%`,
     text: `Please be as specific as possible`,
-    slidernumber: `Drag each slider to a point on the scale`
+    slidernumber: `Drag each slider to a point on the scale`,
+    image: `Click the "camera" button to take a picture`
   },
   german: {
     radio: `Bitte w&amp;#228;hlen Sie nur eine Antwort aus.`,
@@ -1033,7 +1034,9 @@ const comments = {
     float: `Bitte geben Sie eine Zahl an.`,
     autosumPercent: `Bitte geben Sie ganze Zahlen an. Die Summe muss 100% betragen.`,
     text: `Bitte seien Sie so konkret wie m&amp;#246;glich.`,
-    slidernumber: `Drag each slider to a point on the scale`
+    slidernumber: `Drag each slider to a point on the scale`,
+    image: `Click the "camera" button to take a picture`
+
   },
   french: {
     radio: `Veuillez s&amp;eacute;lectionner l&amp;#039;une de ces r&amp;eacute;ponses`,
@@ -1043,7 +1046,9 @@ const comments = {
     float: `Veuillez entrer un nombre`,
     autosumPercent: `Veuillez entrer un nombre entier. Le total de vos r&amp;eacute;ponses doit &amp;ecirc;tre de 100%.`,
     text: `Veuillez &amp;ecirc;tre le plus pr&amp;eacute;cis possible`,
-    slidernumber: `Drag each slider to a point on the scale`
+    slidernumber: `Drag each slider to a point on the scale`,
+    image: `Click the "camera" button to take a picture`
+
   }
 };
 
@@ -2104,4 +2109,3 @@ const SURVEY_SCHEMA = {
   "exec": {},
   "suspend": {}
 };
-

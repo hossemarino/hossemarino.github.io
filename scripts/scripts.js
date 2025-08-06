@@ -96,6 +96,7 @@ document.addEventListener("DOMContentLoaded", () => {
             "make survey comment": makeSurveyComment,
             "make pipe": makePipe,
             "make autofill": makeAutofill,
+            "make image upload": makeImageUpload,
             "make reusable list": makeReusableList,
             "recall reusable list": callReusableList,
         },

@@ -817,16 +817,20 @@ function makeAutosum(type = "number") {
             splitInput.forEach(inputLine => {
                 if (inputLine.includes('open="1"')) {
                     let lineLabel = inputLine.match(/label="([^"]+)"/)?.[1] || "";
-                    if (inputLine.includes("<row")) openRows.push(lineLabel);
-                    if (inputLine.includes("<col")) openCols.push(lineLabel);
+                    if (inputLine.includes("<row"))
+                        openRows.push(lineLabel);
+                    if (inputLine.includes("<col"))
+                        openCols.push(lineLabel);
                 }
             });
 
             input = input.replace(/open="1"/g, 'open="1" openOptional="1"');
 
             validation = `  <validate>\n`;
-            if (openRows.length > 0) validation += autosum_validate_rows;
-            if (openCols.length > 0) validation += autosum_validate_cols;
+            if (openRows.length > 0)
+                validation += autosum_validate_rows;
+            if (openCols.length > 0)
+                validation += autosum_validate_cols;
             validation += `  </validate>\n`;
         }
 
@@ -835,8 +839,8 @@ function makeAutosum(type = "number") {
         const extraAttrs = type === "percent" ? ` amount="100" autosum:postText="%"` : "";
 
         const comment = input.includes("<comment>")
-            ? ""
-            : `  <comment>${(comments[surveyLanguage] || comments.english)[commentKey]}</comment>\n`;
+             ? ""
+             : `  <comment>${(comments[surveyLanguage] || comments.english)[commentKey]}</comment>\n`;
 
         const bodyContent = input.trim().split("\n").map(line => `  ${line.trim()}`).join("\n") + "\n";
         const labelTag = altlabel ? `label="${label.trim()}" altlabel="${altlabel}"` : `label="${label.trim()}"`;
@@ -959,6 +963,73 @@ function makeAutofill() {
     } catch (error) {
         console.error("makeAutofill clip failed:", error);
         alert("An error occurred while generating the <autofill> tag.");
+        return "";
+    }
+}
+
+// make image upload
+function makeImageUpload() {
+    let surveyLanguage = localStorage.getItem("surveyLanguage");
+    let selectedText = getInputOrLine();
+    if (!selectedText.trim()) {
+        alert("No text selected!");
+        return;
+    }
+
+    try {
+        let input = selectedText.trim();
+
+        // Convert numbering format (e.g., "1.2" → "1_2")
+        input = input.replace(/^(\w?\d+)\.(\d+)/, "$1_$2");
+
+        // Extract label
+        let labelMatch = input.match(/^([a-zA-Z0-9-_]+)(\.|:|\)|\s)/);
+        let label = labelMatch ? labelMatch[1] : "Unknown";
+        input = input.replace(/^([a-zA-Z0-9-_]+)(\.|:|\)|\s)/, "");
+
+        // Extract altlabel
+        const { altlabel, cleanedInput } = extractAltlabel(input);
+        input = cleanedInput;
+
+        // Remove blank lines
+        input = input.replace(/\n\n+/g, "\n");
+
+        // Ensure label starts with "Q" if it's numeric
+        if (!isNaN(label[0])) {
+            label = "Q" + label;
+        }
+
+        // Capture title
+        let title = "";
+        if (input.includes("@")) {
+            title = input.substring(0, input.indexOf("@"));
+        } else {
+            title = input;
+        }
+
+        // Compose label tag with optional altlabel
+        let labelTag = altlabel ? `label="${label.trim()}" altlabel="${altlabel}"` : `label="${label.trim()}"`;
+
+        // Get default comment
+        let comment = "";
+        const hasComment = input.includes("<comment>");
+        if (!hasComment) {
+            const set = comments[surveyLanguage] || comments.english;
+            comment = `  <comment>${set.image}</comment>\n`;
+        }
+
+        // Compose final XML
+        let xmlItems = `<image ${labelTag} optional="0" sst="0" uses="imgupload.2">\n`;
+        xmlItems += `  <title>${title.trim()}</title>\n`;
+        xmlItems += comment;
+        xmlItems += `  <noanswer label="n1">NA</noanswer>\n`;
+        xmlItems += `</image>\n<suspend/>`;
+
+        window.editor.replaceSelection(xmlItems);
+        return xmlItems;
+
+    } catch (error) {
+        console.error("makeImageUpload clip failed:", error);
         return "";
     }
 }
