@@ -355,7 +355,7 @@ function extractNumberAndText(line) {
     };
 }
 
-function buildXmlTag(tagName, lines, numbered) {
+function buildXmlTag(tagName, tagLabel, lines, numbered) {
     const count = lines.length;
 
     return lines.map((line, i) => {
@@ -366,19 +366,19 @@ function buildXmlTag(tagName, lines, numbered) {
 
         if (numbered === "low" || numbered === "high") {
             const idx = numbered === "high" ? count - i : i + 1;
-            label = `${tagName[0]}${idx}`;
+            label = `${tagLabel}${idx}`;
             valueAttr = ` value="${idx}"`;
             content = parsed ? parsed.text : line;
         } else if (parsed) {
             content = parsed.text;
             if (parsed.number !== null) {
-                label = `${tagName[0]}${parsed.number}`;
+                label = `${tagLabel}${parsed.number}`;
                 valueAttr = ` value="${parsed.number}"`;
             } else {
-                label = `${tagName[0]}${i + 1}`;
+                label = `${tagLabel}${i + 1}`;
             }
         } else {
-            label = `${tagName[0]}${i + 1}`;
+            label = `${tagLabel}${i + 1}`;
             content = line;
         }
 
@@ -394,7 +394,7 @@ function makeRows(numbered) {
     }
 
     const lines = selectedText.split("\n").map(line => line.trim()).filter(Boolean);
-    const xmlItems = buildXmlTag("row", lines, numbered);
+    const xmlItems = buildXmlTag("row", "r", lines, numbered);
     window.editor.replaceSelection(xmlItems);
 }
 
@@ -406,7 +406,7 @@ function makeCols(numbered) {
     }
 
     const lines = selectedText.split("\n").map(line => line.trim()).filter(Boolean);
-    const xmlItems = buildXmlTag("col", lines, numbered);
+    const xmlItems = buildXmlTag("col", "c", lines, numbered);
     window.editor.replaceSelection(xmlItems);
 }
 
@@ -418,7 +418,7 @@ function makeChoices(numbered) {
     }
 
     const lines = selectedText.split("\n").map(line => line.trim()).filter(Boolean);
-    const xmlItems = buildXmlTag("choice", lines, numbered);
+    const xmlItems = buildXmlTag("choice", "ch", lines, numbered);
     window.editor.replaceSelection(xmlItems);
 }
 
