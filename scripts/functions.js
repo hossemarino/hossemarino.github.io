@@ -340,26 +340,10 @@ function makeCondition() {
 }
 
 // FUNCTIONS FOR ROWS, COLS and CHOICES
-function extractNumberAndText(line) {
-    const match = line.match(/^([A-Za-z0-9]+)[.)]\s*(.*)$/);
-    if (!match)
-        return null;
-
-    const prefix = match[1];
-    const text = match[2];
-
-    const isNumber = /^\d+$/.test(prefix);
-    return {
-        number: isNumber ? parseInt(prefix, 10) : null,
-        text
-    };
-}
-
 function buildXmlTag(tagName, tagLabel, lines, numbered) {
     const count = lines.length;
 
     return lines.map((line, i) => {
-        const parsed = extractNumberAndText(line);
         let label,
         valueAttr = "",
         content;
@@ -368,15 +352,7 @@ function buildXmlTag(tagName, tagLabel, lines, numbered) {
             const idx = numbered === "high" ? count - i : i + 1;
             label = `${tagLabel}${idx}`;
             valueAttr = ` value="${idx}"`;
-            content = parsed ? parsed.text : line;
-        } else if (parsed) {
-            content = parsed.text;
-            if (parsed.number !== null) {
-                label = `${tagLabel}${parsed.number}`;
-                valueAttr = ` value="${parsed.number}"`;
-            } else {
-                label = `${tagLabel}${i + 1}`;
-            }
+            content = line;
         } else {
             label = `${tagLabel}${i + 1}`;
             content = line;
