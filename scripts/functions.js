@@ -340,10 +340,25 @@ function makeCondition() {
 }
 
 // FUNCTIONS FOR ROWS, COLS and CHOICES
-function buildXmlTag(tagName, tagLabel, lines, numbered) {
+function extractNumberAndText(line) {
+    const match = line.match(/^([A-Za-z0-9]+)[.)]\s*(.*)$/);
+    if (!match)
+        return null;
+
+    //const prefix = match[1];
+    const text = match[2];
+
+    //const isNumber = /^\d+$/.test(prefix);
+    return {
+        text
+    };
+}
+
+function buildXmlTag(tagName, tagLabel, lines, numbered, parse) {
     const count = lines.length;
 
     return lines.map((line, i) => {
+        const parsed = extractNumberAndText(line);
         let label,
         valueAttr = "",
         content;
@@ -352,7 +367,14 @@ function buildXmlTag(tagName, tagLabel, lines, numbered) {
             const idx = numbered === "high" ? count - i : i + 1;
             label = `${tagLabel}${idx}`;
             valueAttr = ` value="${idx}"`;
-            content = line;
+            content = parsed ? parsed.text : line;
+        } else if (parsed) {
+            content = parsed.text;
+            if (parsed.number !== null) {
+                label = `${tagLabel}${i + 1}`;
+            } else {
+                label = `${tagLabel}${i + 1}`;
+            }
         } else {
             label = `${tagLabel}${i + 1}`;
             content = line;
