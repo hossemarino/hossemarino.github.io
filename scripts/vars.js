@@ -1024,7 +1024,7 @@ const comments = {
     autosumPercent: `Please enter a whole number. Your answers should total 100%`,
     text: `Please be as specific as possible`,
     slidernumber: `Drag each slider to a point on the scale`,
-    image: `Click the "camera" button to take a picture`
+    image: `Click the "camera" button to upload a picture`
   },
   german: {
     radio: `Bitte w&amp;#228;hlen Sie nur eine Antwort aus.`,
@@ -1035,7 +1035,7 @@ const comments = {
     autosumPercent: `Bitte geben Sie ganze Zahlen an. Die Summe muss 100% betragen.`,
     text: `Bitte seien Sie so konkret wie m&amp;#246;glich.`,
     slidernumber: `Drag each slider to a point on the scale`,
-    image: `Click the "camera" button to take a picture`
+    image: `Click the "camera" button to upload a picture`
 
   },
   french: {
@@ -1047,7 +1047,7 @@ const comments = {
     autosumPercent: `Veuillez entrer un nombre entier. Le total de vos r&amp;eacute;ponses doit &amp;ecirc;tre de 100%.`,
     text: `Veuillez &amp;ecirc;tre le plus pr&amp;eacute;cis possible`,
     slidernumber: `Drag each slider to a point on the scale`,
-    image: `Click the "camera" button to take a picture`
+    image: `Click the "camera" button to upload a picture`
 
   }
 };
@@ -2042,8 +2042,10 @@ const SURVEY_SCHEMA = {
     attrs: {
       "label": "Q",
       "optional": ["1", "0"],
-      "rows": null,
-      "cols": null
+      "ss:questionClassNames": ["", "date-q", "mdate-q", "hideQuestionText", "hidden", "hideInstructionsText"],
+      "where": ["survey", "execute", "notdp"],
+      "cond": "",
+
     },
     children: ["title", "row", "col", "group", "net", "comment", "validate", "exec", "virtual"]
   },
@@ -2052,45 +2054,83 @@ const SURVEY_SCHEMA = {
       "label": "Q",
       "optional": ["1", "0"],
       "verify": ["number", "zipcode", "phoneUS"],
+      "ss:questionClassNames": ["", "date-q", "mdate-q", "hideQuestionText", "hidden", "hideInstructionsText"],
+      "where": ["survey", "execute", "notdp"],
+      "cond": "",
 
-      "rows": null,
-      "cols": null
     },
     children: ["title", "row", "col", "group", "net", "comment", "validate", "exec", "virtual"]
   },
   "number": {
     attrs: {
-      "label": null,
-      "verify": "range(0,99999)",
+      "label": "Q",
+      "verify": ["range(0,99999)", "range(0,100)"],
       "size": ["1", "2", "3", "4", "5"],
+      "ss:questionClassNames": ["", "date-q", "mdate-q", "hideQuestionText", "hidden", "hideInstructionsText"],
+      "where": ["survey", "execute", "notdp"],
       "optional": ["1", "0"],
       "uses": ["autosum.5"],
-      "amount": null,
+      "amount": "100",
       "autosum:postText": ["%", "$"],
-      "ss:postText": null,
+      "ss:postText": ["", "${res['%s,postText' % thisQuestion.label]}"],
+      "ss:preText": ["", "${res['%s,preText' % thisQuestion.label]}"],
+      "cond": "",
     },
     children: ["title", "row", "col", "group", "net", "comment", "validate", "exec", "virtual"]
   },
+  "radio": {
+    attrs: {
+      "label": "Q",
+      "optional": ["1", "0"],
+      "ss:questionClassNames": ["", "date-q", "mdate-q", "hideQuestionText", "hidden", "hideInstructionsText"],
+      "where": ["survey", "execute", "notdp"],
+      "cond": "",
+
+    },
+    children: ["title", "row", "col", "group", "net", "comment", "validate", "exec", "virtual"]
+  },
+
+  "checkbox": {
+    attrs: {
+      "label": "Q",
+      "atleast": "1",
+      "atmost": "1",
+      "exactly": "1",
+      "optional": ["1", "0"],
+      "where": ["survey", "execute", "notdp"],
+      "ss:questionClassNames": ["", "date-q", "mdate-q", "hideQuestionText", "hidden", "hideInstructionsText"],
+      "cond": "",
+    },
+    children: ["title", "row", "col", "group", "net", "comment", "validate", "exec", "virtual"]
+  },
+
   "row": {
     attrs: {
-      "label": null,
-      "value": null,
+      "label": "r",
+      "value": "",
       "open": ["1", "0"],
-      "openOptional": ["1", "0"]
+      "openOptional": ["1", "0"],
+      "ss:rowClassNames": ["", "date-q", "mdate-q", "hideQuestionText", "hidden", "hideInstructionsText"],
+      "cond": "",
+
     }
   },
   "col": {
     attrs: {
-      "label": null,
-      "value": null,
+      "label": "c",
+      "value": "",
       "open": ["1", "0"],
-      "openOptional": ["1", "0"]
+      "openOptional": ["1", "0"],
+      "ss:colClassNames": ["", "date-q", "mdate-q", "hideQuestionText", "hidden", "hideInstructionsText"],
+      "cond": "",
     }
   },
   "choice": {
     attrs: {
-      "label": null,
-      "value": null
+      "label": "ch",
+      "value": "",
+      "ss:choiceClassNames": ["", "date-q", "mdate-q", "hideQuestionText", "hidden", "hideInstructionsText"],
+      "cond": "",
     }
   },
   "title": {},
@@ -2098,14 +2138,19 @@ const SURVEY_SCHEMA = {
 
   "group": {
     attrs: {
-      "label": null,
-      "optional": ["true", "false"]
+      "label": "g",
+      "groups": "",
+      "ss:groupClassNames": [""],
+
     },
     children: ["title", "comment", "textarea", "number", "choice", "group"]
   },
-  "validate": {
-    children: ["condition", "range", "regex"]
+  "validate": {},
+  "exec": {
+    attrs: {
+      "when": ["init", "flow", "finish"],
+
+    },
   },
-  "exec": {},
   "suspend": {}
 };

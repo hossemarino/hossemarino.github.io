@@ -66,6 +66,12 @@ const modalDefinitions = {
         section: ".disable-continue",
         init: () => document.getElementById("genDisableContinue").onclick = () => genDisableContinue()
     },
+    "new-table":{
+        title: "Generate HTML Table",
+        section: ".new-table",
+        init: () => document.getElementById("genTable").onclick = () => genTable()
+
+    }
 };
 
 function openModal(purpose, tabName = "") {
@@ -102,65 +108,6 @@ function openModal(purpose, tabName = "") {
 
     modal.show();
 }
-/*
-// OLD VERSION
-function openModal(purpose, tabName = "") {
-const modalEl = document.getElementById("surveyModal");
-const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
-const title = document.getElementById("modalTitle");
-
-document.querySelectorAll(".modal-section").forEach(section => {
-section.style.display = "none";
-});
-
-let focusInput = null;
-
-if (purpose === "tab") {
-title.textContent = "Create a New Tab";
-document.querySelector(".new-tab").style.display = "block";
-document.getElementById("tabError").style.display = "none";
-focusInput = document.getElementById("tab_name");
-} else if (purpose === "new-survey") {
-title.textContent = "Create a New Survey";
-document.querySelector(".new-survey").style.display = "block";
-document.getElementById("genXML").onclick = () => validateFormAndGenerateXML("survey");
-} else if (purpose === "delete-tab") {
-title.textContent = "Confirm Tab Deletion";
-document.querySelector(".delete-tab").style.display = "block";
-document.getElementById("tabToDeleteName").textContent = tabName;
-tabPendingDeletion = tabName;
-} else if (purpose === "new-ihut") {
-title.textContent = "Create a New IHUT";
-document.querySelector(".new-ihut").style.display = "block";
-document.getElementById("genIHUTXML").onclick = () => validateFormAndGenerateXML("ihut");
-} else if (purpose === "new-mouseover") {
-title.textContent = "Mouseover";
-document.querySelector(".new-mouseover").style.display = "block";
-document.getElementById("genMO").onclick = () => generateMO();
-} else if (purpose === "new-popup") {
-title.textContent = "Pop-up";
-document.querySelector(".new-popup").style.display = "block";
-document.getElementById("genPopup").onclick = () => generatePopup();
-} else if (purpose === "random-order-tracker") {
-title.textContent = "Pop-up";
-document.querySelector(".random-order-tracker").style.display = "block";
-document.getElementById("genRandomOrder").onclick = () => generateRandomOrderTracker();
-}
-
-// Clean up previous listeners to avoid duplicates
-modalEl.removeEventListener("shown.bs.modal", modalEl._focusListener);
-
-modalEl._focusListener = () => {
-if (focusInput) {
-focusInput.focus();
-focusInput.select();
-}
-};
-
-modalEl.addEventListener("shown.bs.modal", modalEl._focusListener);
-modal.show();
-}
- */
 
 function deleteAllData() {
     localStorage.clear();
@@ -989,3 +936,33 @@ setTimeout(function() {
         modal.hide();
 
 }
+
+function genTable() {
+    const cols = parseInt(document.getElementById("numCols").value, 10);
+    const rows = parseInt(document.getElementById("numRows").value, 10);
+
+    if (isNaN(cols) || isNaN(rows) || cols <= 0 || rows <= 0) {
+        alert("Please enter valid numbers for rows and columns.");
+        return;
+    }
+
+    let xmlContent = `<table class="table">\n`;
+
+    for (let r = 0; r < rows; r++) {
+        xmlContent += `  <tr>\n`;
+        for (let c = 0; c < cols; c++) {
+            xmlContent += `    <td></td>\n`;
+        }
+        xmlContent += `  </tr>\n`;
+    }
+
+    xmlContent += `</table>`;
+
+    getActiveEditor().replaceSelection(xmlContent + "\n");
+
+    const modal = bootstrap.Modal.getInstance(document.getElementById("surveyModal"));
+    if (modal)
+        modal.hide();
+
+}
+

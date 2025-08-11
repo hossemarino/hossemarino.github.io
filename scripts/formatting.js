@@ -68,7 +68,7 @@ function wrapSelection(tag) {
 }
 
 function toTitleCase(str) {
-    const acronyms = ["us", "uk", "eu", "xml", "id", "qa", "br", "brbr", "li", "ol", "ul", "css", "js", "ihut"];
+    const acronyms = ["us", "uk", "eu", "xml", "id", "qa", "br", "brbr", "li", "ol", "ul", "css", "js", "ihut","html"];
     const lowercases = ["res"];
 
     return str

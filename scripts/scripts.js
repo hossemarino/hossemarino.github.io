@@ -148,6 +148,7 @@ document.addEventListener("DOMContentLoaded", () => {
             "ul": makeUl,
             "make link href": makeHref,
             "make image": makeImageTags,
+            "add html table":  () => openModal("new-table"),
             "relabel elements": relabelSelection,
             "add contact question": addContactQuestion,
             "add ihut contact question": addContactQuestionIHUT,
@@ -301,6 +302,43 @@ document.addEventListener("DOMContentLoaded", () => {
         },
         hintOptions: {
             schemaInfo: SURVEY_SCHEMA,
+            completeSingle: false,
+            customInsert: function (cm, data, completion) {
+                const tagName = completion.text;
+                const cursor = cm.getCursor();
+                const token = cm.getTokenAt(cursor);
+
+                const tagInfo = SURVEY_SCHEMA[tagName];
+                const hasChildren = Array.isArray(tagInfo?.children) && tagInfo.children.length > 0;
+                const hasAttrs = tagInfo?.attrs && Object.keys(tagInfo.attrs).length > 0;
+
+                // Replace the current token (e.g., "<suspend") with full tag
+                const from = {
+                    line: cursor.line,
+                    ch: token.start
+                };
+                const to = {
+                    line: cursor.line,
+                    ch: token.end
+                };
+
+                let tagText;
+                if (!hasChildren && !hasAttrs) {
+                    tagText = `<${tagName}/>`;
+                    cm.replaceRange(tagText, from, to);
+                    cm.setCursor({
+                        line: cursor.line,
+                        ch: from.ch + tagText.length
+                    });
+                } else {
+                    tagText = `<${tagName}></${tagName}>`;
+                    cm.replaceRange(tagText, from, to);
+                    cm.setCursor({
+                        line: cursor.line,
+                        ch: from.ch + tagName.length + 2
+                    });
+                }
+            }
         }
     });
 
@@ -562,6 +600,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 }, {
                     selector: ".disable-continue",
                     action: () => document.getElementById("genDisableContinue").click()
+                }, {
+                    selector: ".new-table",
+                    action: () => document.getElementById("genTable").click()
                 }
             ];
 
