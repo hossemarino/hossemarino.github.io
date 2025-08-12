@@ -107,10 +107,10 @@ function addQuota() {
 // validate tag
 function validateTag() {
     const selectedText = getInputOrLine();
-    const html = `  <validate>
+    const html = `<validate>
 ${selectedText.trim()}
 
-  </validate>`;
+</validate>`;
     window.editor.replaceSelection(html);
 }
 
@@ -118,10 +118,10 @@ ${selectedText.trim()}
 function execTag() {
     const selectedText = getInputOrLine();
 
-    const html = `  <exec>
+    const html = `<exec>
 ${selectedText.trim()}
 
-  </exec>`;
+</exec>`;
     window.editor.replaceSelection(html);
 }
 
@@ -129,10 +129,10 @@ ${selectedText.trim()}
 function virtualTag() {
     const selectedText = getInputOrLine();
 
-    const html = `  <virtual>
+    const html = `<virtual>
 ${selectedText.trim()}
 
-  </virtual>`;
+</virtual>`;
     window.editor.replaceSelection(html);
 }
 
