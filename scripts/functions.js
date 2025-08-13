@@ -779,6 +779,14 @@ function addRatingDirection() {
     const html = ` ratingDirection="reverse"`;
     window.editor.replaceSelection(html);
 }
+
+// add elShuffle
+function elShuffle(el) {
+    const html = ` ${el}Shuffle=""`;
+    window.editor.replaceSelection(html);
+}
+
+
 // make link href
 function makeHref() {
     try {
@@ -879,10 +887,7 @@ function makeUl() {
 // pre texts
 function addPreText() {
     const selectedText = getInputOrLine();
-    const xmlContent = ` ss:preText="\${res.$ {
-            selectedText.trim()
-        }
-}"`;
+    const xmlContent = ` ss:preText="\${res.${selectedText.trim()}}"`;
     window.editor.replaceSelection(xmlContent);
 }
 
@@ -901,10 +906,7 @@ function makePreTextResInternal() {
 // post text
 function addPostText() {
     const selectedText = getInputOrLine();
-    const xmlContent = ` ss:postText="\${res.$ {
-            selectedText.trim()
-        }
-}"`;
+    const xmlContent = ` ss:postText="\${res.${selectedText.trim()}}"`;
     window.editor.replaceSelection(xmlContent);
 }
 

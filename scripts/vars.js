@@ -2045,7 +2045,8 @@ const SURVEY_SCHEMA = {
       "ss:questionClassNames": ["", "date-q", "mdate-q", "hideQuestionText", "hidden", "hideInstructionsText"],
       "where": ["survey", "execute", "notdp"],
       "cond": "",
-
+      "rowShuffle": ["flip", "rflip", "rotate", "rrotate"],
+      "colShuffle": ["flip", "rflip", "rotate", "rrotate"],
     },
     children: ["title", "row", "col", "group", "net", "comment", "validate", "exec", "virtual"]
   },
@@ -2057,7 +2058,8 @@ const SURVEY_SCHEMA = {
       "ss:questionClassNames": ["", "date-q", "mdate-q", "hideQuestionText", "hidden", "hideInstructionsText"],
       "where": ["survey", "execute", "notdp"],
       "cond": "",
-
+      "rowShuffle": ["flip", "rflip", "rotate", "rrotate"],
+      "colShuffle": ["flip", "rflip", "rotate", "rrotate"],
     },
     children: ["title", "row", "col", "group", "net", "comment", "validate", "exec", "virtual"]
   },
@@ -2075,6 +2077,8 @@ const SURVEY_SCHEMA = {
       "ss:postText": ["", "${res['%s,postText' % thisQuestion.label]}"],
       "ss:preText": ["", "${res['%s,preText' % thisQuestion.label]}"],
       "cond": "",
+      "rowShuffle": ["flip", "rflip", "rotate", "rrotate"],
+      "colShuffle": ["flip", "rflip", "rotate", "rrotate"],
     },
     children: ["title", "row", "col", "group", "net", "comment", "validate", "exec", "virtual"]
   },
@@ -2085,6 +2089,23 @@ const SURVEY_SCHEMA = {
       "ss:questionClassNames": ["", "date-q", "mdate-q", "hideQuestionText", "hidden", "hideInstructionsText"],
       "where": ["survey", "execute", "notdp"],
       "cond": "",
+
+      "rowShuffle": ["flip", "rflip", "rotate", "rrotate"],
+      "colShuffle": ["flip", "rflip", "rotate", "rrotate"],
+
+    },
+    children: ["title", "row", "col", "group", "net", "comment", "validate", "exec", "virtual"]
+  },
+  "select": {
+    attrs: {
+      "label": "Q",
+      "optional": ["1", "0"],
+      "where": ["survey", "execute", "notdp"],
+      "cond": "",
+
+      "rowShuffle": ["flip", "rflip", "rotate", "rrotate"],
+      "colShuffle": ["flip", "rflip", "rotate", "rrotate"],
+      "choiceShuffle": ["flip", "rflip", "rotate", "rrotate"],
 
     },
     children: ["title", "row", "col", "group", "net", "comment", "validate", "exec", "virtual"]
@@ -2100,6 +2121,8 @@ const SURVEY_SCHEMA = {
       "where": ["survey", "execute", "notdp"],
       "ss:questionClassNames": ["", "date-q", "mdate-q", "hideQuestionText", "hidden", "hideInstructionsText"],
       "cond": "",
+      "rowShuffle": ["flip", "rflip", "rotate", "rrotate"],
+      "colShuffle": ["flip", "rflip", "rotate", "rrotate"],
     },
     children: ["title", "row", "col", "group", "net", "comment", "validate", "exec", "virtual"]
   },
@@ -2152,5 +2175,5 @@ const SURVEY_SCHEMA = {
 
     },
   },
-  "suspend": {}
+  "suspend": {},
 };

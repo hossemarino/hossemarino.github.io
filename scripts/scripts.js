@@ -118,6 +118,9 @@ document.addEventListener("DOMContentLoaded", () => {
             "add values h-l": () => addValues("high"),
             "add alt label": addAltlabel,
             "add rating direction reversed": addRatingDirection,
+            "add row shuffle": () => elShuffle("row"),
+            "add col shuffle": () => elShuffle("col"),
+            "add choice shuffle": () => elShuffle("choice"),
             "swap rows and cols": swapRowCol,
 
         },
@@ -148,7 +151,7 @@ document.addEventListener("DOMContentLoaded", () => {
             "ul": makeUl,
             "make link href": makeHref,
             "make image": makeImageTags,
-            "add html table":  () => openModal("new-table"),
+            "add html table": () => openModal("new-table"),
             "relabel elements": relabelSelection,
             "add contact question": addContactQuestion,
             "add ihut contact question": addContactQuestionIHUT,
