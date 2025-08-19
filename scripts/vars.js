@@ -671,8 +671,8 @@ const CONSENT_QUESTION = `
 const RESDEF = `
 <block label="ResearchDefender_Search" cond="not gv.isSST() and gv.request.variables.get('api') != '0'">
   <logic label="ResearchDefender" researchdefender_search:participant_id="\${uuid}" researchdefender_search:private_key="607b1eca-a3e5-4808-ad3e-565fbf6e0ba5" researchdefender_search:publishable_key="9ed35863-39a4-41b0-a30e-0de31b4e672b" researchdefender_search:survey_id="\${gv.survey.path.split('/', 1)[1].replace('/', '')}" uses="researchdefender_search.2">
-    <title>Research Defender SEARCH Integration</title></logic>
-  <suspend/>
+    <title>Research Defender SEARCH Integration</title>
+  </logic>
 
   <exec cond="ResearchDefender_results.respondent_ud.val not in ['',None]">
 try:
@@ -817,7 +817,7 @@ filterList = ["4r5e","50 yard cunt punt","5h1t","5hit","a_s_s","a2m","a55","a55h
 filterSet = set(filterList)
 
 def fullfilter(fStr):
-	wordList = [word.strip("':,!-()[]{}.?\";").lower() for word in fStr.split()]
+	wordList = [word.strip("\':,!-()[]{}.?\";").lower() for word in fStr.split()]
 	wordSet = set(wordList)
 	matchSet = wordSet &amp; filterSet
 	singleCharSet = set([fStr]) if len(fStr) == 1 else set([])
@@ -831,7 +831,7 @@ def partfilter(fStr):
 	shortList = [eword for eword in filterList if eword in fStr.lower()]
 	partialMatchList = []
 	for eachWord in shortList:
-		hitList = re.findall("[^':,!-()\[]{}.?\";\s]*"+eachWord+"[^':,!-()\[]{}.?\";\s]*",fStr.lower())
+		hitList = re.findall("[^\':,!-()[]{}.?\";s]*"+eachWord+"[^\':,!-()[]{}.?\";s]*",fStr.lower())
 		[partialMatchList.append(ehit) for ehit in hitList if ehit not in partialMatchList]
 	return set(partialMatchList)
 
