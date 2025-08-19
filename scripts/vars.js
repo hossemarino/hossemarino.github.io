@@ -817,7 +817,7 @@ filterList = ["4r5e","50 yard cunt punt","5h1t","5hit","a_s_s","a2m","a55","a55h
 filterSet = set(filterList)
 
 def fullfilter(fStr):
-	wordList = [word.strip("\':,!-()[]{}.?\";").lower() for word in fStr.split()]
+	wordList = [word.strip("\\':,!-()[]{}.?\\";").lower() for word in fStr.split()]
 	wordSet = set(wordList)
 	matchSet = wordSet &amp; filterSet
 	singleCharSet = set([fStr]) if len(fStr) == 1 else set([])
@@ -831,7 +831,7 @@ def partfilter(fStr):
 	shortList = [eword for eword in filterList if eword in fStr.lower()]
 	partialMatchList = []
 	for eachWord in shortList:
-		hitList = re.findall("[^\':,!-()[]{}.?\";s]*"+eachWord+"[^\':,!-()[]{}.?\";s]*",fStr.lower())
+		hitList = re.findall("[^\\':,!-()[]{}.?\\";s]*"+eachWord+"[^\\':,!-()[]{}.?\\";s]*",fStr.lower())
 		[partialMatchList.append(ehit) for ehit in hitList if ehit not in partialMatchList]
 	return set(partialMatchList)
 
