@@ -151,6 +151,7 @@ document.addEventListener("DOMContentLoaded", () => {
             "ul": makeUl,
             "make link href": makeHref,
             "make image": makeImageTags,
+            "resource tag (call internal)": callInternalRes,
             "add html table": () => openModal("new-table"),
             "relabel elements": relabelSelection,
             "add contact question": addContactQuestion,

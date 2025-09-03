@@ -161,13 +161,15 @@ function makeRes() {
             .map(line => `<res label="">${line}</res>`)
             .join("\n");
 
-        editor.replaceSelection(result); // ✅ Output applied here
+        editor.replaceSelection(result); 
 
     } catch (err) {
         console.error("makeRes() failed:", err);
         alert("Could not process RES tags.");
     }
 }
+
+
 // block tag
 function wrapInBlock() {
     try {
@@ -919,6 +921,14 @@ function addPostTextInternal() {
 function makePostTextResInternal() {
     const selectedText = getInputOrLine();
     const xmlContent = `<res label="postText">${selectedText.trim()}</res>`;
+    window.editor.replaceSelection(xmlContent);
+}
+
+
+function callInternalRes() {
+    const editor = window.editor;
+    const selectedText = getInputOrLine();
+    const xmlContent = `\${res['%s,res_label' % this.label]}`;
     window.editor.replaceSelection(xmlContent);
 }
 
