@@ -700,6 +700,8 @@ except ValueError:
 
   <term label="term_RD_CM" cond="hasMarker('RD_Country_Mismatch')" incidence="0">ResearchDefender - Country Mismatch == 1.</term>
 </block>
+
+<suspend/>
 `;
 
 const S2S_TEXT = `

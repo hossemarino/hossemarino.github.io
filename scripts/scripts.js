@@ -266,6 +266,8 @@ document.addEventListener("DOMContentLoaded", () => {
             "Ctrl-B": () => wrapSelection("b"),
             "Ctrl-I": () => wrapSelection("i"),
             "Ctrl-U": () => wrapSelection("u"),
+            "Ctrl-Alt-S": () => wrapSelection("sup"),
+            "Ctrl-Alt-B": () => wrapSelection("sub"),
             "Esc": () => {
                 const editor = getActiveEditor();
                 const isBoxVisible = commandBox.style.display !== "none";
