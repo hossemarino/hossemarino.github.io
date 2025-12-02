@@ -1,0 +1,80 @@
+{
+    "page": {
+        "title": "Wedding at Orange Tree House"
+    },
+    "nav": {
+        "location": "Location",
+        "date": "Date",
+        "travel": "Travel",
+        "accommodation": "Accommodation",
+        "attractions": "Attractions",
+        "language": "Language"
+    },
+    "title": {
+        "h1": "Information of the wedding celebration of Amy and Constantine"
+    },
+    "location": {
+        "heading": "Location",
+        "name": "Orange Tree House, Greyabbey, Co. Down, Northern Ireland",
+        "description": "A beautiful venue nestled in the picturesque village of Greyabbey.",
+        "mapLink": "View on Google Maps"
+    },
+    "date": {
+        "heading": "Date",
+        "value": "28th February"
+    },
+    "travel": {
+        "heading": "Travel & Getting Around",
+        "dublin_belfast": "Dublin to Belfast",
+        "bus": "Bus: Ulsterbus, Translink (2-2.5 hours)",
+        "train": "Train: Irish Rail (2 hours)",
+        "car_rental": "Car Rental: ~2 hours drive via M1/M2",
+        "flight": "Flight: Short flights available",
+        "belfast_greyabbey_heading": "Belfast to Greyabbey",
+        "distance": "Distance: ~40km south of Belfast",
+        "by_car": "By Car: 45-60 minutes",
+        "local_heading": "Local Transport",
+        "local_buses": "Buses: Translink routes from Belfast city center",
+        "local_taxis": "Taxis: Local taxi services recommended (book in advance)",
+        "local_car_hire": "Car Hire: Recommended for flexibility",
+        "translinkLabel": "Check Translink tickets",
+        "translinkHeading": "Plan with Translink",
+        "translink_belfast_bhd": "Belfast Grand Central ↔ George Best Belfast City Airport (BHD)",
+        "translink_belfast_dub": "Belfast Grand Central ↔ Dublin Airport (DUB)",
+        "translink_bgc_venue": "Belfast Grand Central ↔ Orange Tree House, Greyabbey",
+        "translink_bhd_venue": "George Best Belfast City Airport (BHD) ↔ Orange Tree House, Greyabbey",
+        "translink_dub_venue": "Dublin Airport (DUB) ↔ Orange Tree House, Greyabbey",
+        "translink_to_venue_label": "Plan route to Orange Tree House"
+    },
+    "accommodation": {
+        "heading": "Places to Stay",
+        "in_greyabbey_heading": "In Greyabbey",
+        "in_greyabbey_1": "The Narrows Hotel",
+        "in_greyabbey_2": "Local B&Bs and guesthouses",
+        "around_belfast_heading": "Around Belfast (15-40km away)",
+        "around_belfast_1": "Boutique hotels in city center",
+        "around_belfast_2": "Chain hotels (Premier Inn, Travelodge)",
+        "around_belfast_3": "Airbnb properties across the city",
+        "around_belfast_4": "Luxury options (Europa Hotel, Hilton)",
+        "mapLabel": "View on Google Maps",
+        "bookingLabel": "Search on Booking.com"
+    },
+    "attractions": {
+        "heading": "Tourist Attractions (2-3 Day Stay)",
+        "near_greyabbey_heading": "Near Greyabbey",
+        "near_greyabbey_1": "Greyabbey Village & Historic Abbey Ruins",
+        "near_greyabbey_2": "Strangford Lough (scenic views)",
+        "belfast_heading": "Belfast City",
+        "belfast_1": "Titanic Belfast Museum",
+        "belfast_2": "Botanic Gardens & Museums",
+        "belfast_3": "City Hall & Cathedral Quarter",
+        "belfast_4": "Crumlin Road Gaol",
+        "belfast_5": "SS Nomadic (sister ship of Titanic)",
+        "day_trips_heading": "Day Trips",
+        "day_trip_1": "Carrick-a-Rede Rope Bridge",
+        "day_trip_2": "Giant's Causeway (UNESCO site)",
+        "day_trip_3": "Downpatrick & St. Patrick sites",
+        "day_trip_4": "Scrabo Tower & Country Park"
+        ,"mapLabel": "View on Google Maps"
+    }
+}

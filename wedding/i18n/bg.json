@@ -1,0 +1,80 @@
+{
+    "page": {
+        "title": "Сватба в Orange Tree House"
+    },
+    "nav": {
+        "location": "Местоположение",
+        "date": "Дата",
+        "travel": "Пътуване",
+        "accommodation": "Настаняване",
+        "attractions": "Атракции",
+        "language": "Език"
+    },
+    "title": {
+        "h1": "Информация за сватбеното тържество на Ейми и Константин"
+    },
+    "location": {
+        "heading": "Местоположение",
+        "name": "Orange Tree House, Greyabbey, Co. Down, Northern Ireland",
+        "description": "Прекрасно място, сгушено в живописното село Грейаби.",
+        "mapLink": "Вижте в Google Maps"
+    },
+    "date": {
+        "heading": "Дата",
+        "value": "28 февруари"
+    },
+    "travel": {
+        "heading": "Пътуване и придвижване",
+        "dublin_belfast": "Дъблин до Белфаст",
+        "bus": "Автобус: Ulsterbus, Translink (2-2.5 часа)",
+        "train": "Влак: Irish Rail (2 часа)",
+        "car_rental": "Наем на кола: ~2 часа по M1/M2",
+        "flight": "Полет: Налични кратки полети",
+        "belfast_greyabbey_heading": "Белфаст до Грейаби",
+        "distance": "Разстояние: ~40 км южно от Белфаст",
+        "by_car": "С кола: 45-60 минути",
+        "local_heading": "Местен транспорт",
+        "local_buses": "Автобуси: маршрути на Translink от центъра на Белфаст",
+        "local_taxis": "Таксита: Препоръчително е да резервирате предварително",
+        "local_car_hire": "Наем на кола: Препоръчва се за гъвкавост",
+        "translinkLabel": "Проверете билети в Translink",
+        "translinkHeading": "Планирайте с Translink",
+        "translink_belfast_bhd": "Belfast Grand Central ↔ George Best Belfast City Airport (BHD)",
+        "translink_belfast_dub": "Belfast Grand Central ↔ Dublin Airport (DUB)",
+        "translink_bgc_venue": "Belfast Grand Central ↔ Orange Tree House, Greyabbey",
+        "translink_bhd_venue": "George Best Belfast City Airport (BHD) ↔ Orange Tree House, Greyabbey",
+        "translink_dub_venue": "Dublin Airport (DUB) ↔ Orange Tree House, Greyabbey",
+        "translink_to_venue_label": "Планирайте маршрута до Orange Tree House"
+    },
+    "accommodation": {
+        "heading": "Места за настаняване",
+        "in_greyabbey_heading": "В Грейаби",
+        "in_greyabbey_1": "The Narrows Hotel",
+        "in_greyabbey_2": "Местни къщи за гости и B&B",
+        "around_belfast_heading": "Около Белфаст (15-40 км разстояние)",
+        "around_belfast_1": "Бутикови хотели в центъра на града",
+        "around_belfast_2": "Вериги хотели (Premier Inn, Travelodge)",
+        "around_belfast_3": "Airbnb имоти из целия град",
+        "around_belfast_4": "Луксозни опции (Europa Hotel, Hilton)",
+        "mapLabel": "Вижте в Google Maps",
+        "bookingLabel": "Търсене в Booking.com"
+    },
+    "attractions": {
+        "heading": "Туристически атракции (2-3 дни престой)",
+        "near_greyabbey_heading": "В близост до Грейаби",
+        "near_greyabbey_1": "Село Грейаби и исторически руини на абатството",
+        "near_greyabbey_2": "Strangford Lough (живописни гледки)",
+        "belfast_heading": "Град Белфаст",
+        "belfast_1": "Музей Titanic Belfast",
+        "belfast_2": "Ботанически градини и музеи",
+        "belfast_3": "City Hall и Cathedral Quarter",
+        "belfast_4": "Затвор Crumlin Road",
+        "belfast_5": "SS Nomadic (партньорски кораб на Titanic)",
+        "day_trips_heading": "Еднодневни екскурзии",
+        "day_trip_1": "Carrick-a-Rede Rope Bridge",
+        "day_trip_2": "Giant's Causeway (UNESCO място)",
+        "day_trip_3": "Downpatrick и места, свързани със св. Патрик",
+        "day_trip_4": "Scrabo Tower & Country Park"
+        ,"mapLabel": "Вижте в Google Maps"
+    }
+}

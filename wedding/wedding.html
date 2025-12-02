@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="page.title">Wedding at Orange Tree House</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+        }
+
+        nav {
+            background-color: #2c3e50;
+            padding: 1rem;
+        }
+
+        nav ul {
+            list-style: none;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        nav a {
+            color: white;
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+        }
+
+        nav a:hover {
+            background-color: #34495e;
+        }
+
+        nav strong {
+            color: white;
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        section {
+            margin: 2rem 0;
+            padding: 1.5rem;
+            border-left: 4px solid #e74c3c;
+            background: #ecf0f1;
+        }
+
+        h2 {
+            color: #2c3e50;
+            margin-bottom: 1rem;
+        }
+
+        h3 {
+            color: #34495e;
+            margin-top: 1rem;
+        }
+
+        ul {
+            margin-left: 1.5rem;
+        }
+
+        li {
+            margin: 0.5rem 0;
+        }
+        .map-link, .booking-link {
+            font-size: 0.9rem;
+            color: #2c3e50;
+            text-decoration: underline;
+            margin-left: 0.3rem;
+        }
+        .translink-link {
+            display:inline-block;
+            font-size: 0.95rem;
+            color: #2c3e50;
+            text-decoration: underline;
+            margin: 0.25rem 0;
+        }
+        .translink-link:hover { color: #e74c3c; }
+        .map-link:hover, .booking-link:hover {
+            color: #e74c3c;
+        }
+    </style>
+</head>
+
+<body>
+    <nav>
+        <ul>
+            <li><a href="#location" data-i18n="nav.location">Location</a></li>
+            <li><a href="#date" data-i18n="nav.date">Date</a></li>
+            <li><a href="#travel" data-i18n="nav.travel">Travel</a></li>
+            <li><a href="#accommodation" data-i18n="nav.accommodation">Accommodation</a></li>
+            <li><a href="#attractions" data-i18n="nav.attractions">Attractions</a></li>
+            <li style="margin-left:auto;">
+                <strong data-i18n="nav.language">Language</strong>
+                <select id="langSelector" aria-label="Language selector">
+                    <option value="en">English</option>
+                    <option value="bg">Български</option>
+                </select>
+            </li>
+        </ul>
+    </nav>
+
+    <div class="container">
+        <h1 data-i18n="title.h1">Wedding Celebration of Amy and Constantine</h1>
+
+        <section id="location">
+            <h2 data-i18n="location.heading">Location</h2>
+            <p><strong data-i18n="location.name">Orange Tree House, Greyabbey, Co. Down, Northern Ireland</strong></p>
+            <p data-i18n="location.description">A beautiful venue nestled in the picturesque village of Greyabbey.</p>
+            <p><a href="https://www.google.com/maps/search/?api=1&query=Orange+Tree+House,+Greyabbey+Co+Down+Northern+Ireland"
+                    target="_blank" rel="noopener" data-i18n="location.mapLink">View on Google Maps</a></p>
+            <p>
+                <strong data-i18n="travel.translinkLabel">Check Translink tickets</strong>: 
+                <a class="translink-link" href="https://journeyplanner.translink.co.uk/#/journey?origin=Belfast%20Grand%20Central&dest=Orange+Tree+House+Greyabbey" target="_blank" rel="noopener" data-i18n="travel.translink_bgc_venue" data-i18n-attr="aria-label">Belfast Grand Central ↔ Orange Tree House</a>
+                &nbsp;|&nbsp;
+                <a class="translink-link" href="https://journeyplanner.translink.co.uk/#/journey?origin=George%20Best%20Belfast%20City%20Airport&dest=Orange+Tree+House+Greyabbey" target="_blank" rel="noopener" data-i18n="travel.translink_bhd_venue" data-i18n-attr="aria-label">BHD ↔ Orange Tree House</a>
+                &nbsp;|&nbsp;
+                <a class="translink-link" href="https://journeyplanner.translink.co.uk/#/journey?origin=Dublin%20Airport&dest=Orange+Tree+House+Greyabbey" target="_blank" rel="noopener" data-i18n="travel.translink_dub_venue" data-i18n-attr="aria-label">DUB ↔ Orange Tree House</a>
+            </p>
+        </section>
+
+        <section id="date">
+            <h2 data-i18n="date.heading">Date</h2>
+            <p><strong data-i18n="date.value">28th February</strong></p>
+        </section>
+
+        <section id="travel">
+            <h2 data-i18n="travel.heading">Travel & Getting Around</h2>
+            <h3 data-i18n="travel.dublin_belfast">Dublin to Belfast</h3>
+            <ul>
+                <li data-i18n="travel.bus">Bus: Ulsterbus, Translink (2-2.5 hours)</li>
+                <li data-i18n="travel.train">Train: Irish Rail (2 hours)</li>
+                <li data-i18n="travel.car_rental">Car Rental: ~2 hours drive via M1/M2</li>
+                <li data-i18n="travel.flight">Flight: Short flights available</li>
+            </ul>
+            <h3 data-i18n="travel.belfast_greyabbey_heading">Belfast to Greyabbey</h3>
+            <ul>
+                <li data-i18n="travel.distance">Distance: ~40km south of Belfast</li>
+                <li data-i18n="travel.by_car">By Car: 45-60 minutes</li>
+            </ul>
+            <h3 data-i18n="travel.local_heading">Local Transport</h3>
+            <ul>
+                <li data-i18n="travel.local_buses">Buses: Translink routes from Belfast city center</li>
+                <li data-i18n="travel.local_taxis">Taxis: Local taxi services recommended (book in advance)</li>
+                <li data-i18n="travel.local_car_hire">Car Hire: Recommended for flexibility</li>
+            </ul>
+            <h3 data-i18n="travel.translinkHeading">Plan with Translink</h3>
+            <ul>
+                <li>
+                    <a class="translink-link" href="https://journeyplanner.translink.co.uk/#/journey?origin=Belfast%20Grand%20Central&dest=George%20Best%20Belfast%20City%20Airport" target="_blank" rel="noopener" data-i18n="travel.translink_belfast_bhd">Belfast Grand Central ↔ George Best Belfast City Airport (BHD)</a>
+                </li>
+                <li>
+                    <a class="translink-link" href="https://journeyplanner.translink.co.uk/#/journey?origin=Belfast%20Grand%20Central&dest=Dublin%20Airport" target="_blank" rel="noopener" data-i18n="travel.translink_belfast_dub">Belfast Grand Central ↔ Dublin Airport (DUB)</a>
+                </li>
+            </ul>
+        </section>
+
+        <section id="accommodation">
+            <h2 data-i18n="accommodation.heading">Places to Stay</h2>
+            <h3 data-i18n="accommodation.in_greyabbey_heading">In Greyabbey</h3>
+            <ul>
+                <li>
+                    <span data-i18n="accommodation.in_greyabbey_1">The Narrows Hotel</span>
+                    &nbsp;—&nbsp;
+                    <a class="map-link" href="https://www.google.com/maps/search/?api=1&query=The+Narrows+Hotel+Greyabbey+Co+Down+Northern+Ireland" target="_blank" rel="noopener" data-i18n="accommodation.mapLabel">View on Google Maps</a>
+                    &nbsp;|&nbsp;
+                    <a class="booking-link" href="https://www.booking.com/searchresults.html?ss=The+Narrows+Hotel+Greyabbey+United+Kingdom" target="_blank" rel="noopener" data-i18n="accommodation.bookingLabel">Search on Booking.com</a>
+                </li>
+                <li>
+                    <span data-i18n="accommodation.in_greyabbey_2">Local B&Bs and guesthouses</span>
+                    &nbsp;—&nbsp;
+                    <a class="map-link" href="https://www.google.com/maps/search/?api=1&query=Bed+and+Breakfast+Greyabbey+Co+Down" target="_blank" rel="noopener" data-i18n="accommodation.mapLabel">View on Google Maps</a>
+                    &nbsp;|&nbsp;
+                    <a class="booking-link" href="https://www.booking.com/searchresults.html?ss=Greyabbey+Bed+and+Breakfast+Co+Down" target="_blank" rel="noopener" data-i18n="accommodation.bookingLabel">Search on Booking.com</a>
+                </li>
+            </ul>
+            <h3 data-i18n="accommodation.around_belfast_heading">Around Belfast (15-40km away)</h3>
+            <ul>
+                <li>
+                    <span data-i18n="accommodation.around_belfast_1">Boutique hotels in city center</span>
+                    &nbsp;—&nbsp;
+                    <a class="map-link" href="https://www.google.com/maps/search/?api=1&query=Boutique+hotels+Belfast+city+center" target="_blank" rel="noopener" data-i18n="accommodation.mapLabel">View on Google Maps</a>
+                    &nbsp;|&nbsp;
+                    <a class="booking-link" href="https://www.booking.com/searchresults.html?ss=Belfast+Boutique+Hotels" target="_blank" rel="noopener" data-i18n="accommodation.bookingLabel">Search on Booking.com</a>
+                </li>
+                <li>
+                    <span data-i18n="accommodation.around_belfast_2">Chain hotels (Premier Inn, Travelodge)</span>
+                    &nbsp;—&nbsp;
+                    <a class="map-link" href="https://www.google.com/maps/search/?api=1&query=Premier+Inn+Belfast" target="_blank" rel="noopener" data-i18n="accommodation.mapLabel">View on Google Maps</a>
+                    &nbsp;|&nbsp;
+                    <a class="booking-link" href="https://www.booking.com/searchresults.html?ss=Belfast+Hotels" target="_blank" rel="noopener" data-i18n="accommodation.bookingLabel">Search on Booking.com</a>
+                </li>
+                <li>
+                    <span data-i18n="accommodation.around_belfast_3">Airbnb properties across the city</span>
+                    &nbsp;—&nbsp;
+                    <a class="map-link" href="https://www.google.com/maps/search/?api=1&query=Airbnb+Belfast" target="_blank" rel="noopener" data-i18n="accommodation.mapLabel">View on Google Maps</a>
+                    &nbsp;|&nbsp;
+                    <a class="booking-link" href="https://www.booking.com/searchresults.html?ss=Belfast+Apartments" target="_blank" rel="noopener" data-i18n="accommodation.bookingLabel">Search on Booking.com</a>
+                </li>
+                <li>
+                    <span data-i18n="accommodation.around_belfast_4">Luxury options (Europa Hotel, Hilton)</span>
+                    &nbsp;—&nbsp;
+                    <a class="map-link" href="https://www.google.com/maps/search/?api=1&query=Europa+Hotel+Belfast" target="_blank" rel="noopener" data-i18n="accommodation.mapLabel">View on Google Maps</a>
+                    &nbsp;|&nbsp;
+                    <a class="booking-link" href="https://www.booking.com/searchresults.html?ss=Belfast+luxury+hotels" target="_blank" rel="noopener" data-i18n="accommodation.bookingLabel">Search on Booking.com</a>
+                </li>
+            </ul>
+        </section>
+
+        <section id="attractions">
+            <h2 data-i18n="attractions.heading">Tourist Attractions (2-3 Day Stay)</h2>
+            <h3 data-i18n="attractions.near_greyabbey_heading">Near Greyabbey</h3>
+            <ul>
+                <li>
+                    <span data-i18n="attractions.near_greyabbey_1">Greyabbey Village & Historic Abbey Ruins</span>
+                    &nbsp;—&nbsp;
+                    <a class="map-link" href="https://www.google.com/maps/search/?api=1&query=Greyabbey+Village+Abbey+Ruins" target="_blank" rel="noopener" data-i18n="attractions.mapLabel" data-i18n-attr="aria-label">View on Google Maps</a>
+                    &nbsp;|&nbsp;
+                    <a class="translink-link" href="https://journeyplanner.translink.co.uk/#/journey?origin=Belfast%20Grand%20Central&dest=Greyabbey+Village+Abbey+Ruins" target="_blank" rel="noopener" data-i18n="travel.translinkLabel" data-i18n-attr="aria-label">Plan with Translink</a>
+                </li>
+                <li>
+                    <span data-i18n="attractions.near_greyabbey_2">Strangford Lough (scenic views)</span>
+                    &nbsp;—&nbsp;
+                    <a class="map-link" href="https://www.google.com/maps/search/?api=1&query=Strangford+Lough" target="_blank" rel="noopener" data-i18n="attractions.mapLabel" data-i18n-attr="aria-label">View on Google Maps</a>
+                    &nbsp;|&nbsp;
+                    <a class="translink-link" href="https://journeyplanner.translink.co.uk/#/journey?origin=Belfast%20Grand%20Central&dest=Strangford+Lough" target="_blank" rel="noopener" data-i18n="travel.translinkLabel" data-i18n-attr="aria-label">Plan with Translink</a>
+                </li>
+            </ul>
+            <h3 data-i18n="attractions.belfast_heading">Belfast City</h3>
+            <ul>
+                <li>
+                    <span data-i18n="attractions.belfast_1">Titanic Belfast Museum</span>
+                    &nbsp;—&nbsp;
+                    <a class="map-link" href="https://www.google.com/maps/search/?api=1&query=Titanic+Belfast+Museum" target="_blank" rel="noopener" data-i18n="attractions.mapLabel" data-i18n-attr="aria-label">View on Google Maps</a>
+                    &nbsp;|&nbsp;
+                    <a class="translink-link" href="https://journeyplanner.translink.co.uk/#/journey?origin=Belfast%20Grand%20Central&dest=Titanic+Belfast+Museum" target="_blank" rel="noopener" data-i18n="travel.translinkLabel" data-i18n-attr="aria-label">Plan with Translink</a>
+                </li>
+                <li>
+                    <span data-i18n="attractions.belfast_2">Botanic Gardens & Museums</span>
+                    &nbsp;—&nbsp;
+                    <a class="map-link" href="https://www.google.com/maps/search/?api=1&query=Botanic+Gardens+Belfast" target="_blank" rel="noopener" data-i18n="attractions.mapLabel" data-i18n-attr="aria-label">View on Google Maps</a>
+                    &nbsp;|&nbsp;
+                    <a class="translink-link" href="https://journeyplanner.translink.co.uk/#/journey?origin=Belfast%20Grand%20Central&dest=Botanic+Gardens+Belfast" target="_blank" rel="noopener" data-i18n="travel.translinkLabel" data-i18n-attr="aria-label">Plan with Translink</a>
+                </li>
+                <li>
+                    <span data-i18n="attractions.belfast_3">City Hall & Cathedral Quarter</span>
+                    &nbsp;—&nbsp;
+                    <a class="map-link" href="https://www.google.com/maps/search/?api=1&query=City+Hall+Cathedral+Quarter+Belfast" target="_blank" rel="noopener" data-i18n="attractions.mapLabel" data-i18n-attr="aria-label">View on Google Maps</a>
+                    &nbsp;|&nbsp;
+                    <a class="translink-link" href="https://journeyplanner.translink.co.uk/#/journey?origin=Belfast%20Grand%20Central&dest=City+Hall+Cathedral+Quarter+Belfast" target="_blank" rel="noopener" data-i18n="travel.translinkLabel" data-i18n-attr="aria-label">Plan with Translink</a>
+                </li>
+                <li>
+                    <span data-i18n="attractions.belfast_4">Crumlin Road Gaol</span>
+                    &nbsp;—&nbsp;
+                    <a class="map-link" href="https://www.google.com/maps/search/?api=1&query=Crumlin+Road+Gaol+Belfast" target="_blank" rel="noopener" data-i18n="attractions.mapLabel" data-i18n-attr="aria-label">View on Google Maps</a>
+                    &nbsp;|&nbsp;
+                    <a class="translink-link" href="https://journeyplanner.translink.co.uk/#/journey?origin=Belfast%20Grand%20Central&dest=Crumlin+Road+Gaol+Belfast" target="_blank" rel="noopener" data-i18n="travel.translinkLabel" data-i18n-attr="aria-label">Plan with Translink</a>
+                </li>
+                <li>
+                    <span data-i18n="attractions.belfast_5">SS Nomadic (sister ship of Titanic)</span>
+                    &nbsp;—&nbsp;
+                    <a class="map-link" href="https://www.google.com/maps/search/?api=1&query=SS+Nomadic+Belfast" target="_blank" rel="noopener" data-i18n="attractions.mapLabel" data-i18n-attr="aria-label">View on Google Maps</a>
+                    &nbsp;|&nbsp;
+                    <a class="translink-link" href="https://journeyplanner.translink.co.uk/#/journey?origin=Belfast%20Grand%20Central&dest=SS+Nomadic+Belfast" target="_blank" rel="noopener" data-i18n="travel.translinkLabel" data-i18n-attr="aria-label">Plan with Translink</a>
+                </li>
+            </ul>
+            <h3 data-i18n="attractions.day_trips_heading">Day Trips</h3>
+            <ul>
+                <li>
+                    <span data-i18n="attractions.day_trip_1">Carrick-a-Rede Rope Bridge</span>
+                    &nbsp;—&nbsp;
+                    <a class="map-link" href="https://www.google.com/maps/search/?api=1&query=Carrick-a-Rede+Rope+Bridge" target="_blank" rel="noopener" data-i18n="attractions.mapLabel" data-i18n-attr="aria-label">View on Google Maps</a>
+                    &nbsp;|&nbsp;
+                    <a class="translink-link" href="https://journeyplanner.translink.co.uk/#/journey?origin=Belfast%20Grand%20Central&dest=Carrick-a-Rede+Rope+Bridge" target="_blank" rel="noopener" data-i18n="travel.translinkLabel" data-i18n-attr="aria-label">Plan with Translink</a>
+                </li>
+                <li>
+                    <span data-i18n="attractions.day_trip_2">Giant's Causeway (UNESCO site)</span>
+                    &nbsp;—&nbsp;
+                    <a class="map-link" href="https://www.google.com/maps/search/?api=1&query=Giants+Causeway" target="_blank" rel="noopener" data-i18n="attractions.mapLabel" data-i18n-attr="aria-label">View on Google Maps</a>
+                    &nbsp;|&nbsp;
+                    <a class="translink-link" href="https://journeyplanner.translink.co.uk/#/journey?origin=Belfast%20Grand%20Central&dest=Giants+Causeway" target="_blank" rel="noopener" data-i18n="travel.translinkLabel" data-i18n-attr="aria-label">Plan with Translink</a>
+                </li>
+                <li>
+                    <span data-i18n="attractions.day_trip_3">Downpatrick & St. Patrick sites</span>
+                    &nbsp;—&nbsp;
+                    <a class="map-link" href="https://www.google.com/maps/search/?api=1&query=Downpatrick+St+Patrick+sites" target="_blank" rel="noopener" data-i18n="attractions.mapLabel" data-i18n-attr="aria-label">View on Google Maps</a>
+                    &nbsp;|&nbsp;
+                    <a class="translink-link" href="https://journeyplanner.translink.co.uk/#/journey?origin=Belfast%20Grand%20Central&dest=Downpatrick+St+Patrick+sites" target="_blank" rel="noopener" data-i18n="travel.translinkLabel" data-i18n-attr="aria-label">Plan with Translink</a>
+                </li>
+                <li>
+                    <span data-i18n="attractions.day_trip_4">Scrabo Tower & Country Park</span>
+                    &nbsp;—&nbsp;
+                    <a class="map-link" href="https://www.google.com/maps/search/?api=1&query=Scrabo+Tower+Country+Park" target="_blank" rel="noopener" data-i18n="attractions.mapLabel" data-i18n-attr="aria-label">View on Google Maps</a>
+                    &nbsp;|&nbsp;
+                    <a class="translink-link" href="https://journeyplanner.translink.co.uk/#/journey?origin=Belfast%20Grand%20Central&dest=Scrabo+Tower+Country+Park" target="_blank" rel="noopener" data-i18n="travel.translinkLabel" data-i18n-attr="aria-label">Plan with Translink</a>
+                </li>
+            </ul>
+        </section>
+    </div>
+
+    <script src="./scripts.js"></script>
+</body>
+
+</html>
