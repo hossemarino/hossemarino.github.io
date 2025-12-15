@@ -1,5 +1,7 @@
+import { getInputOrLine } from './functions.js';
+
 // make radio
-function makeRadio() {
+export function makeRadio() {
     let surveyLanguage = localStorage.getItem("surveyLanguage");
     let selectedText = getInputOrLine();
     if (!selectedText.trim()) {
@@ -8,7 +10,7 @@ function makeRadio() {
     }
 
     try {
-        input = selectedText.trim();
+        let input = selectedText.trim();
 
         //  Convert numbering format (e.g., "1.2" → "1_2")
         input = input.replace(/^(\w?\d+)\.(\d+)/, "$1_$2");
@@ -66,7 +68,7 @@ function makeRadio() {
 }
 
 //make rating
-function makeRating() {
+export function makeRating() {
     let selectedText = getInputOrLine();
     let surveyLanguage = localStorage.getItem("surveyLanguage");
 
@@ -130,7 +132,7 @@ function makeRating() {
 }
 
 // make checkbox
-function makeCheckbox() {
+export function makeCheckbox() {
     let selectedText = getInputOrLine();
     let surveyLanguage = localStorage.getItem("surveyLanguage");
     const shouldRecode = document.getElementById("ihut_chckbox_recode")?.value === "Yes";
@@ -141,7 +143,7 @@ function makeCheckbox() {
     }
 
     try {
-        input = selectedText.trim();
+        let input = selectedText.trim();
 
         input = input.replace(/^(\w?\d+)\.(\d+)/, "$1_$2");
 
@@ -207,7 +209,7 @@ chkbox_recode(thisQuestion)
 }
 
 // make Starrating
-function makeStarrating() {
+export function makeStarrating() {
     let selectedText = getInputOrLine();
     let surveyLanguage = localStorage.getItem("surveyLanguage");
 
@@ -217,7 +219,7 @@ function makeStarrating() {
     }
 
     try {
-        input = selectedText.trim();
+        let input = selectedText.trim();
 
         input = input.replace(/^(\w?\d+)\.(\d+)/, "$1_$2");
 
@@ -254,7 +256,7 @@ function makeStarrating() {
 }
 
 // make Select
-function makeSelect() {
+export function makeSelect() {
     let selectedText = getInputOrLine();
     let surveyLanguage = localStorage.getItem("surveyLanguage");
 
@@ -264,7 +266,7 @@ function makeSelect() {
     }
 
     try {
-        input = selectedText.trim();
+        let input = selectedText.trim();
 
         input = input.replace(/^(\w?\d+)\.(\d+)/, "$1_$2");
 
@@ -301,7 +303,7 @@ function makeSelect() {
 }
 
 // make Sliderpoints
-function makeSliderpoints() {
+export function makeSliderpoints() {
     let selectedText = getInputOrLine();
     let surveyLanguage = localStorage.getItem("surveyLanguage");
 
@@ -311,7 +313,7 @@ function makeSliderpoints() {
     }
 
     try {
-        input = selectedText.trim();
+        let input = selectedText.trim();
 
         input = input.replace(/^(\w?\d+)\.(\d+)/, "$1_$2");
 
@@ -348,7 +350,7 @@ function makeSliderpoints() {
 }
 
 // make text
-function makeText() {
+export function makeText() {
     let surveyLanguage = localStorage.getItem("surveyLanguage");
     let selectedText = getInputOrLine();
     if (!selectedText.trim()) {
@@ -357,7 +359,7 @@ function makeText() {
     }
 
     try {
-        input = selectedText.trim();
+        let input = selectedText.trim();
 
         //  Convert numbering format (e.g., "1.2" → "1_2")
         input = input.replace(/^(\w?\d+)\.(\d+)/, "$1_$2");
@@ -410,7 +412,7 @@ function makeText() {
 }
 
 // make textarea
-function makeTextarea() {
+export function makeTextarea() {
     let surveyLanguage = localStorage.getItem("surveyLanguage");
     let selectedText = getInputOrLine();
     if (!selectedText.trim()) {
@@ -419,7 +421,7 @@ function makeTextarea() {
     }
 
     try {
-        input = selectedText.trim();
+        let input = selectedText.trim();
 
         //  Convert numbering format (e.g., "1.2" → "1_2")
         input = input.replace(/^(\w?\d+)\.(\d+)/, "$1_$2");
@@ -472,7 +474,7 @@ function makeTextarea() {
 }
 
 // make number
-function makeNumber() {
+export function makeNumber() {
     let surveyLanguage = localStorage.getItem("surveyLanguage");
     let selectedText = getInputOrLine();
     if (!selectedText.trim()) {
@@ -481,7 +483,7 @@ function makeNumber() {
     }
 
     try {
-        input = selectedText.trim();
+        let input = selectedText.trim();
 
         //  Convert numbering format (e.g., "1.2" → "1_2")
         input = input.replace(/^(\w?\d+)\.(\d+)/, "$1_$2");
@@ -535,7 +537,7 @@ function makeNumber() {
 }
 
 // make slidernumber
-function makeSlidernumber() {
+export function makeSlidernumber() {
     let surveyLanguage = localStorage.getItem("surveyLanguage");
     let selectedText = getInputOrLine();
     if (!selectedText.trim()) {
@@ -544,7 +546,7 @@ function makeSlidernumber() {
     }
 
     try {
-        input = selectedText.trim();
+        let input = selectedText.trim();
 
         //  Convert numbering format (e.g., "1.2" → "1_2")
         input = input.replace(/^(\w?\d+)\.(\d+)/, "$1_$2");
@@ -599,7 +601,7 @@ function makeSlidernumber() {
 }
 
 // make float
-function makeFloat() {
+export function makeFloat() {
     let surveyLanguage = localStorage.getItem("surveyLanguage");
     let selectedText = getInputOrLine();
     if (!selectedText.trim()) {
@@ -608,7 +610,7 @@ function makeFloat() {
     }
 
     try {
-        input = selectedText.trim();
+        let input = selectedText.trim();
 
         //  Convert numbering format (e.g., "1.2" → "1_2")
         input = input.replace(/^(\w?\d+)\.(\d+)/, "$1_$2");
@@ -662,7 +664,7 @@ function makeFloat() {
 }
 
 //make autosum
-function makeAutosum() {
+export function makeAutosum() {
     let surveyLanguage = localStorage.getItem("surveyLanguage");
     let selectedText = getInputOrLine();
 
@@ -746,7 +748,7 @@ function makeAutosum() {
 }
 
 //make autosum percent
-function makeAutosumPercent() {
+export function makeAutosumPercent() {
     let surveyLanguage = localStorage.getItem("surveyLanguage");
     let selectedText = getInputOrLine();
 
@@ -830,7 +832,7 @@ function makeAutosumPercent() {
 }
 
 // make comment (<html>)
-function makeSurveyComment() {
+export function makeSurveyComment() {
     let selectedText = getInputOrLine();
 
     if (!selectedText.trim()) {
@@ -859,7 +861,7 @@ function makeSurveyComment() {
 }
 
 //make pipe
-function makePipe() {
+export function makePipe() {
     const selectedText = getInputOrLine();
     if (!selectedText.trim()) {
         alert("No text selected!");
@@ -889,7 +891,7 @@ function makePipe() {
 }
 
 // make comment (<html>)
-function makeNote() {
+export function makeNote() {
     let selectedText = getInputOrLine();
 
     if (!selectedText.trim()) {

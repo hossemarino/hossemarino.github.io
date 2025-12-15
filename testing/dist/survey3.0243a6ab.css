@@ -118,19 +118,25 @@ html {
 
 .container-fluid {
   background-color: #1d1d1d;
+  height: 100vh;
+  overflow: hidden;
 }
 
 .container {
   background-color: #1d1d1d;
   flex-wrap: nowrap;
-  height: 90vh;
+  height: 100%;
   display: flex;
+  overflow: hidden;
 }
 
 #mainEditorWrapper {
+  flex-direction: column;
   flex: 1;
   min-width: 0;
-  height: 100vh;
+  height: 100%;
+  display: flex;
+  overflow: hidden;
 }
 
 .toolbox .commands-header {
@@ -144,11 +150,11 @@ html {
   width: auto;
   min-width: 200px;
   max-width: 500px;
-  height: 98vh;
+  height: 100%;
   padding: 20px;
   transition: width .2s;
   position: relative;
-  overflow: auto;
+  overflow: hidden auto;
 }
 
 #toolboxWrapper {
@@ -253,28 +259,37 @@ html {
 }
 
 .cm-editor {
-  min-height: 80vh;
-  max-height: 85vh;
+  height: 100%;
   font-size: 14px;
   line-height: 1;
 }
 
+#editorArea {
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  overflow: hidden;
+}
+
 .command-box {
   color: #fff;
-  z-index: 100;
+  z-index: 9999;
   background: #252526;
   border: 1px solid #444;
   border-radius: 5px;
   padding: 10px;
   display: none;
-  position: absolute;
+  position: fixed;
+  box-shadow: 0 4px 6px #0000004d;
 }
 
 .command-box input {
   color: #fff;
   background: #333;
   border: none;
-  width: 200px;
+  outline: none;
+  width: 300px;
   padding: 5px;
   font-size: 14px;
 }
@@ -284,10 +299,12 @@ html {
   background: #252526;
   border: 1px solid #444;
   border-radius: 5px;
-  max-height: 150px;
+  min-width: 300px;
+  max-height: 300px;
+  margin: 5px 0 0;
   padding: 5px;
   list-style-type: none;
-  overflow-y: auto;
+  overflow: hidden auto;
 }
 
 .secondary-commands li {
@@ -311,7 +328,12 @@ html {
   right: 10px;
 }
 
+#tabContainer {
+  flex-shrink: 0;
+}
+
 #tabs {
+  background: #1d1d1d;
   border-bottom: 2px solid #ccc;
   padding: 5px;
   display: flex;

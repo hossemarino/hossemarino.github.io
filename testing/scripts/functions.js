@@ -1,9 +1,44 @@
 // functions.js
 
 import { EditorSelection } from "@codemirror/state";
+import { getActiveEditor } from './tabs.js';
+
+// Helper to safely get editor
+function getEditor() {
+    const ed = getActiveEditor();
+    if (!ed) {
+        console.warn("Editor not ready");
+        return null;
+    }
+    return ed;
+}
+
+// Insert text at current cursor or replace selection
+export function insertText(view, text) {
+    const sel = view.state.selection.main;
+    view.dispatch({ changes: { from: sel.from, to: sel.to, insert: text } });
+}
+
+// editor selection - get selected text or current line
+export function getInputOrLine(view) {
+    view = getView(view);
+    if (!view) return "";
+    const sel = view.state.selection.main;
+    const selectedText = view.state.doc.sliceString(sel.from, sel.to).trim();
+    return selectedText || view.state.doc.lineAt(sel.head).text.trim() || "";
+}
+
+export function setCursorAfterLine(l) {
+    const view = getView();
+    if (!view) return;
+    view.setCursor({
+        line: l,
+        ch: 0
+    });
+}
 
 // 🔧 Utility: Resolve editorView globally if not passed
-const getView = view => view || (typeof editorView !== "undefined" ? editorView : null);
+const getView = view => view || getEditor();
 
 // ==============================
 // 🧩 TEXT FORMATTING & WRAPPING
@@ -48,33 +83,6 @@ export function toTitleCase(str) {
          : /^[a-z]/.test(part) ? part.charAt(0).toUpperCase() + part.slice(1) : part)
     .join("");
 }
-
-// =============================
-// 📩 BASIC INSERT HELPERS
-// =============================
-export function insertText(view, text) {
-    view = getView(view);
-    const sel = view.state.selection.main;
-    view.dispatch({
-        changes: {
-            from: sel.from,
-            to: sel.to,
-            insert: text
-        },
-        scrollIntoView: true
-    });
-}
-
-export function getInputOrLine(view) {
-    view = getView(view);
-    const { state } = view;
-    const sel = state.selection.main;
-    const selected = state.doc.slice(sel.from, sel.to).toString().trim();
-    if (selected)
-        return selected;
-    return state.doc.lineAt(sel.from).text.trim();
-}
-
 // ==============================
 // 📦 CONTROL TAG INSERTIONS
 // ==============================
@@ -229,7 +237,8 @@ export const brbr = view => insertText(view, `<br/><br/>`);
 export const addOpen = view => addAttribute(view, ` open="1" openSize="25" randomize="0"`);
 export const addExclusive = view => addAttribute(view, ` exclusive="1" randomize="0"`);
 export const addAggregate = view => addAttribute(view, ` aggregate="0" percentages="0"`);
-export const addOptional = view => addAttribute(view, `o ptional="1"`);
+export const addRandomize0 = view => addAttribute(view, ` randomize="0"`);
+export const addOptional = view => addAttribute(view, ` optional="1"`);
 export const addShuffleRows = view => addAttribute(view, ` shuffle="rows"`);
 export const addShuffleCols = view => addAttribute(view, ` shuffle="cols"`);
 export const addShuffleRowsCols = view => addAttribute(view, ` shuffle="rows,cols"`);
@@ -240,7 +249,12 @@ export const addRowClassNames = view => addAttribute(view, ` ss:rowClassNames=""
 export const addColClassNames = view => addAttribute(view, ` ss:colClassNames=""`);
 export const addChoiceClassNames = view => addAttribute(view, ` ss:choiceClassNames=""`);
 export const addRatingDirection = view => addAttribute(view, ` ratingDirection="reverse"`);
-
+export function addAltlabel(view) {
+    const raw = getInputOrLine(view);
+    const cleaned = raw.trim().replace(/\s+/g, "_");
+    const html = ` altlabel="${cleaned}"`;
+    window.editor.replaceSelection(html);
+}
 // ==============================
 // 🧠 PRETEXT / POSTTEXT / RES WRAPPERS
 // ==============================
@@ -440,39 +454,441 @@ export function makeCondition(view) {
 // ==============================
 // 🔁 LOOP & VIRTUAL BLOCKS
 // ==============================
-export function makeLooprows(view) {
-    const raw = getInputOrLine(view).trim();
-    if (!raw)
-        return;
+// block tag
+export function wrapInBlock() {
+    try {
+        const editor = window.editor;
+        const input = getInputOrLine().trim();
 
-    const lines = raw.replace(/\t+/g, " ").replace(/\n +\n/g, "\n\n").replace(/\n{2,}/g, "\n")
-        .split("\n").map(line => line.replace(/^[a-zA-Z0-9]{1,2}[.:)\s]+\s*/, "").trim()).filter(Boolean);
+        if (!input) {
+            alert("No content selected.");
+            return;
+        }
 
-    const output = lines.map((line, i) =>
-`  <looprow label="${i + 1}">\n    <loopvar name="var">${line}</loopvar>\n  </looprow>`).join("\n");
+        const xml = `<block label="" cond="1">
+${input}
+</block>`;
 
-    insertText(view, output);
+        editor.replaceSelection(xml);
+    } catch (err) {
+        console.error("wrapInBlock() failed:", err);
+        alert("Could not wrap content in <block>.");
+    }
 }
 
-// You can expand this further with `addLoopBlock(view)` and others later
+// block tag randomizeChildren
+export function wrapInBlockRandomize() {
+    try {
+        const editor = window.editor;
+        const input = getInputOrLine().trim();
+
+        if (!input) {
+            alert("No content selected.");
+            return;
+        }
+
+        const xml = `<block label="" cond="1" randomizeChildren="1">
+${input}
+</block>`;
+
+        editor.replaceSelection(xml);
+    } catch (err) {
+        console.error("wrapInBlock() failed:", err);
+        alert("Could not wrap content in <block>.");
+    }
+}
+
+// loop tag
+// LOOP tag
+function addLoopBlock() {
+    try {
+        const editor = window.editor;
+        const selection = getInputOrLine().trim();
+
+        if (!selection) {
+            alert("No content selected.");
+            return;
+        }
+
+        const tagPattern = /(radio|checkbox|text|textarea|block|number|float|select|html)/;
+
+        // Extract existing <looprow> elements
+        const looprowRegex = /<looprow[\s\S]*?<\/looprow>/gi;
+        const matchedLoopRows = selection.match(looprowRegex) || [];
+        const loopRows = matchedLoopRows
+            .map(row => `  ${row.trim()}\n`)
+            .join("\n");
+        const mainBlock = selection.replace(looprowRegex, "").trim();
+
+        // Extract all loopvar names
+        const loopVarNames = [];
+        const varMatchRegex = /<loopvar\s+name="([^"]+)"/gi;
+        let match;
+        while ((match = varMatchRegex.exec(loopRows))) {
+            const varName = match[1].trim();
+            if (varName && !loopVarNames.includes(varName)) {
+                loopVarNames.push(varName);
+            }
+        }
+
+        const varsAttr = loopVarNames.join(", ");
+
+        const hasAltLabel = mainBlock.includes("altlabel");
+
+        const updated = hasAltLabel
+             ? mainBlock.replace(
+                new RegExp(
+`<${tagPattern.source}([\\s\\S]*?)label="([^"]+)"([\\s\\S]*?)altlabel="([^"]+)"`,
+                    "g"),
+                (_match, tag, pre, label, between, alt) =>
+`<${tag}${pre}label="${label.trim()}_[loopvar: label]"${between}altlabel="${alt.trim()}_[loopvar:label]"`)
+             : mainBlock.replace(
+                new RegExp(`<${tagPattern.source}([\\s\\S]*?)label="([^"]+)"`, "g"),
+                (_match, tag, pre, label) =>
+`<${tag}${pre}label="${label.trim()}_[loopvar: label]"`);
+
+        const wrapped = `<loop label="" vars="${varsAttr}" title=" " suspend="0">
+  <block label="">
+
+${updated}
+
+  </block>
+
+${loopRows || `  <looprow label="" cond="">
+    <loopvar name=""></loopvar>
+  </looprow>`}
+
+</loop>`;
+
+        editor.replaceSelection(wrapped);
+    } catch (err) {
+        console.error("addLoopBlock() failed:", err);
+        alert("Could not process loop template.");
+    }
+}
 
 // ==============================
-// 🧠 EXPORT DEFAULT (optional)
-// ==============================
-// Optional: export all functions together
-// export default {
-//   wrapSelection,
-//   makeRes,
-//   addTerm,
-//   addQuota,
-//   makeRows,
-//   makeCols,
-//   makeChoices,
-//   swapRowCol,
-//   makeOl,
-//   makeUl,
-//   makeHref,
-//   makeCase,
-//   makeCondition,
-//   ...
-// };
+
+// make looprows
+export function makeLooprows() {
+    try {
+        const editor = window.editor;
+        const rawInput = getInputOrLine().trim();
+
+        if (!rawInput) {
+            alert("No content selected.");
+            return;
+        }
+
+        // Clean tabs and normalize spacing
+        let cleaned = rawInput
+            .replace(/\t+/g, " ")
+            .replace(/\n +\n/g, "\n\n")
+            .replace(/\n{2,}/g, "\n")
+            .trim()
+            .split("\n")
+            .map(line => line.replace(/^[a-zA-Z0-9]{1,2}[.:)\s]+\s*/, "").trim())
+            .filter(line => line.length > 0);
+
+        const result = cleaned
+            .map((line, i) => `  <looprow label="${i + 1}">\n    <loopvar name="var">${line}</loopvar>\n  </looprow>`)
+            .join("\n");
+
+        editor.replaceSelection(result);
+    } catch (err) {
+        console.error("makeLooprows() failed:", err);
+        alert("Could not generate looprow XML.");
+    }
+}
+// make markers
+export function makeMarker() {
+    let selectedText = getInputOrLine();
+    if (!selectedText.trim()) {
+        alert("No text selected!");
+        return;
+    }
+
+    let lines = selectedText.split("\n").map(line => line.trim()).filter(line => line);
+    let xmlItems = lines.map((line, index) => `<marker name="${line}" cond=""/>`).join("\n");
+
+    window.editor.replaceSelection(xmlItems);
+}
+
+// FUNCTIONS FOR ROWS, COLS and CHOICES
+export function extractNumberAndText(line) {
+    const match = line.match(/^([A-Za-z0-9]+)[.)]\s*(.*)$/);
+    if (!match)
+        return null;
+
+    //const prefix = match[1];
+    const text = match[2];
+
+    //const isNumber = /^\d+$/.test(prefix);
+    return {
+        text
+    };
+}
+
+export function buildXmlTag(tagName, tagLabel, lines, numbered, parse) {
+    const count = lines.length;
+
+    return lines.map((line, i) => {
+        const parsed = extractNumberAndText(line);
+        let label,
+        valueAttr = "",
+        content;
+
+        if (numbered === "low" || numbered === "high") {
+            const idx = numbered === "high" ? count - i : i + 1;
+            label = `${tagLabel}${idx}`;
+            valueAttr = ` value="${idx}"`;
+            content = parsed ? parsed.text : line;
+        } else if (parsed) {
+            content = parsed.text;
+            if (parsed.number !== null) {
+                label = `${tagLabel}${i + 1}`;
+            } else {
+                label = `${tagLabel}${i + 1}`;
+            }
+        } else {
+            label = `${tagLabel}${i + 1}`;
+            content = line;
+        }
+
+        return `  <${tagName} label="${label}"${valueAttr}>${content}</${tagName}>`;
+    }).join("\n");
+}
+
+//add class names
+export function addSurveyClassNames(type = "row") {
+    const editor = getActiveEditor();
+    const selection = editor.getSelection();
+    const isCursorOnly = selection.length === 0;
+
+    const typeMap = {
+        row: {
+            tags: ["row"],
+            attr: 'ss:rowClassNames=""'
+        },
+        col: {
+            tags: ["col"],
+            attr: 'ss:colClassNames=""'
+        },
+        choice: {
+            tags: ["choice"],
+            attr: 'ss:choiceClassNames=""'
+        },
+        group: {
+            tags: ["group"],
+            attr: 'ss:groupClassNames=""'
+        },
+        comment: {
+            tags: ["comment"],
+            attr: 'ss:commentClassNames=""'
+        },
+        question: {
+            tags: ["radio", "checkbox", "select", "text", "textarea", "number", "float"],
+            attr: 'ss:questionClassNames=""'
+        }
+    };
+
+    const rule = typeMap[type.toLowerCase()];
+    if (!rule)
+        return;
+
+    if (isCursorOnly) {
+        // No selection: just insert attribute at cursor
+        editor.replaceSelection(" " + rule.attr);
+    } else {
+        // Update selected text
+        const updated = selection.split("\n").map(line => {
+            for (const tag of rule.tags) {
+                const tagRegex = new RegExp(`<${tag}\\b`);
+                if (tagRegex.test(line.trim()) && !line.includes(rule.attr)) {
+                    return line.replace(/<(\w+)(\s|>)/, `<$1 ${rule.attr}$2`);
+                }
+            }
+            return line;
+        }).join("\n");
+
+        editor.replaceSelection(updated);
+    }
+}
+
+//add Add colWidth
+export function addColWidth() {
+    xmlItems = ` ss:colWidth=""`;
+    window.editor.replaceSelection(xmlItems);
+}
+//add Add legendColWidth
+export function addLegendColWidth() {
+    xmlItems = ` ss:legendColWidth=""`;
+    window.editor.replaceSelection(xmlItems);
+}
+
+// add elShuffle
+export function elShuffle(el) {
+    const html = ` ${el}Shuffle=""`;
+    window.editor.replaceSelection(html);
+}
+
+export function makeLi(view) {
+    const selectedText = getInputOrLine();
+
+    if (!selectedText.trim()) {
+        alert("No text selected!");
+        return;
+    }
+
+    const lines = selectedText.split("\n").map(line => line.trim()).filter(line => line);
+    const xmlItems = lines.map(line => `  <li>${line}</li>`).join("\n");
+    
+    const editor = getEditor();
+    if (editor) {
+        insertText(editor, xmlItems);
+    }
+}
+
+export function addPreTextRes(view) {
+    const selectedText = getInputOrLine();
+    const xmlContent = ` ss:preText="\${res.${selectedText.trim()}}"`;
+    const editor = getEditor();
+    if (editor) {
+        insertText(editor, xmlContent);
+    }
+}
+
+export function addPreTextInternal(view) {
+    const selectedText = getInputOrLine();
+    const xmlContent = ` ss:preText="\${res['%s,preText' % this.label]}"`;
+    const editor = getEditor();
+    if (editor) {
+        insertText(editor, xmlContent);
+    }
+}
+
+export function addPostTextRes(view) {
+    const selectedText = getInputOrLine();
+    const xmlContent = `<res label="preText">${selectedText.trim()}</res>`;
+    const editor = getEditor();
+    if (editor) {
+        insertText(editor, xmlContent);
+    }
+}
+
+export function addPostTextExternal(view) {
+    const selectedText = getInputOrLine();
+    const xmlContent = ` ss:postText="\${res.${selectedText.trim()}}"`;
+    const editor = getEditor();
+    if (editor) {
+        insertText(editor, xmlContent);
+    }
+}
+
+export function addPostTextInternal(view) {
+    const selectedText = getInputOrLine();
+    const xmlContent = ` ss:postText="\${res['%s,postText' % this.label]}"`;
+    const editor = getEditor();
+    if (editor) {
+        insertText(editor, xmlContent);
+    }
+}
+
+export function addPostTextResLabel(view) {
+    const selectedText = getInputOrLine();
+    const xmlContent = `<res label="postText">${selectedText.trim()}</res>`;
+    const editor = getEditor();
+    if (editor) {
+        insertText(editor, xmlContent);
+    }
+}
+
+export function callInternalRes(view) {
+    const editor = window.editor;
+    const selectedText = getInputOrLine();
+    const xmlContent = `\${res['%s,res_label' % this.label]}`;
+    window.editor.replaceSelection(xmlContent);
+}
+
+// add contact q
+export function addContactQuestion() {
+    const xmlContent = CONTACT_QUESTION;
+    window.editor.replaceSelection(xmlContent);
+}
+
+export function addContactQuestionIHUT() {
+    const xmlContent = CONTACT_QUESTION_IHUT;
+    window.editor.replaceSelection(xmlContent);
+}
+
+export function relabelSelection() {
+    const editor = getActiveEditor(); // Assumes your existing method
+    const inputText = editor.getSelection();
+    if (!inputText)
+        return;
+
+    const lines = inputText.trim().split("\n");
+    if (!lines.length)
+        return;
+
+    const labelMatch = lines[0].match(/label=['"](\w+)['"]/);
+    const elementMatch = lines[0].match(/<col|<row|<choice/);
+
+    if (!labelMatch || !elementMatch)
+        return;
+
+    const startLabel = labelMatch[1];
+    const startElement = elementMatch[0].slice(1);
+    const nonAlphaPart = startLabel.replace(/[a-zA-Z]*/g, "");
+    const isAlphanumeric = /^\d+$/.test(nonAlphaPart);
+    const baseValue = isAlphanumeric
+         ? parseInt(nonAlphaPart, 10)
+         : startLabel.charCodeAt(0);
+
+    let count = -1;
+
+    const updated = lines.map(line => {
+        if (new RegExp(`<${startElement}`).test(line.trim())) {
+            count++;
+            const newLabel = isAlphanumeric
+                 ? startLabel.replace(/\d+/, baseValue + count)
+                 : String.fromCharCode(baseValue + count);
+            return line.replace(/label=['"]\w+['"]/, `label="${newLabel}"`);
+        }
+        return line;
+    });
+
+    editor.replaceSelection(updated.join("\n"));
+}
+
+// make image
+export function makeImageTags() {
+    const selectedText = getInputOrLine();
+    if (!selectedText.trim()) {
+        alert("No text selected!");
+        return;
+    }
+
+    const lines = selectedText
+        .split("\n")
+        .map(line => line.trim())
+        .filter(line => line);
+
+    const imgTags = lines.map(src => `<img src="${src}" />`).join("\n");
+
+    window.editor.replaceSelection(imgTags);
+}
+
+// reusable list functions
+export function makeReusableList() {
+    const selectedText = getInputOrLine();
+    const xmlContent = `<define label="">\n  ${selectedText.trim()}\n</define>`;
+    window.editor.replaceSelection(xmlContent);
+}
+
+export function callReusableList() {
+    const selectedText = getInputOrLine();
+    const xmlContent = `<insert source="${selectedText.trim()}"/>`;
+    window.editor.replaceSelection(xmlContent);
+}
+

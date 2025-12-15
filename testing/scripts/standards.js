@@ -1,5 +1,8 @@
+import { getInputOrLine } from './functions.js';
+import { US_STATES } from './vars.js';
+
 // STANDARDS
-function makeStateSelect({
+export function makeStateSelect({
     addRecode = false
 } = {}) {
     try {
@@ -60,19 +63,19 @@ elif ${label}.choices[${label}.ival].label in ["MT", "ID", "WY", "NV", "UT", "CO
     }
 }
 
-function makeStateOnly() {
+export function makeStateOnly() {
     makeStateSelect({
         addRecode: false
     });
 }
 
-function makeStateWithRecode() {
+export function makeStateWithRecode() {
     makeStateSelect({
         addRecode: true
     });
 }
 
-function makeStateCheckbox() {
+export function makeStateCheckbox() {
     try {
         const editor = window.editor;
         const inputText = getInputOrLine().trim();
@@ -105,7 +108,7 @@ ${rows}
     }
 }
 
-function makeCountrySelectISO() {
+export function makeCountrySelectISO() {
     try {
         const editor = window.editor;
         const inputText = getInputOrLine().trim();
@@ -139,43 +142,43 @@ ${choices}
 }
 
 // Add Survey Copy Protection
-function addCopyProtection() {
+export function addCopyProtection() {
     xmlItems = COPY_PROTECTION;
     window.editor.replaceSelection(xmlItems);
 }
 
-function makeUnselectableSpan() {
+export function makeUnselectableSpan() {
     const selectedText = getInputOrLine();
     const html = `<span style="-moz-user-select: none;-webkit-user-select: none;-ms-user-select: none;" unselectable="on" ondragstart="return false" oncontextmenu="return false">${selectedText.trim()}</span>`;
     window.editor.replaceSelection(html);
 }
 
-function makeUnselectableDiv() {
+export function makeUnselectableDiv() {
     const selectedText = getInputOrLine();
     const html = `<div style="-moz-user-select: none;-webkit-user-select: none;-ms-user-select: none;" unselectable="on" ondragstart="return false" oncontextmenu="return false">${selectedText.trim()}</div>`;
     window.editor.replaceSelection(html);
 }
 
-function addUnselectableAttributes() {
+export function addUnselectableAttributes() {
     const attrs = ` style="-moz-user-select: none;-webkit-user-select: none;-ms-user-select: none;" unselectable="on" ondragstart="return false" oncontextmenu="return false"`;
     window.editor.replaceSelection(attrs);
 }
 
-function addMouseoverTemplate() {
+export function addMouseoverTemplate() {
     const attrs = `<span class="self-tooltip">(MOUSE OVER TEXT HERE)</span><span class="tooltip-content">(MOUSEOVER CONTENT HERE)</span>`;
     window.editor.replaceSelection(attrs);
 }
 
-function addPopupTemplate() {
+export function addPopupTemplate() {
     const attrs = `<span class="self-popup" onclick="Survey.uidialog.make($(this).next('.popup-content'), {width: Math.min(320, $(window).width()), height: Math.min(240, $(window).height()), title: ''} );">(POP-UP TEXT HERE)</span><div class="popup-content">(POP-UP CONTENT HERE)</div>`;
     window.editor.replaceSelection(attrs);
 }
 
-function addvStatusVirtual() {
+export function addvStatusVirtual() {
     window.editor.replaceSelection(VSTATUS)
 }
 
-function addvChange() {
+export function addvChange() {
     const today = new Date();
     const yyyy = today.getFullYear();
     const mm = String(today.getMonth() + 1).padStart(2, "0");
@@ -184,6 +187,6 @@ function addvChange() {
     window.editor.replaceSelection(vChange(formattedDate).trim());
 }
 
-function addShuffleRowsVirtual() {
+export function addShuffleRowsVirtual() {
     window.editor.replaceSelection(SHUFFLE_ROWS_VIRTUAL)
 }

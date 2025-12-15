@@ -5,12 +5,13 @@ import { xml } from "@codemirror/lang-xml";
 import { python } from "@codemirror/lang-python";
 
 import { oneDark } from "@codemirror/theme-one-dark";
+import { githubLight } from "@fsegurai/codemirror-theme-github-light";
 import { indentUnit } from "@codemirror/language";
 import { foldGutter } from "@codemirror/language";
 import { bracketMatching } from "@codemirror/autocomplete";
 import { closeBrackets } from "@codemirror/autocomplete";
 import { lineNumbers } from "@codemirror/view";
-const startDoc = `<textarea label="Q1">\n  <title>Welcome</title>\n</textarea>`;
+const startDoc = ``;
 
 import * as fx from "./functions.js";
 

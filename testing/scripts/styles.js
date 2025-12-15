@@ -1,3 +1,5 @@
+import { getInputOrLine } from './functions.js';
+
 // STYLES FUNCTIONS
 export function groupStylesByPrefix(definitions) {
     const groups = {};

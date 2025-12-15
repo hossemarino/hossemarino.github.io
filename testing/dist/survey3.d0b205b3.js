@@ -94,7 +94,54 @@
 
     function localRequire(x) {
       var res = localRequire.resolve(x);
-      return res === false ? {} : newRequire(res);
+      if (res === false) {
+        return {};
+      }
+      // Synthesize a module to follow re-exports.
+      if (Array.isArray(res)) {
+        var m = {__esModule: true};
+        res.forEach(function (v) {
+          var key = v[0];
+          var id = v[1];
+          var exp = v[2] || v[0];
+          var x = newRequire(id);
+          if (key === '*') {
+            Object.keys(x).forEach(function (key) {
+              if (
+                key === 'default' ||
+                key === '__esModule' ||
+                Object.prototype.hasOwnProperty.call(m, key)
+              ) {
+                return;
+              }
+
+              Object.defineProperty(m, key, {
+                enumerable: true,
+                get: function () {
+                  return x[key];
+                },
+              });
+            });
+          } else if (exp === '*') {
+            Object.defineProperty(m, key, {
+              enumerable: true,
+              value: x,
+            });
+          } else {
+            Object.defineProperty(m, key, {
+              enumerable: true,
+              get: function () {
+                if (exp === 'default') {
+                  return x.__esModule ? x.default : x;
+                }
+                return x[exp];
+              },
+            });
+          }
+        });
+        return m;
+      }
+      return newRequire(res);
     }
 
     function resolve(x) {
@@ -667,37 +714,61 @@ function hmrAccept(bundle /*: ParcelRequire */ , id /*: string */ ) {
 }
 
 },{}],"kaqeV":[function(require,module,exports,__globalThis) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "getActiveEditor", ()=>getActiveEditor);
 var _view = require("@codemirror/view");
 var _state = require("@codemirror/state");
 var _codemirror = require("codemirror");
 var _langXml = require("@codemirror/lang-xml");
 var _langPython = require("@codemirror/lang-python");
+var _langJavascript = require("@codemirror/lang-javascript");
+var _langCss = require("@codemirror/lang-css");
 var _commands = require("@codemirror/commands");
-var _themeOneDark = require("@codemirror/theme-one-dark");
-var _language = require("@codemirror/language");
 var _autocomplete = require("@codemirror/autocomplete");
+var _themeOneDark = require("@codemirror/theme-one-dark");
+var _codemirrorThemeGithub = require("@uiw/codemirror-theme-github");
+var _language = require("@codemirror/language");
 var _functionsJs = require("./functions.js");
+var _questionfunctionsJs = require("./questionfunctions.js");
+var _standardsJs = require("./standards.js");
+var _stylesJs = require("./styles.js");
 var _tabsJs = require("./tabs.js");
 var _varsJs = require("./vars.js");
-var _stylesJs = require("./styles.js");
+var _modalsJs = require("./modals.js");
 const myFoldExtension = (0, _language.foldGutter)({
     openText: "\u25BC",
     closedText: "\u25B6"
 });
 const savedDoc = localStorage.getItem("lastEditorContent");
 const startDoc = savedDoc ?? "";
+// Expose for legacy/global callers
+if (typeof window !== 'undefined') {
+    window.openModal = (0, _modalsJs.openModal);
+    window.validateFormAndGenerateXML = (0, _modalsJs.validateFormAndGenerateXML);
+}
 let savedTheme;
 let savedWordWrap;
 let savedFontSize;
 let savedLanguage;
 function getActiveEditor() {
-    return tabs[activeTab]?.editor;
+    return _tabsJs.getActiveEditor();
 }
+// Expose for legacy/global callers
+if (typeof window !== 'undefined') window.getActiveEditor = getActiveEditor;
 let lastCommand = "";
 let activeTab = "default";
+let tabPendingDeletion = null;
+// Expose tabPendingDeletion to modals.js
+if (typeof window !== 'undefined') Object.defineProperty(window, 'tabPendingDeletion', {
+    get: ()=>tabPendingDeletion,
+    set: (val)=>{
+        tabPendingDeletion = val;
+    }
+});
 document.addEventListener("DOMContentLoaded", ()=>{
     const editorArea = document.getElementById("editorArea");
-    savedTheme = localStorage.getItem("editorTheme") || "default";
+    savedTheme = localStorage.getItem("editorTheme") || "light";
     savedWordWrap = localStorage.getItem("wordWrap") === "true";
     savedLanguage = localStorage.getItem("surveyLanguage") || "english";
     savedFontSize = localStorage.getItem("fontSize") || 14;
@@ -722,52 +793,171 @@ document.addEventListener("DOMContentLoaded", ()=>{
     const stylesComponents = document.getElementById("sstyleComponents");
     const increaseFontButton = document.getElementById("increaseFont");
     const decreaseFontButton = document.getElementById("decreaseFont");
+    // Position command palette at the end of selection (below cursor)
+    function positionCommandBox() {
+        const editor1 = window.editorView || getActiveEditor?.();
+        if (!editor1) {
+            console.warn('No editor found for command palette positioning');
+            return;
+        }
+        const pos = editor1.state.selection.main.to; // Use selection end
+        const coords = editor1.coordsAtPos(pos);
+        if (coords) {
+            // Position below the cursor line with proper viewport awareness
+            let left = coords.left;
+            let top = coords.bottom + 5;
+            // Ensure the command box stays within viewport
+            const boxWidth = 320; // Approximate width of command box
+            const boxHeight = 350; // Approximate max height
+            if (left + boxWidth > window.innerWidth) left = window.innerWidth - boxWidth - 10;
+            if (top + boxHeight > window.innerHeight) // Position above cursor if not enough space below
+            top = coords.top - boxHeight - 5;
+            commandBox.style.left = `${Math.max(10, left)}px`;
+            commandBox.style.top = `${Math.max(10, top)}px`;
+            commandBox.style.display = 'block';
+        }
+    }
     const commandGroups = {
         newsurvey: {
-            "new sago survey": ()=>openModal("new-survey"),
-            "new sago ihut survey": ()=>openModal('new-ihut')
+            "new sago survey": ()=>(0, _modalsJs.openModal)("new-survey"),
+            "new sago ihut survey": ()=>(0, _modalsJs.openModal)('new-ihut')
         },
         control: {
+            "add term": ()=>_functionsJs.addTerm(getActiveEditor()),
+            "add quota": ()=>_functionsJs.addQuota(getActiveEditor()),
+            "validate tag": ()=>_functionsJs.validateTag(getActiveEditor()),
+            "exec tag": ()=>_functionsJs.execTag(getActiveEditor()),
+            "resource tag": ()=>_functionsJs.makeRes(getActiveEditor()),
+            "block tag": ()=>wrapInBlock(getActiveEditor()),
+            "block tag (randomize children)": ()=>wrapInBlockRandomize(getActiveEditor()),
+            "loop tag": ()=>addLoopBlock(getActiveEditor()),
+            "make looprows": ()=>makeLooprows(getActiveEditor()),
+            "make markers": ()=>makeMarker(getActiveEditor()),
+            "make condition": ()=>makeCondition(getActiveEditor())
         },
         elements: {
-            "make rows": ()=>_functionsJs.makeRows(editorView),
-            "make rows (rating l-h)": ()=>_functionsJs.makeRows(editorView, 'low'),
-            "make rows (rating h-l)": ()=>_functionsJs.makeRows(editorView, 'high'),
-            "make columns": ()=>_functionsJs.makeCols(editorView),
-            "make columns (rating l-h)": ()=>_functionsJs.makeCols(editorView, 'low'),
-            "make columns (rating h-l)": ()=>_functionsJs.makeCols(editorView, 'high'),
-            "make choices": ()=>_functionsJs.makeChoices(editorView),
-            "make choices (rating l-h)": ()=>_functionsJs.makeChoices(editorView, 'low'),
-            "make choices (rating h-l)": ()=>_functionsJs.makeChoices(editorView, 'high'),
-            "make noanswer": ()=>_functionsJs.makeNoAnswer(editorView),
-            "make groups": ()=>_functionsJs.makeGroups(editorView),
-            "make question comment": ()=>_functionsJs.addCommentQuestion(editorView),
-            "make case": ()=>_functionsJs.makeCase(editorView),
-            "make autofill rows": ()=>_functionsJs.makeAutoFillRows(editorView)
+            "make rows": ()=>_functionsJs.makeRows(getActiveEditor()),
+            "make rows (rating l-h)": ()=>_functionsJs.makeRows(getActiveEditor(), 'low'),
+            "make rows (rating h-l)": ()=>_functionsJs.makeRows(getActiveEditor(), 'high'),
+            "make columns": ()=>_functionsJs.makeCols(getActiveEditor()),
+            "make columns (rating l-h)": ()=>_functionsJs.makeCols(getActiveEditor(), 'low'),
+            "make columns (rating h-l)": ()=>_functionsJs.makeCols(getActiveEditor(), 'high'),
+            "make choices": ()=>_functionsJs.makeChoices(getActiveEditor()),
+            "make choices (rating l-h)": ()=>_functionsJs.makeChoices(getActiveEditor(), 'low'),
+            "make choices (rating h-l)": ()=>_functionsJs.makeChoices(getActiveEditor(), 'high'),
+            "make noanswer": ()=>_functionsJs.makeNoAnswer(getActiveEditor()),
+            "make groups": ()=>_functionsJs.makeGroups(getActiveEditor()),
+            "make question comment": ()=>_functionsJs.addCommentQuestion(getActiveEditor()),
+            "make case": ()=>_functionsJs.makeCase(getActiveEditor()),
+            "make autofill rows": ()=>_functionsJs.makeAutoFillRows(getActiveEditor())
         },
         types: {
+            "make radio": ()=>_questionfunctionsJs.makeRadio(getActiveEditor()),
+            "make rating": ()=>_questionfunctionsJs.makeRating(getActiveEditor()),
+            "make starrating": ()=>_questionfunctionsJs.makeStarrating(getActiveEditor()),
+            "make checkbox": ()=>_questionfunctionsJs.makeCheckbox(getActiveEditor()),
+            "make select": ()=>_questionfunctionsJs.makeSelect(getActiveEditor()),
+            "make sliderpoints": ()=>_questionfunctionsJs.makeSliderpoints(getActiveEditor()),
+            "make text": ()=>_questionfunctionsJs.makeText(getActiveEditor()),
+            "make textarea": ()=>_questionfunctionsJs.makeTextarea(getActiveEditor()),
+            "make number": ()=>_questionfunctionsJs.makeNumber(getActiveEditor()),
+            "make slidernumber": ()=>_questionfunctionsJs.makeSlidernumber(getActiveEditor()),
+            "make float": ()=>_questionfunctionsJs.makeFloat(getActiveEditor()),
+            "make autosum": ()=>_questionfunctionsJs.makeAutosum(getActiveEditor()),
+            "make autosum (percent)": ()=>_questionfunctionsJs.makeAutosumPercent(getActiveEditor()),
+            "make survey comment": ()=>_questionfunctionsJs.makeSurveyComment(getActiveEditor()),
+            "make pipe": ()=>_questionfunctionsJs.makePipe(getActiveEditor())
         },
         attr: {
+            "open-end": ()=>_functionsJs.addOpen(getActiveEditor()),
+            "add exclusive": ()=>_functionsJs.addExclusive(getActiveEditor()),
+            "add aggregate": ()=>_functionsJs.addAggregate(getActiveEditor()),
+            "add randomize='0'": ()=>_functionsJs.addRandomize0(getActiveEditor()),
+            "add optional": ()=>_functionsJs.addOptional(getActiveEditor()),
+            "add shuffle rows": ()=>_functionsJs.addShuffleRows(getActiveEditor()),
+            "add shuffle cols": ()=>_functionsJs.addShuffleCols(getActiveEditor()),
+            "add shuffle rows/cols": ()=>_functionsJs.addShuffleRowsCols(getActiveEditor()),
+            "add where='execute'": ()=>_functionsJs.addExecute(getActiveEditor()),
+            "add grouping/adim cols": ()=>_functionsJs.addGroupingCols(getActiveEditor()),
+            "add grouping/adim rows": ()=>_functionsJs.addGroupingRows(getActiveEditor()),
+            "add groups": ()=>_functionsJs.addGroups(getActiveEditor()),
+            "add values": ()=>_functionsJs.addValues(getActiveEditor()),
+            "add values l-h": ()=>_functionsJs.addValuesLow(getActiveEditor()),
+            "add values h-l": ()=>_functionsJs.addValuesHigh(getActiveEditor()),
+            "add alt label": ()=>_functionsJs.addAltlabel(getActiveEditor()),
+            "add rating direction reversed": ()=>_functionsJs.addRatingDirection(getActiveEditor()),
+            "add row class": ()=>_functionsJs.addRowClassNames(getActiveEditor()),
+            "add col class": ()=>_functionsJs.addColClassNames(getActiveEditor()),
+            "add choice class": ()=>_functionsJs.addChoiceClassNames(getActiveEditor()),
+            "swap rows and cols": ()=>_functionsJs.swapRowCol(getActiveEditor())
         },
         preposttext: {
+            "add pretext": ()=>_functionsJs.addPreText(getActiveEditor()),
+            "add pretext (internal)": ()=>_functionsJs.addPreTextInternal(getActiveEditor()),
+            "make pretext res (internal)": ()=>_functionsJs.makePreTextResInternal(getActiveEditor()),
+            "add posttext": ()=>_functionsJs.addPostText(getActiveEditor()),
+            "add posttext (internal)": ()=>_functionsJs.addPostTextInternal(getActiveEditor()),
+            "make posttext res (internal)": ()=>_functionsJs.makePostTextResInternal(getActiveEditor())
         },
         misc: {
+            "make note": ()=>_questionfunctionsJs.makeNote(getActiveEditor()),
+            "brbr": ()=>_functionsJs.brbr(getActiveEditor()),
+            "br": ()=>_functionsJs.br(getActiveEditor()),
+            "lis": ()=>_functionsJs.lis(getActiveEditor()),
+            "ol": ()=>_functionsJs.makeOl(getActiveEditor()),
+            "ul": ()=>_functionsJs.makeUl(getActiveEditor()),
+            "make link href": ()=>_functionsJs.makeHref(getActiveEditor()),
+            "add contact question": ()=>_functionsJs.addContactQuestion(getActiveEditor()),
+            "add ihut contact question": ()=>_functionsJs.addContactQuestionIHUT(getActiveEditor())
         },
         standards: {
+            "us states": ()=>_standardsJs.makeStateOnly(getActiveEditor()),
+            "us states + region recode": ()=>_standardsJs.makeStateWithRecode(getActiveEditor()),
+            "us states checkbox": ()=>_standardsJs.makeStateCheckbox(getActiveEditor()),
+            "countries": ()=>_standardsJs.makeCountrySelectISO(getActiveEditor())
         },
         copyprotection: {
+            "add survey copy protection": ()=>_standardsJs.addCopyProtection(getActiveEditor()),
+            "make unselectable (span)": ()=>_standardsJs.makeUnselectableSpan(getActiveEditor()),
+            "make unselectable (div)": ()=>_standardsJs.makeUnselectableDiv(getActiveEditor()),
+            "add unselectable attributes": ()=>_standardsJs.addUnselectableAttributes(getActiveEditor())
         },
         mouseoverpopup: {
+            "mouseover": ()=>(0, _modalsJs.openModal)("new-mouseover"),
+            "mouseover (template)": ()=>_standardsJs.addMouseoverTemplate(getActiveEditor()),
+            "popup": ()=>(0, _modalsJs.openModal)("new-popup"),
+            "popup (template)": ()=>addPopupTemplate(getActiveEditor())
         },
         standardsmisc: {
+            "add status virtual": ()=>_standardsJs.addvStatusVirtual(getActiveEditor()),
+            "add change virtual": ()=>_standardsJs.addvChange(getActiveEditor()),
+            "shuffle rows virtual": ()=>_standardsJs.addShuffleRowsVirtual(getActiveEditor()),
+            "random order tracker": ()=>(0, _modalsJs.openModal)("random-order-tracker"),
+            "dupe check by variable": ()=>(0, _modalsJs.openModal)("dupe-check")
         },
         styles: {
+            "new style": ()=>(0, _modalsJs.openModal)("new-style"),
+            "new style (blank)": ()=>_stylesJs.addNewStyleBlank(getActiveEditor())
         },
         stylesxml: {
+            "new style wtih label": ()=>_stylesJs.addNewStyleBlankwithLabel(getActiveEditor()),
+            "style copy/call": ()=>_stylesJs.addStyleCopy(getActiveEditor()),
+            "survey wide css": ()=>_stylesJs.addSurveyWideCSS(getActiveEditor()),
+            "survey wide js": ()=>_stylesJs.addSurveyWideJS(getActiveEditor()),
+            "question specific css": ()=>_stylesJs.addQuestionSpecificCSS(getActiveEditor()),
+            "question specific js (after question)": ()=>_stylesJs.addQuestionSpecificJSAfterQ(getActiveEditor()),
+            "question specific js (in <head>)": ()=>_stylesJs.addQuestionSpecificJSInHead(getActiveEditor())
         },
         stylesreadytouse: {
+            "pipe number question in table": ()=>(0, _modalsJs.openModal)("pipe-in-number"),
+            "left-blank legend": ()=>_stylesJs.addLeftBlankLegend(getActiveEditor()),
+            "disable continue button": ()=>(0, _modalsJs.openModal)("disable-continue"),
+            "add max diff style": ()=>_stylesJs.addMaxDiff(getActiveEditor()),
+            "add element labels display": ()=>_stylesJs.addPretestLabelsDisplay(getActiveEditor())
         },
         stylescomponents: {
+            "add colfix declaration": ()=>addColFixDeclaration(getActiveEditor()),
+            "add colfix call": ()=>addColFixCall(getActiveEditor())
         }
     };
     const containers = {
@@ -787,7 +977,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
         stylesreadytouse: stylesReadyToUse,
         stylescomponents: stylesComponents
     };
-    document.getElementById("addTabButton").onclick = ()=>openModal("tab");
+    document.getElementById("addTabButton").onclick = ()=>(0, _modalsJs.openModal)("tab");
     document.getElementById("createTabBtn").onclick = _tabsJs.confirmTabCreation;
     let selectedIndex = -1;
     // Initialize CodeMirror
@@ -808,113 +998,9 @@ document.addEventListener("DOMContentLoaded", ()=>{
         // Fallback: return last open tag
         return openTags[openTags.length - 1][1];
     }
-    function conditionalPython() {
-        return (0, _state.EditorState).transactionFilter.of((tr)=>{
-            const code = tr.newDoc.sliceString(tr.newSelection.main.from, tr.newSelection.main.to);
-            const parentTag = getSurroundingTag(code);
-            if ([
-                "exec",
-                "validate",
-                "virtual"
-            ].includes(parentTag)) return [
-                tr,
-                {
-                    effects: (0, _view.EditorView).updateListener.of(()=>editorView.dispatch({
-                            effects: (0, _langPython.python)()
-                        }))
-                }
-            ];
-            return [
-                tr
-            ];
-        });
-    }
-    const autoSaveListener = (0, _view.EditorView).updateListener.of((update)=>{
-        if (update.docChanged) {
-            const content = update.state.doc.toString();
-            localStorage.setItem("lastEditorContent", content);
-        }
-    });
-    const themeCompartment = new (0, _state.Compartment)();
-    const wrapCompartment = new (0, _state.Compartment)();
-    const editorView = new (0, _view.EditorView)({
-        doc: startDoc,
-        extensions: [
-            (0, _codemirror.basicSetup),
-            (0, _langXml.xml)(),
-            (0, _themeOneDark.oneDark),
-            conditionalPython(),
-            themeCompartment.of((0, _themeOneDark.oneDark)),
-            wrapCompartment.of((0, _view.EditorView).lineWrapping),
-            autoSaveListener,
-            (0, _language.foldService).of(customTagFold),
-            (0, _view.keymap).of([
-                ...(0, _commands.defaultKeymap),
-                {
-                    key: "Tab",
-                    run: (view)=>{
-                        const tab = "\t";
-                        view.dispatch(view.state.replaceSelection(tab));
-                        return true;
-                    }
-                },
-                {
-                    key: "Enter",
-                    run: (view)=>{
-                        const { state } = view;
-                        const { from } = state.selection.main;
-                        const line = state.doc.lineAt(from);
-                        const match = line.text.match(/^([ \t]+)/);
-                        const indent = match ? match[1] : "";
-                        view.dispatch(state.replaceSelection("\n" + indent));
-                        return true;
-                    }
-                },
-                {
-                    key: "Ctrl-b",
-                    run: (view)=>{
-                        _functionsJs.wrapSelection(view, "b");
-                        return true;
-                    }
-                },
-                {
-                    key: "Ctrl-i",
-                    run: (view)=>{
-                        _functionsJs.wrapSelection(view, "i");
-                        return true;
-                    }
-                },
-                {
-                    key: "Ctrl-u",
-                    run: (view)=>{
-                        _functionsJs.wrapSelection(view, "u");
-                        return true;
-                    }
-                },
-                {
-                    key: "Esc",
-                    run: ()=>{
-                        const isBoxVisible = commandBox.style.display !== "none";
-                        if (isBoxVisible) {
-                            commandBox.style.display = "none";
-                            commandInput.value = "";
-                            selectedIndex = -1;
-                            editorView.focus();
-                        } else {
-                            positionCommandBox();
-                            commandBox.style.display = "block";
-                            commandInput.value = lastCommand || "";
-                            updateSuggestions(commandInput.value);
-                            commandInput.focus();
-                            commandInput.select();
-                            updateSuggestions(commandInput.value);
-                        }
-                    }
-                }
-            ])
-        ],
-        parent: editorArea
-    });
+    // (conditionalPython removed; per-tab editors handle language switching internally)
+    // Initialize tabs system; editors are created per tab and only the active one is mounted
+    _tabsJs.initTabs(editorArea);
     function customTagFold(state, lineStart) {
         const line = state.doc.lineAt(lineStart);
         const match = line.text.match(/<([a-zA-Z0-9_-]+)([^>]*)>/);
@@ -930,31 +1016,46 @@ document.addEventListener("DOMContentLoaded", ()=>{
         return null;
     }
     // Assuming you have access to the EditorView instance as `editorView`
-    document.getElementById("boldBtn").addEventListener("click", ()=>_functionsJs.wrapSelection(editorView, "b"));
-    document.getElementById("italicBtn").addEventListener("click", ()=>_functionsJs.wrapSelection(editorView, "i"));
-    document.getElementById("underlineBtn").addEventListener("click", ()=>_functionsJs.wrapSelection(editorView, "u"));
-    document.getElementById("superscriptBtn").addEventListener("click", ()=>_functionsJs.wrapSelection(editorView, "sup"));
-    document.getElementById("subscriptBtn").addEventListener("click", ()=>_functionsJs.wrapSelection(editorView, "sub"));
-    document.getElementById("toggleFoldBtn").addEventListener("click", ()=>{
-        const transaction = editorView.state.update({
-            effects: foldAllEffect.of(isFolded ? "unfold" : "fold")
-        });
-        editorView.dispatch(transaction);
-        isFolded = !isFolded;
-    });
+    document.getElementById("boldBtn").addEventListener("click", ()=>_functionsJs.wrapSelection(getActiveEditor(), "b"));
+    document.getElementById("italicBtn").addEventListener("click", ()=>_functionsJs.wrapSelection(getActiveEditor(), "i"));
+    document.getElementById("underlineBtn").addEventListener("click", ()=>_functionsJs.wrapSelection(getActiveEditor(), "u"));
+    document.getElementById("superscriptBtn").addEventListener("click", ()=>_functionsJs.wrapSelection(getActiveEditor(), "sup"));
+    document.getElementById("subscriptBtn").addEventListener("click", ()=>_functionsJs.wrapSelection(getActiveEditor(), "sub"));
+    // Fold button handler moved below to use getActiveEditor
     document.getElementById("addTabButton").addEventListener("click", ()=>_tabsJs.addTab());
-    tabs["default"] = {
-        editor: editorView // uses global CM6 EditorView
-    };
-    //configureEditor(editorView);
-    //initTabs(editorArea);
-    const myUpdateListener = (0, _view.EditorView).updateListener.of((update)=>{
-        if (update.docChanged) {
-            _tabsJs.saveEditorContent();
-            _tabsJs.saveAllTabs();
+    // Expose toggleCommandPalette for Esc keymap in per-tab editors
+    window.toggleCommandPalette = function toggleCommandPalette() {
+        const editor1 = getActiveEditor();
+        const sel = editor1.state.selection.main;
+        const selectedText = editor1.state.doc.slice(sel.from, sel.to).toString();
+        if (sel.from !== sel.to && selectedText.includes("\n")) {
+            editor1.dispatch({
+                selection: {
+                    anchor: sel.to
+                }
+            });
+            return;
         }
-    });
-    editorView.focus();
+        const isBoxVisible = commandBox.style.display !== "none";
+        if (isBoxVisible) {
+            commandBox.style.display = "none";
+            commandInput.value = "";
+            selectedIndex = -1;
+            editor1?.focus();
+        } else {
+            positionCommandBox();
+            commandBox.style.display = "block";
+            commandInput.value = lastCommand || "";
+            updateSuggestions(commandInput.value);
+            commandInput.focus();
+            commandInput.select();
+            updateSuggestions(commandInput.value);
+        }
+    };
+    // Manual save support (if a button exists) and global function
+    const manualBtn = document.getElementById("manualSaveBtn");
+    if (manualBtn) manualBtn.addEventListener("click", ()=>_tabsJs.saveAllTabs());
+    window.manualSave = ()=>_tabsJs.saveAllTabs();
     // fold all button
     let isFolded = false;
     document.getElementById("toggleFoldBtn").addEventListener("click", ()=>{
@@ -1072,14 +1173,14 @@ document.addEventListener("DOMContentLoaded", ()=>{
                 commandBox.style.display = "none";
                 commandInput.value = "";
                 selectedIndex = -1;
-                editorView.focus();
+                getActiveEditor()?.focus();
                 break;
             case "Escape":
                 event.preventDefault();
                 commandBox.style.display = "none";
                 commandInput.value = "";
                 selectedIndex = -1;
-                editorView.focus();
+                getActiveEditor()?.focus();
                 break;
             case "Tab":
                 event.preventDefault();
@@ -1101,29 +1202,28 @@ document.addEventListener("DOMContentLoaded", ()=>{
             commandBox.style.display = "none";
             commandInput.value = "";
             selectedIndex = -1;
-            if (typeof editorView !== "undefined") editorView.focus();
+            const ed = getActiveEditor?.();
+            ed?.focus();
         }
     });
     populateCommands();
     // auto loads and sets the values for theme and wordwrap
     document.getElementById("themeSelector").value = savedTheme;
     document.getElementById("wordWrapToggle").checked = savedWordWrap;
+    // apply persisted settings globally
+    _tabsJs.setTheme(savedTheme || 'light');
+    _tabsJs.setWordWrap(!!savedWordWrap);
     // define the editor theme and save it in the localstorage
     document.getElementById("themeSelector").addEventListener("change", function() {
-        const selectedTheme = this.value;
+        const selectedTheme = this.value; // light, light2, dark, dark2
         localStorage.setItem("editorTheme", selectedTheme);
-        const newTheme = selectedTheme === "dark" ? (0, _themeOneDark.oneDark) : oneLight;
-        editorView.dispatch({
-            effects: themeCompartment.reconfigure(newTheme)
-        });
+        _tabsJs.setTheme(selectedTheme);
     });
     // toggle word wrap and save it in the localstorage
     document.getElementById("wordWrapToggle").addEventListener("change", function() {
         const isChecked = this.checked;
         localStorage.setItem("wordWrap", isChecked);
-        editorView.dispatch({
-            effects: wrapCompartment.reconfigure(isChecked ? (0, _view.EditorView).lineWrapping : [])
-        });
+        _tabsJs.setWordWrap(isChecked);
     });
     // when creating new tab or survey, and enter is pressed, call error if something's wrong, else continue
     document.addEventListener("keydown", (event)=>{
@@ -1134,15 +1234,15 @@ document.addEventListener("DOMContentLoaded", ()=>{
             const actions = [
                 {
                     selector: ".new-tab",
-                    action: confirmTabCreation
+                    action: _tabsJs.confirmTabCreation
                 },
                 {
                     selector: ".new-survey",
-                    action: ()=>validateFormAndGenerateXML("survey")
+                    action: ()=>(0, _modalsJs.validateFormAndGenerateXML)("survey")
                 },
                 {
                     selector: ".new-ihut",
-                    action: ()=>validateFormAndGenerateXML("ihut")
+                    action: ()=>(0, _modalsJs.validateFormAndGenerateXML)("ihut")
                 },
                 {
                     selector: ".rename-tab",
@@ -1245,17 +1345,6 @@ document.addEventListener("DOMContentLoaded", ()=>{
             }
         });
     }
-    // positioning of the command pallette box
-    function positionCommandBox() {
-        const editor1 = window.editorView || getActiveEditor?.();
-        if (!editor1) return;
-        const pos = editor1.state.selection.main.head;
-        const coords = editor1.coordsAtPos(pos);
-        if (coords) {
-            commandBox.style.left = `${coords.left}px`;
-            commandBox.style.top = `${coords.top - 30}px`;
-        }
-    }
     // if command is valid, execute it
     // fail if not
     function validateAndExecuteCommand(command) {
@@ -1281,7 +1370,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
     //confirm delete tab
     document.getElementById("confirmDeleteTabBtn").onclick = ()=>{
         if (tabPendingDeletion) {
-            closeTab(tabPendingDeletion);
+            _tabsJs.closeTab(tabPendingDeletion);
             tabPendingDeletion = null;
             bootstrap.Modal.getInstance(document.getElementById("surveyModal")).hide();
         }
@@ -1289,7 +1378,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
     document.getElementById("downloadTabBtn").onclick = ()=>{
         editor = getActiveEditor();
         const content = editor.getValue();
-        const rawName = activeTab || "untitled";
+        const rawName = _tabsJs.getActiveTabName?.() || "untitled";
         const safeName = sanitizeFilename(rawName) || "untitled";
         const filename = `${safeName}.xml`;
         const blob = new Blob([
@@ -1305,7 +1394,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
         document.body.removeChild(link);
         URL.revokeObjectURL(link.href);
     };
-    document.getElementById("clearStorageBtn").onclick = ()=>openModal("delete-all-data");
+    document.getElementById("clearStorageBtn").onclick = ()=>(0, _modalsJs.openModal)("delete-all-data");
     let contextTabName = null;
     // binding context menu to tabs
     document.getElementById("tabs").addEventListener("contextmenu", (e)=>{
@@ -1330,8 +1419,8 @@ document.addEventListener("DOMContentLoaded", ()=>{
         e.preventDefault();
         const action = e.target.dataset.action;
         const tabName = contextTabName;
-        if (!tabName || !tabs[tabName]) return;
-        const { editor: editor1 } = tabs[tabName];
+        const editor1 = _tabsJs.getEditorByName(tabName);
+        if (!tabName || !editor1) return;
         switch(action){
             case "save":
                 {
@@ -1366,7 +1455,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
                     break;
                 }
             case "close":
-                requestTabDeletion(tabName);
+                _tabsJs.requestTabDeletion(tabName);
                 break;
         }
         document.getElementById("tabContextMenu").style.display = "none";
@@ -1533,7 +1622,7 @@ document.addEventListener("DOMContentLoaded", ()=>{
     });
 });
 
-},{"@codemirror/view":"c2noD","@codemirror/state":"axaOu","codemirror":"ak95T","@codemirror/lang-xml":"kSget","@codemirror/lang-python":"3HUFd","@codemirror/theme-one-dark":"6OGAW","@codemirror/language":"dx7XI","@codemirror/autocomplete":"20ht8","./functions.js":"3Zc1l","./tabs.js":"hSpoG","./vars.js":"jpcAS","./styles.js":"j3NQt","@codemirror/commands":"5nDyv"}],"c2noD":[function(require,module,exports,__globalThis) {
+},{"@codemirror/view":"c2noD","@codemirror/state":"axaOu","codemirror":"ak95T","@codemirror/lang-xml":"kSget","@codemirror/lang-python":"3HUFd","@codemirror/lang-javascript":"3QU1O","@codemirror/lang-css":"lusFz","@codemirror/commands":"5nDyv","@codemirror/autocomplete":"20ht8","@codemirror/theme-one-dark":"6OGAW","@uiw/codemirror-theme-github":"e6KiP","@codemirror/language":"dx7XI","./functions.js":"3Zc1l","./questionfunctions.js":"laTkQ","./standards.js":"2LnrP","./styles.js":"j3NQt","./tabs.js":"hSpoG","./vars.js":"jpcAS","./modals.js":"3jVfd","@parcel/transformer-js/src/esmodule-helpers.js":"jnFvT"}],"c2noD":[function(require,module,exports,__globalThis) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 parcelHelpers.export(exports, "BidiSpan", ()=>BidiSpan);
@@ -1589,6 +1678,52 @@ var _styleMod = require("style-mod");
 var _w3CKeyname = require("w3c-keyname");
 var _crelt = require("crelt");
 var _creltDefault = parcelHelpers.interopDefault(_crelt);
+let nav = typeof navigator != "undefined" ? navigator : {
+    userAgent: "",
+    vendor: "",
+    platform: ""
+};
+let doc = typeof document != "undefined" ? document : {
+    documentElement: {
+        style: {}
+    }
+};
+const ie_edge = /*@__PURE__*/ /Edge\/(\d+)/.exec(nav.userAgent);
+const ie_upto10 = /*@__PURE__*/ /MSIE \d/.test(nav.userAgent);
+const ie_11up = /*@__PURE__*/ /Trident\/(?:[7-9]|\d{2,})\..*rv:(\d+)/.exec(nav.userAgent);
+const ie = !!(ie_upto10 || ie_11up || ie_edge);
+const gecko = !ie && /*@__PURE__*/ /gecko\/(\d+)/i.test(nav.userAgent);
+const chrome = !ie && /*@__PURE__*/ /Chrome\/(\d+)/.exec(nav.userAgent);
+const webkit = "webkitFontSmoothing" in doc.documentElement.style;
+const safari = !ie && /*@__PURE__*/ /Apple Computer/.test(nav.vendor);
+const ios = safari && /*@__PURE__*/ (/Mobile\/\w+/.test(nav.userAgent) || nav.maxTouchPoints > 2);
+var browser = {
+    mac: ios || /*@__PURE__*/ /Mac/.test(nav.platform),
+    windows: /*@__PURE__*/ /Win/.test(nav.platform),
+    linux: /*@__PURE__*/ /Linux|X11/.test(nav.platform),
+    ie,
+    ie_version: ie_upto10 ? doc.documentMode || 6 : ie_11up ? +ie_11up[1] : ie_edge ? +ie_edge[1] : 0,
+    gecko,
+    gecko_version: gecko ? +/*@__PURE__*/ (/Firefox\/(\d+)/.exec(nav.userAgent) || [
+        0,
+        0
+    ])[1] : 0,
+    chrome: !!chrome,
+    chrome_version: chrome ? +chrome[1] : 0,
+    ios,
+    android: /*@__PURE__*/ /Android\b/.test(nav.userAgent),
+    webkit,
+    webkit_version: webkit ? +/*@__PURE__*/ (/\bAppleWebKit\/(\d+)/.exec(nav.userAgent) || [
+        0,
+        0
+    ])[1] : 0,
+    safari,
+    safari_version: safari ? +/*@__PURE__*/ (/\bVersion\/(\d+(\.\d+)?)/.exec(nav.userAgent) || [
+        0,
+        0
+    ])[1] : 0,
+    tabSize: doc.documentElement.style.tabSize != null ? "tab-size" : "-moz-tab-size"
+};
 function getSelection(root) {
     let target;
     // Browsers differ on whether shadow roots have a getSelection
@@ -1809,6 +1944,8 @@ class DOMSelectionState {
     }
 }
 let preventScrollSupported = null;
+// Safari 26 breaks preventScroll support
+if (browser.safari && browser.safari_version >= 26) preventScrollSupported = false;
 // Feature-detects support for .focus({preventScroll: true}), and uses
 // a fallback kludge when not supported.
 function focusPreventScroll(dom) {
@@ -2228,48 +2365,6 @@ function mergeChildrenInto(parent, from, to, insert, openStart, openEnd) {
     parent.length += dLen;
     replaceRange(parent, fromI, fromOff, toI, toOff, insert, 0, openStart, openEnd);
 }
-let nav = typeof navigator != "undefined" ? navigator : {
-    userAgent: "",
-    vendor: "",
-    platform: ""
-};
-let doc = typeof document != "undefined" ? document : {
-    documentElement: {
-        style: {}
-    }
-};
-const ie_edge = /*@__PURE__*/ /Edge\/(\d+)/.exec(nav.userAgent);
-const ie_upto10 = /*@__PURE__*/ /MSIE \d/.test(nav.userAgent);
-const ie_11up = /*@__PURE__*/ /Trident\/(?:[7-9]|\d{2,})\..*rv:(\d+)/.exec(nav.userAgent);
-const ie = !!(ie_upto10 || ie_11up || ie_edge);
-const gecko = !ie && /*@__PURE__*/ /gecko\/(\d+)/i.test(nav.userAgent);
-const chrome = !ie && /*@__PURE__*/ /Chrome\/(\d+)/.exec(nav.userAgent);
-const webkit = "webkitFontSmoothing" in doc.documentElement.style;
-const safari = !ie && /*@__PURE__*/ /Apple Computer/.test(nav.vendor);
-const ios = safari && /*@__PURE__*/ (/Mobile\/\w+/.test(nav.userAgent) || nav.maxTouchPoints > 2);
-var browser = {
-    mac: ios || /*@__PURE__*/ /Mac/.test(nav.platform),
-    windows: /*@__PURE__*/ /Win/.test(nav.platform),
-    linux: /*@__PURE__*/ /Linux|X11/.test(nav.platform),
-    ie,
-    ie_version: ie_upto10 ? doc.documentMode || 6 : ie_11up ? +ie_11up[1] : ie_edge ? +ie_edge[1] : 0,
-    gecko,
-    gecko_version: gecko ? +/*@__PURE__*/ (/Firefox\/(\d+)/.exec(nav.userAgent) || [
-        0,
-        0
-    ])[1] : 0,
-    chrome: !!chrome,
-    chrome_version: chrome ? +chrome[1] : 0,
-    ios,
-    android: /*@__PURE__*/ /Android\b/.test(nav.userAgent),
-    webkit,
-    safari,
-    webkit_version: webkit ? +/*@__PURE__*/ (/\bAppleWebKit\/(\d+)/.exec(nav.userAgent) || [
-        0,
-        0
-    ])[1] : 0,
-    tabSize: doc.documentElement.style.tabSize != null ? "tab-size" : "-moz-tab-size"
-};
 const MaxJoinLen = 256;
 class TextView extends ContentView {
     constructor(text){
@@ -3231,13 +3326,14 @@ class ContentBuilder {
                     this.textOff = 0;
                 }
             }
-            let take = Math.min(this.text.length - this.textOff, length, 512 /* T.Chunk */ );
+            let remaining = Math.min(this.text.length - this.textOff, length);
+            let take = Math.min(remaining, 512 /* T.Chunk */ );
             this.flushBuffer(active.slice(active.length - openStart));
             this.getLine().append(wrapMarks(new TextView(this.text.slice(this.textOff, this.textOff + take)), active), openStart);
             this.atCursorPos = true;
             this.textOff += take;
             length -= take;
-            openStart = 0;
+            openStart = remaining <= take ? 0 : active.length;
         }
     }
     span(from, to, active, openStart) {
@@ -4572,6 +4668,12 @@ class DocView extends ContentView {
         let { offsetWidth, offsetHeight } = this.view.scrollDOM;
         scrollRectIntoView(this.view.scrollDOM, targetRect, range.head < range.anchor ? -1 : 1, target.x, target.y, Math.max(Math.min(target.xMargin, offsetWidth), -offsetWidth), Math.max(Math.min(target.yMargin, offsetHeight), -offsetHeight), this.view.textDirection == Direction.LTR);
     }
+    lineHasWidget(pos) {
+        let { i } = this.childCursor().findPos(pos);
+        if (i == this.children.length) return false;
+        let scan = (child)=>child instanceof WidgetView || child.children.some(scan);
+        return scan(this.children[i]);
+    }
 }
 function betweenUneditable(pos) {
     return pos.node.nodeType == 1 && pos.node.firstChild && (pos.offset == 0 || pos.node.childNodes[pos.offset - 1].contentEditable == "false") && (pos.offset == pos.node.childNodes.length || pos.node.childNodes[pos.offset].contentEditable == "false");
@@ -4783,7 +4885,7 @@ function domPosInText(node, x, y) {
                     // Check for RTL on browsers that support getting client
                     // rects for empty ranges.
                     let rectBefore = textRange(node, i).getBoundingClientRect();
-                    if (rectBefore.left == rect.right) after = !right;
+                    if (Math.abs(rectBefore.left - rect.right) < 0.1) after = !right;
                 }
                 if (dy <= 0) return {
                     node,
@@ -4846,11 +4948,9 @@ function posAtCoords(view, coords, precise, bias = -1) {
             if (pos) ({ offsetNode: node, offset } = pos);
         } else if (doc.caretRangeFromPoint) {
             let range = doc.caretRangeFromPoint(x, y);
-            if (range) {
-                ({ startContainer: node, startOffset: offset } = range);
-                if (!view.contentDOM.contains(node) || browser.safari && isSuspiciousSafariCaretResult(node, offset, x) || browser.chrome && isSuspiciousChromeCaretResult(node, offset, x)) node = undefined;
-            }
+            if (range) ({ startContainer: node, startOffset: offset } = range);
         }
+        if (node && (!view.contentDOM.contains(node) || browser.safari && isSuspiciousSafariCaretResult(node, offset, x) || browser.chrome && isSuspiciousChromeCaretResult(node, offset, x))) node = undefined;
         // Chrome will return offsets into <input> elements without child
         // nodes, which will lead to a null deref below, so clip the
         // offset to the node size.
@@ -4879,11 +4979,7 @@ function posAtCoordsImprecise(view, contentRect, block, x, y) {
     let content = view.state.sliceDoc(block.from, block.to);
     return block.from + (0, _state.findColumn)(content, into, view.state.tabSize);
 }
-// In case of a high line height, Safari's caretRangeFromPoint treats
-// the space between lines as belonging to the last character of the
-// line before. This is used to detect such a result so that it can be
-// ignored (issue #401).
-function isSuspiciousSafariCaretResult(node, offset, x) {
+function isEndOfLineBefore(node, offset, x) {
     let len, scan = node;
     if (node.nodeType != 3 || offset != (len = node.nodeValue.length)) return false;
     for(;;){
@@ -4899,9 +4995,16 @@ function isSuspiciousSafariCaretResult(node, offset, x) {
     }
     return textRange(node, len - 1, len).getBoundingClientRect().right > x;
 }
+// In case of a high line height, Safari's caretRangeFromPoint treats
+// the space between lines as belonging to the last character of the
+// line before. This is used to detect such a result so that it can be
+// ignored (issue #401).
+function isSuspiciousSafariCaretResult(node, offset, x) {
+    return isEndOfLineBefore(node, offset, x);
+}
 // Chrome will move positions between lines to the start of the next line
 function isSuspiciousChromeCaretResult(node, offset, x) {
-    if (offset != 0) return false;
+    if (offset != 0) return isEndOfLineBefore(node, offset, x);
     for(let cur = node;;){
         let parent = cur.parentNode;
         if (!parent || parent.nodeType != 1 || parent.firstChild != cur) return false;
@@ -5009,6 +5112,25 @@ function skipAtomicRanges(atoms, pos, bias) {
         if (!moved) return pos;
     }
 }
+function skipAtomsForSelection(atoms, sel) {
+    let ranges = null;
+    for(let i = 0; i < sel.ranges.length; i++){
+        let range = sel.ranges[i], updated = null;
+        if (range.empty) {
+            let pos = skipAtomicRanges(atoms, range.from, 0);
+            if (pos != range.from) updated = (0, _state.EditorSelection).cursor(pos, -1);
+        } else {
+            let from = skipAtomicRanges(atoms, range.from, -1);
+            let to = skipAtomicRanges(atoms, range.to, 1);
+            if (from != range.from || to != range.to) updated = (0, _state.EditorSelection).range(range.from == range.anchor ? from : to, range.from == range.head ? from : to);
+        }
+        if (updated) {
+            if (!ranges) ranges = sel.ranges.slice();
+            ranges[i] = updated;
+        }
+    }
+    return ranges ? (0, _state.EditorSelection).create(ranges, sel.mainIndex) : sel;
+}
 function skipAtoms(view, oldPos, pos) {
     let newPos = skipAtomicRanges(view.state.facet(atomicRanges).map((f)=>f(view)), pos.from, oldPos.head > pos.from ? -1 : 1);
     return newPos == pos.from ? pos : (0, _state.EditorSelection).cursor(newPos, newPos < pos.from ? 1 : -1);
@@ -5036,7 +5158,7 @@ class DOMReader {
             let next = cur.nextSibling;
             if (next == end) break;
             let view = ContentView.get(cur), nextView = ContentView.get(next);
-            if (view && nextView ? view.breakAfter : (view ? view.breakAfter : isBlockElement(cur)) || isBlockElement(next) && (cur.nodeName != "BR" || cur.cmIgnore) && this.text.length > oldLen) this.lineBreak();
+            if ((view && nextView ? view.breakAfter : (view ? view.breakAfter : isBlockElement(cur)) || isBlockElement(next) && (cur.nodeName != "BR" || cur.cmIgnore) && this.text.length > oldLen) && !isEmptyToEnd(next, end)) this.lineBreak();
             cur = next;
         }
         this.findPointBefore(parent, end);
@@ -5091,6 +5213,20 @@ function isAtEnd(parent, node, offset) {
         node = node.parentNode;
     }
 }
+function isEmptyToEnd(node, end) {
+    let widgets;
+    for(;; node = node.nextSibling){
+        if (node == end || !node) break;
+        let view = ContentView.get(node);
+        if (!((view === null || view === void 0 ? void 0 : view.isWidget) || node.cmIgnore)) return false;
+        if (view) (widgets || (widgets = [])).push(view);
+    }
+    if (widgets) for (let w of widgets){
+        let override = w.overrideDOMText;
+        if (override === null || override === void 0 ? void 0 : override.length) return false;
+    }
+    return true;
+}
 class DOMPoint {
     constructor(node, offset){
         this.node = node;
@@ -5130,7 +5266,8 @@ class DOMChange {
                     anchor = view.state.doc.length;
                 }
             }
-            this.newSel = (0, _state.EditorSelection).single(anchor, head);
+            if (view.inputState.composing > -1 && view.state.selection.ranges.length > 1) this.newSel = view.state.selection.replaceRange((0, _state.EditorSelection).range(anchor, head));
+            else this.newSel = (0, _state.EditorSelection).single(anchor, head);
         }
     }
 }
@@ -5185,6 +5322,16 @@ function applyDOMChange(view, domChange) {
         to: sel.to,
         insert: view.state.doc.slice(sel.from, change.from).append(change.insert).append(view.state.doc.slice(change.to, sel.to))
     };
+    else if (view.state.doc.lineAt(sel.from).to < sel.to && view.docView.lineHasWidget(sel.to) && view.inputState.insertingTextAt > Date.now() - 50) // For a cross-line insertion, Chrome and Safari will crudely take
+    // the text of the line after the selection, flattening any
+    // widgets, and move it into the joined line. This tries to detect
+    // such a situation, and replaces the change with a selection
+    // replace of the text provided by the beforeinput event.
+    change = {
+        from: sel.from,
+        to: sel.to,
+        insert: view.state.toText(view.inputState.insertingText)
+    };
     else if (browser.chrome && change && change.from == change.to && change.from == sel.head && change.insert.toString() == "\n " && view.lineWrapping) {
         // In Chrome, if you insert a space at the start of a wrapped
         // line, it will actually insert a newline and a space, causing a
@@ -5204,6 +5351,7 @@ function applyDOMChange(view, domChange) {
         if (view.inputState.lastSelectionTime > Date.now() - 50) {
             if (view.inputState.lastSelectionOrigin == "select") scrollIntoView = true;
             userEvent = view.inputState.lastSelectionOrigin;
+            if (userEvent == "select.pointer") newSel = skipAtomsForSelection(view.state.facet(atomicRanges).map((f)=>f(view)), newSel);
         }
         view.dispatch({
             selection: newSel,
@@ -5233,8 +5381,17 @@ function applyDOMChangeInner(view, change, newSel, lastKey = -1) {
     return true;
 }
 function applyDefaultInsert(view, change, newSel) {
-    let tr, startState = view.state, sel = startState.selection.main;
-    if (change.from >= sel.from && change.to <= sel.to && change.to - change.from >= (sel.to - sel.from) / 3 && (!newSel || newSel.main.empty && newSel.main.from == change.from + change.insert.length) && view.inputState.composing < 0) {
+    let tr, startState = view.state, sel = startState.selection.main, inAtomic = -1;
+    if (change.from == change.to && change.from < sel.from || change.from > sel.to) {
+        let side = change.from < sel.from ? -1 : 1, pos = side < 0 ? sel.from : sel.to;
+        let moved = skipAtomicRanges(startState.facet(atomicRanges).map((f)=>f(view)), pos, side);
+        if (change.from == moved) inAtomic = moved;
+    }
+    if (inAtomic > -1) tr = {
+        changes: change,
+        selection: (0, _state.EditorSelection).cursor(change.from + change.insert.length, -1)
+    };
+    else if (change.from >= sel.from && change.to <= sel.to && change.to - change.from >= (sel.to - sel.from) / 3 && (!newSel || newSel.main.empty && newSel.main.from == change.from + change.insert.length) && view.inputState.composing < 0) {
         let before = sel.from < change.from ? startState.sliceDoc(sel.from, change.from) : "";
         let after = sel.to > change.to ? startState.sliceDoc(change.to, sel.to) : "";
         tr = startState.replaceSelection(view.state.toText(before + change.insert.sliceString(0, undefined, view.state.lineBreak) + after));
@@ -5242,7 +5399,7 @@ function applyDefaultInsert(view, change, newSel) {
         let changes = startState.changes(change);
         let mainSel = newSel && newSel.main.to <= changes.newLength ? newSel.main : undefined;
         // Try to apply a composition change to all cursors
-        if (startState.selection.ranges.length > 1 && view.inputState.composing >= 0 && change.to <= sel.to && change.to >= sel.to - 10) {
+        if (startState.selection.ranges.length > 1 && (view.inputState.composing >= 0 || view.inputState.compositionPendingChange) && change.to <= sel.to + 10 && change.to >= sel.to - 10) {
             let replaced = view.state.sliceDoc(change.from, change.to);
             let compositionRange, composition = newSel && findCompositionNode(view, newSel.main.head);
             if (composition) {
@@ -5252,18 +5409,18 @@ function applyDefaultInsert(view, change, newSel) {
                     to: composition.to - dLen
                 };
             } else compositionRange = view.state.doc.lineAt(sel.head);
-            let offset = sel.to - change.to, size = sel.to - sel.from;
+            let offset = sel.to - change.to;
             tr = startState.changeByRange((range)=>{
                 if (range.from == sel.from && range.to == sel.to) return {
                     changes,
                     range: mainSel || range.map(changes)
                 };
                 let to = range.to - offset, from = to - replaced.length;
-                if (range.to - range.from != size || view.state.sliceDoc(from, to) != replaced || // Unfortunately, there's no way to make multiple
+                if (view.state.sliceDoc(from, to) != replaced || // Unfortunately, there's no way to make multiple
                 // changes in the same node work without aborting
                 // composition, so cursors in the composition range are
                 // ignored.
-                range.to >= compositionRange.from && range.from <= compositionRange.to) return {
+                to >= compositionRange.from && from <= compositionRange.to) return {
                     range
                 };
                 let rangeChanges = startState.changes({
@@ -5389,6 +5546,9 @@ class InputState {
         // Used to categorize changes as part of a composition, even when
         // the mutation events fire shortly after the compositionend event
         this.compositionPendingChange = false;
+        // Set by beforeinput, used in DOM change reader
+        this.insertingText = "";
+        this.insertingTextAt = 0;
         this.mouseSelection = null;
         // When a drag from the editor is active, this points at the range
         // being dragged.
@@ -5473,7 +5633,7 @@ class InputState {
         return dispatchKey(this.view.contentDOM, key.key, key.keyCode, key instanceof KeyboardEvent ? key : undefined);
     }
     ignoreDuringComposition(event) {
-        if (!/^key/.test(event.type)) return false;
+        if (!/^key/.test(event.type) || event.synthetic) return false;
         if (this.composing > 0) return true;
         // See https://www.stum.de/2016/06/24/handling-ime-events-in-javascript/.
         // On some input method editors (IMEs), the Enter key is used to
@@ -5652,27 +5812,8 @@ class MouseSelection {
         if (x || y) this.view.win.scrollBy(x, y);
         if (this.dragging === false) this.select(this.lastEvent);
     }
-    skipAtoms(sel) {
-        let ranges = null;
-        for(let i = 0; i < sel.ranges.length; i++){
-            let range = sel.ranges[i], updated = null;
-            if (range.empty) {
-                let pos = skipAtomicRanges(this.atoms, range.from, 0);
-                if (pos != range.from) updated = (0, _state.EditorSelection).cursor(pos, -1);
-            } else {
-                let from = skipAtomicRanges(this.atoms, range.from, -1);
-                let to = skipAtomicRanges(this.atoms, range.to, 1);
-                if (from != range.from || to != range.to) updated = (0, _state.EditorSelection).range(range.from == range.anchor ? from : to, range.from == range.head ? from : to);
-            }
-            if (updated) {
-                if (!ranges) ranges = sel.ranges.slice();
-                ranges[i] = updated;
-            }
-        }
-        return ranges ? (0, _state.EditorSelection).create(ranges, sel.mainIndex) : sel;
-    }
     select(event) {
-        let { view } = this, selection = this.skipAtoms(this.style.get(event, this.extend, this.multiple));
+        let { view } = this, selection = skipAtomsForSelection(this.atoms, this.style.get(event, this.extend, this.multiple));
         if (this.mustSelect || !selection.eq(view.state.selection, this.dragging === false)) this.view.dispatch({
             selection,
             userEvent: "select.pointer"
@@ -5811,7 +5952,7 @@ handlers.mousedown = (view, event)=>{
             mouseSel.start(event);
             return mouseSel.dragging === false;
         }
-    }
+    } else view.inputState.setSelectionOrigin("select.pointer");
     return false;
 };
 function rangeForClick(view, pos, bias, type) {
@@ -6118,6 +6259,10 @@ observers.contextmenu = (view)=>{
 };
 handlers.beforeinput = (view, event)=>{
     var _a, _b;
+    if (event.inputType == "insertText" || event.inputType == "insertCompositionText") {
+        view.inputState.insertingText = event.data;
+        view.inputState.insertingTextAt = Date.now();
+    }
     // In EditContext mode, we must handle insertReplacementText events
     // directly, to make spell checking corrections work
     if (event.inputType == "insertReplacementText" && view.observer.editContext) {
@@ -8243,17 +8388,14 @@ class EditContextManager {
                 editorBase: from,
                 drifted: false
             };
-            let change = {
-                from,
-                to,
-                insert: (0, _state.Text).of(e.text.split("\n"))
-            };
+            let deletes = to - from > e.text.length;
             // If the window doesn't include the anchor, assume changes
             // adjacent to a side go up to the anchor.
-            if (change.from == this.from && anchor < this.from) change.from = anchor;
-            else if (change.to == this.to && anchor > this.to) change.to = anchor;
+            if (from == this.from && anchor < this.from) from = anchor;
+            else if (to == this.to && anchor > this.to) to = anchor;
+            let diff = findDiff(view.state.sliceDoc(from, to), e.text, (deletes ? main.from : main.to) - from, deletes ? "end" : null);
             // Edit contexts sometimes fire empty changes
-            if (change.from == change.to && !change.insert.length) {
+            if (!diff) {
                 let newSel = (0, _state.EditorSelection).single(this.toEditorPos(e.selectionStart), this.toEditorPos(e.selectionEnd));
                 if (!newSel.main.eq(main)) view.dispatch({
                     selection: newSel,
@@ -8261,6 +8403,11 @@ class EditContextManager {
                 });
                 return;
             }
+            let change = {
+                from: diff.from + from,
+                to: diff.toA + from,
+                insert: (0, _state.Text).of(e.text.slice(diff.from, diff.toB).split("\n"))
+            };
             if ((browser.mac || browser.android) && change.from == head - 1 && /^\. ?$/.test(e.text) && view.contentDOM.getAttribute("autocorrect") == "off") change = {
                 from,
                 to,
@@ -8279,6 +8426,8 @@ class EditContextManager {
                 this.revertPending(view.state);
                 this.setSelection(view.state);
             }
+            // Work around missed compositionend events. See https://discuss.codemirror.net/t/a/9514
+            if (change.from < change.to && !change.insert.length && view.inputState.composing >= 0 && !/[\\p{Alphabetic}\\p{Number}_]/.test(context.text.slice(Math.max(0, e.updateRangeStart - 1), Math.min(context.text.length, e.updateRangeStart + 1)))) this.handlers.compositionend(e);
         };
         this.handlers.characterboundsupdate = (e)=>{
             let rects = [], prev = null;
@@ -8293,10 +8442,11 @@ class EditContextManager {
             let deco = [];
             for (let format of e.getTextFormats()){
                 let lineStyle = format.underlineStyle, thickness = format.underlineThickness;
-                if (lineStyle != "None" && thickness != "None") {
+                if (!/none/i.test(lineStyle) && !/none/i.test(thickness)) {
                     let from = this.toEditorPos(format.rangeStart), to = this.toEditorPos(format.rangeEnd);
                     if (from < to) {
-                        let style = `text-decoration: underline ${lineStyle == "Dashed" ? "dashed " : lineStyle == "Squiggle" ? "wavy " : ""}${thickness == "Thin" ? 1 : 2}px`;
+                        // These values changed from capitalized custom strings to lower-case CSS keywords in 2025
+                        let style = `text-decoration: underline ${/^[a-z]/.test(lineStyle) ? lineStyle + " " : lineStyle == "Dashed" ? "dashed " : lineStyle == "Squiggle" ? "wavy " : ""}${/thin/i.test(thickness) ? 1 : 2}px`;
                         deco.push(Decoration.mark({
                             attributes: {
                                 style
@@ -8909,7 +9059,7 @@ transactions for editing actions.
     }
     /**
     Find the line block (see
-    [`lineBlockAt`](https://codemirror.net/6/docs/ref/#view.EditorView.lineBlockAt) at the given
+    [`lineBlockAt`](https://codemirror.net/6/docs/ref/#view.EditorView.lineBlockAt)) at the given
     height, again interpreted relative to the [top of the
     document](https://codemirror.net/6/docs/ref/#view.EditorView.documentTop).
     */ lineBlockAtHeight(height) {
@@ -9359,7 +9509,7 @@ Facet that works much like
 [`decorations`](https://codemirror.net/6/docs/ref/#view.EditorView^decorations), but puts its
 inputs at the very bottom of the precedence stack, meaning mark
 decorations provided here will only be split by other, partially
-overlapping \`outerDecorations\` ranges, and wrap around all
+overlapping `outerDecorations` ranges, and wrap around all
 regular decorations. Use this for mark elements that should, as
 much as possible, remain in one piece.
 */ EditorView.outerDecorations = outerDecorations;
@@ -9619,7 +9769,7 @@ function runHandlers(map, event, view, scope) {
         if (runFor(scopeObj[prefix + modifiers(name, event, !isChar)])) handled = true;
         else if (isChar && (event.altKey || event.metaKey || event.ctrlKey) && // Ctrl-Alt may be used for AltGr on Windows
         !(browser.windows && event.ctrlKey && event.altKey) && // Alt-combinations on macOS tend to be typed characters
-        !(browser.mac && event.altKey && !event.ctrlKey) && (baseName = (0, _w3CKeyname.base)[event.keyCode]) && baseName != name) {
+        !(browser.mac && event.altKey && !(event.ctrlKey || event.metaKey)) && (baseName = (0, _w3CKeyname.base)[event.keyCode]) && baseName != name) {
             if (runFor(scopeObj[prefix + modifiers(baseName, event, true)])) handled = true;
             else if (event.shiftKey && (shiftName = (0, _w3CKeyname.shift)[event.keyCode]) != name && shiftName != baseName && runFor(scopeObj[prefix + modifiers(shiftName, event, false)])) handled = true;
         } else if (isChar && event.shiftKey && runFor(scopeObj[prefix + modifiers(name, event, true)])) handled = true;
@@ -9853,6 +10003,7 @@ class LayerView {
                 old = next;
             }
             this.drawn = markers;
+            if (browser.safari && browser.safari_version >= 26) this.dom.style.display = this.dom.firstChild ? "" : "none";
         }
     }
     destroy() {
@@ -10766,16 +10917,15 @@ const tooltipPlugin = /*@__PURE__*/ ViewPlugin.fromClass(class {
         let scaleX = 1, scaleY = 1, makeAbsolute = false;
         if (this.position == "fixed" && this.manager.tooltipViews.length) {
             let { dom } = this.manager.tooltipViews[0];
-            if (browser.gecko) // Firefox sets the element's `offsetParent` to the
-            // transformed element when a transform interferes with fixed
-            // positioning.
-            makeAbsolute = dom.offsetParent != this.container.ownerDocument.body;
-            else if (dom.style.top == Outside && dom.style.left == "0px") {
-                // On other browsers, we have to awkwardly try and use other
-                // information to detect a transform.
+            if (browser.safari) {
+                // Safari always sets offsetParent to null, even if a fixed
+                // element is positioned relative to a transformed parent. So
+                // we use this kludge to try and detect this.
                 let rect = dom.getBoundingClientRect();
                 makeAbsolute = Math.abs(rect.top + 10000) > 1 || Math.abs(rect.left) > 1;
-            }
+            } else // More conforming browsers will set offsetParent to the
+            // transformed element.
+            makeAbsolute = !!dom.offsetParent && dom.offsetParent != this.container.ownerDocument.body;
         }
         if (makeAbsolute || this.position == "absolute") {
             if (this.parent) {
@@ -18371,7 +18521,7 @@ class Parse {
     advance() {
         let context = ParseContext.get();
         let parseEnd = this.stoppedAt == null ? this.to : Math.min(this.to, this.stoppedAt);
-        let end = Math.min(parseEnd, this.chunkStart + 2048 /* C.ChunkSize */ );
+        let end = Math.min(parseEnd, this.chunkStart + 512 /* C.ChunkSize */ );
         if (context) end = Math.min(end, context.viewport.to);
         while(this.parsedPos < end)this.parseLine(context);
         if (this.chunkStart < this.parsedPos) this.finishChunk();
@@ -18458,7 +18608,7 @@ class Parse {
             length: this.parsedPos - this.chunkStart,
             nodeSet,
             topID: 0,
-            maxBufferLength: 2048 /* C.ChunkSize */ ,
+            maxBufferLength: 512 /* C.ChunkSize */ ,
             reused: this.chunkReused
         });
         tree = new (0, _common.Tree)(tree.type, tree.children, tree.positions, tree.length, [
@@ -18771,6 +18921,7 @@ class represent prop names.
         this.deserialize = config.deserialize || (()=>{
             throw new Error("This node type doesn't define a deserialize function");
         });
+        this.combine = config.combine || null;
     }
     /**
     This is meant to be used with
@@ -19008,7 +19159,9 @@ types in it, so that the ids fit into 16-bit typed array slots.
                 let add = source(type);
                 if (add) {
                     if (!newProps) newProps = Object.assign({}, type.props);
-                    newProps[add[0].id] = add[1];
+                    let value = add[1], prop = add[0];
+                    if (prop.combine && prop.id in newProps) value = prop.combine(newProps[prop.id], value);
+                    newProps[prop.id] = value;
                 }
             }
             newTypes.push(newProps ? new NodeType(type.name, newProps, type.id, type.flags) : type);
@@ -19446,6 +19599,9 @@ class TreeNode extends BaseNode {
     childBefore(pos) {
         return this.nextChild(this._tree.children.length - 1, -1, pos, -2 /* Side.Before */ );
     }
+    prop(prop) {
+        return this._tree.prop(prop);
+    }
     enter(pos, side, mode = 0) {
         let mounted;
         if (!(mode & IterMode.IgnoreOverlays) && (mounted = MountedTree.get(this._tree)) && mounted.overlay) {
@@ -19546,6 +19702,9 @@ class BufferNode extends BaseNode {
     }
     childBefore(pos) {
         return this.child(-1, pos, -2 /* Side.Before */ );
+    }
+    prop(prop) {
+        return this.type.prop(prop);
     }
     enter(pos, side, mode = 0) {
         if (mode & IterMode.ExcludeBuffers) return null;
@@ -19908,7 +20067,7 @@ function buildTree(data) {
     function takeNode(parentStart, minPos, children, positions, inRepeat, depth) {
         let { id, start, end, size } = cursor;
         let lookAheadAtStart = lookAhead, contextAtStart = contextHash;
-        while(size < 0){
+        if (size < 0) {
             cursor.next();
             if (size == -1 /* SpecialRecord.Reuse */ ) {
                 let node = reused[id];
@@ -20066,7 +20225,7 @@ function buildTree(data) {
             fork.next();
             while(fork.pos > startPos){
                 if (fork.size < 0) {
-                    if (fork.size == -3 /* SpecialRecord.ContextChange */ ) localSkipped += 4;
+                    if (fork.size == -3 /* SpecialRecord.ContextChange */  || fork.size == -4 /* SpecialRecord.LookAhead */ ) localSkipped += 4;
                     else break scan;
                 } else if (fork.id >= minRepeatType) localSkipped += 4;
                 fork.next();
@@ -20452,7 +20611,13 @@ class MixedParse {
                 enter = false;
             } else if (covered && (isCovered = checkCover(covered.ranges, cursor.from, cursor.to))) enter = isCovered != 2 /* Cover.Full */ ;
             else if (!cursor.type.isAnonymous && (nest = this.nest(cursor, this.input)) && (cursor.from < cursor.to || !nest.overlay)) {
-                if (!cursor.tree) materialize(cursor);
+                if (!cursor.tree) {
+                    materialize(cursor);
+                    // materialize create one more level of nesting
+                    // we need to add depth to active overlay for going backwards
+                    if (overlay) overlay.depth++;
+                    if (covered) covered.depth++;
+                }
                 let oldMounts = fragmentCursor.findMounts(cursor.from, nest.parser);
                 if (typeof nest.overlay == "function") overlay = new ActiveOverlay(nest.parser, nest.overlay, oldMounts, this.inner.length, cursor.from, cursor.tree, overlay);
                 else {
@@ -20840,7 +21005,7 @@ must be quoted as JSON strings.
 For example:
 
 ```javascript
-parser.withProps(
+parser.configure({props: [
   styleTags({
     // Style Number and BigNumber nodes
     "Number BigNumber": tags.number,
@@ -20855,7 +21020,7 @@ parser.withProps(
     // Style the node named "/" as punctuation
     '"/"': tags.punctuation
   })
-)
+]})
 ```
 */ function styleTags(spec) {
     let byName = Object.create(null);
@@ -20892,7 +21057,26 @@ parser.withProps(
     }
     return ruleNodeProp.add(byName);
 }
-const ruleNodeProp = new (0, _common.NodeProp)();
+const ruleNodeProp = new (0, _common.NodeProp)({
+    combine (a, b) {
+        let cur, root, take;
+        while(a || b){
+            if (!a || b && a.depth >= b.depth) {
+                take = b;
+                b = b.next;
+            } else {
+                take = a;
+                a = a.next;
+            }
+            if (cur && cur.mode == take.mode && !take.context && !cur.context) continue;
+            let copy = new Rule(take.tags, take.mode, take.context);
+            if (cur) cur.next = copy;
+            else root = copy;
+            cur = copy;
+        }
+        return root;
+    }
+});
 class Rule {
     constructor(tags, mode, context, next){
         this.tags = tags;
@@ -21556,6 +21740,8 @@ In addition, these mappings are provided:
 },{"@lezer/common":"6f22T","@parcel/transformer-js/src/esmodule-helpers.js":"jnFvT"}],"5nDyv":[function(require,module,exports,__globalThis) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "addCursorAbove", ()=>addCursorAbove);
+parcelHelpers.export(exports, "addCursorBelow", ()=>addCursorBelow);
 parcelHelpers.export(exports, "blockComment", ()=>blockComment);
 parcelHelpers.export(exports, "blockUncomment", ()=>blockUncomment);
 parcelHelpers.export(exports, "copyLineDown", ()=>copyLineDown);
@@ -21594,6 +21780,7 @@ parcelHelpers.export(exports, "deleteCharBackwardStrict", ()=>deleteCharBackward
 parcelHelpers.export(exports, "deleteCharForward", ()=>deleteCharForward);
 parcelHelpers.export(exports, "deleteGroupBackward", ()=>deleteGroupBackward);
 parcelHelpers.export(exports, "deleteGroupForward", ()=>deleteGroupForward);
+parcelHelpers.export(exports, "deleteGroupForwardWin", ()=>deleteGroupForwardWin);
 parcelHelpers.export(exports, "deleteLine", ()=>deleteLine);
 parcelHelpers.export(exports, "deleteLineBoundaryBackward", ()=>deleteLineBoundaryBackward);
 parcelHelpers.export(exports, "deleteLineBoundaryForward", ()=>deleteLineBoundaryForward);
@@ -22681,6 +22868,31 @@ syntax tree.
     dispatch(setSel(state, selection));
     return true;
 };
+function addCursorVertically(view, forward) {
+    let { state } = view, sel = state.selection, ranges = state.selection.ranges.slice();
+    for (let range of state.selection.ranges){
+        let line = state.doc.lineAt(range.head);
+        if (forward ? line.to < view.state.doc.length : line.from > 0) for(let cur = range;;){
+            let next = view.moveVertically(cur, forward);
+            if (next.head < line.from || next.head > line.to) {
+                if (!ranges.some((r)=>r.head == next.head)) ranges.push(next);
+                break;
+            } else if (next.head == cur.head) break;
+            else cur = next;
+        }
+    }
+    if (ranges.length == sel.ranges.length) return false;
+    view.dispatch(setSel(state, (0, _state.EditorSelection).create(ranges, ranges.length - 1)));
+    return true;
+}
+/**
+Expand the selection by adding a cursor above the heads of
+currently selected ranges.
+*/ const addCursorAbove = (view)=>addCursorVertically(view, false);
+/**
+Expand the selection by adding a cursor below the heads of
+currently selected ranges.
+*/ const addCursorBelow = (view)=>addCursorVertically(view, true);
 /**
 Simplify the current selection. When multiple ranges are selected,
 reduce it to its main range. Otherwise, if the selection is
@@ -22792,6 +23004,11 @@ whitespace when they consist of a single space.
 /**
 Delete the selection or forward until the end of the next group.
 */ const deleteGroupForward = (target)=>deleteByGroup(target, true);
+/**
+Variant of [`deleteGroupForward`](https://codemirror.net/6/docs/ref/#commands.deleteGroupForward)
+that uses the Windows convention of also deleting the whitespace
+after a word.
+*/ const deleteGroupForwardWin = (view)=>deleteBy(view, (range)=>view.moveByChar(range, true, (start)=>toGroupStart(view, range.head, start)).head);
 /**
 Delete the selection, or, if it is a cursor selection, delete to
 the end of the line. If the cursor is directly at the end of the
@@ -23449,29 +23666,35 @@ property changed to `mac`.)
     {
         key: "Backspace",
         run: deleteCharBackward,
-        shift: deleteCharBackward
+        shift: deleteCharBackward,
+        preventDefault: true
     },
     {
         key: "Delete",
-        run: deleteCharForward
+        run: deleteCharForward,
+        preventDefault: true
     },
     {
         key: "Mod-Backspace",
         mac: "Alt-Backspace",
-        run: deleteGroupBackward
+        run: deleteGroupBackward,
+        preventDefault: true
     },
     {
         key: "Mod-Delete",
         mac: "Alt-Delete",
-        run: deleteGroupForward
+        run: deleteGroupForward,
+        preventDefault: true
     },
     {
         mac: "Mod-Backspace",
-        run: deleteLineBoundaryBackward
+        run: deleteLineBoundaryBackward,
+        preventDefault: true
     },
     {
         mac: "Mod-Delete",
-        run: deleteLineBoundaryForward
+        run: deleteLineBoundaryForward,
+        preventDefault: true
     }
 ].concat(/*@__PURE__*/ emacsStyleKeymap.map((b)=>({
         mac: b.key,
@@ -23488,6 +23711,8 @@ The default keymap. Includes all bindings from
 - Alt-ArrowDown: [`moveLineDown`](https://codemirror.net/6/docs/ref/#commands.moveLineDown)
 - Shift-Alt-ArrowUp: [`copyLineUp`](https://codemirror.net/6/docs/ref/#commands.copyLineUp)
 - Shift-Alt-ArrowDown: [`copyLineDown`](https://codemirror.net/6/docs/ref/#commands.copyLineDown)
+- Ctrl-Alt-ArrowUp (Cmd-Alt-ArrowUp on macOS): [`addCursorAbove`](https://codemirror.net/6/docs/ref/#commands.addCursorAbove).
+- Ctrl-Alt-ArrowDown (Cmd-Alt-ArrowDown on macOS): [`addCursorBelow`](https://codemirror.net/6/docs/ref/#commands.addCursorBelow).
 - Escape: [`simplifySelection`](https://codemirror.net/6/docs/ref/#commands.simplifySelection)
 - Ctrl-Enter (Cmd-Enter on macOS): [`insertBlankLine`](https://codemirror.net/6/docs/ref/#commands.insertBlankLine)
 - Alt-l (Ctrl-l on macOS): [`selectLine`](https://codemirror.net/6/docs/ref/#commands.selectLine)
@@ -23528,6 +23753,14 @@ The default keymap. Includes all bindings from
     {
         key: "Shift-Alt-ArrowDown",
         run: copyLineDown
+    },
+    {
+        key: "Mod-Alt-ArrowUp",
+        run: addCursorAbove
+    },
+    {
+        key: "Mod-Alt-ArrowDown",
+        run: addCursorBelow
     },
     {
         key: "Escape",
@@ -25102,23 +25335,24 @@ completion's text in the main selection range, and any other
 selection range that has the same text in front of it.
 */ function insertCompletionText(state, text, from, to) {
     let { main } = state.selection, fromOff = from - main.from, toOff = to - main.from;
-    return Object.assign(Object.assign({}, state.changeByRange((range)=>{
-        if (range != main && from != to && state.sliceDoc(range.from + fromOff, range.from + toOff) != state.sliceDoc(from, to)) return {
-            range
-        };
-        let lines = state.toText(text);
-        return {
-            changes: {
-                from: range.from + fromOff,
-                to: to == main.from ? range.to : range.from + toOff,
-                insert: lines
-            },
-            range: (0, _state.EditorSelection).cursor(range.from + fromOff + lines.length)
-        };
-    })), {
+    return {
+        ...state.changeByRange((range)=>{
+            if (range != main && from != to && state.sliceDoc(range.from + fromOff, range.from + toOff) != state.sliceDoc(from, to)) return {
+                range
+            };
+            let lines = state.toText(text);
+            return {
+                changes: {
+                    from: range.from + fromOff,
+                    to: to == main.from ? range.to : range.from + toOff,
+                    insert: lines
+                },
+                range: (0, _state.EditorSelection).cursor(range.from + fromOff + lines.length)
+            };
+        }),
         scrollIntoView: true,
         userEvent: "input.complete"
-    });
+    };
 }
 const SourceCache = /*@__PURE__*/ new WeakMap();
 function asSource(source) {
@@ -25295,7 +25529,7 @@ const completionConfig = /*@__PURE__*/ (0, _state.Facet).define({
             addToOptions: [],
             positionInfo: defaultPositionInfo,
             filterStrict: false,
-            compareCompletions: (a, b)=>a.label.localeCompare(b.label),
+            compareCompletions: (a, b)=>(a.sortText || a.label).localeCompare(b.sortText || b.label),
             interactionDelay: 75,
             updateSyncTime: 100
         }, {
@@ -25482,7 +25716,8 @@ class CompletionTooltip {
             this.range = rangeAroundSelected(open.options.length, open.selected, this.view.state.facet(completionConfig).maxRenderedOptions);
             this.showOptions(open.options, cState.id);
         }
-        if (this.updateSelectedOption(open.selected)) {
+        let newSel = this.updateSelectedOption(open.selected);
+        if (newSel) {
             this.destroyInfo();
             let { completion } = open.options[open.selected];
             let { info } = completion;
@@ -25492,13 +25727,17 @@ class CompletionTooltip {
             if ("then" in infoResult) infoResult.then((obj)=>{
                 if (obj && this.view.state.field(this.stateField, false) == cState) this.addInfoPane(obj, completion);
             }).catch((e)=>(0, _view.logException)(this.view.state, e, "completion info"));
-            else this.addInfoPane(infoResult, completion);
+            else {
+                this.addInfoPane(infoResult, completion);
+                newSel.setAttribute("aria-describedby", this.info.id);
+            }
         }
     }
     addInfoPane(content, completion) {
         this.destroyInfo();
         let wrap = this.info = document.createElement("div");
         wrap.className = "cm-tooltip cm-completionInfo";
+        wrap.id = "cm-completionInfo-" + Math.floor(Math.random() * 0xffff).toString(16);
         if (content.nodeType != null) {
             wrap.appendChild(content);
             this.infoDestroy = null;
@@ -25519,7 +25758,10 @@ class CompletionTooltip {
                     opt.setAttribute("aria-selected", "true");
                     set = opt;
                 }
-            } else if (opt.hasAttribute("aria-selected")) opt.removeAttribute("aria-selected");
+            } else if (opt.hasAttribute("aria-selected")) {
+                opt.removeAttribute("aria-selected");
+                opt.removeAttribute("aria-describedby");
+            }
         }
         if (set) scrollIntoView(this.list, set);
         return set;
@@ -25617,7 +25859,7 @@ function score(option) {
 }
 function sortOptions(active, state) {
     let options = [];
-    let sections = null;
+    let sections = null, dynamicSectionScore = null;
     let addOption = (option)=>{
         options.push(option);
         let { section } = option.completion;
@@ -25638,15 +25880,20 @@ function sortOptions(active, state) {
             let matcher = conf.filterStrict ? new StrictMatcher(pattern) : new FuzzyMatcher(pattern);
             for (let option of a.result.options)if (match = matcher.match(option.label)) {
                 let matched = !option.displayLabel ? match.matched : getMatch ? getMatch(option, match.matched) : [];
-                addOption(new Option(option, a.source, matched, match.score + (option.boost || 0)));
+                let score = match.score + (option.boost || 0);
+                addOption(new Option(option, a.source, matched, score));
+                if (typeof option.section == "object" && option.section.rank === "dynamic") {
+                    let { name } = option.section;
+                    if (!dynamicSectionScore) dynamicSectionScore = Object.create(null);
+                    dynamicSectionScore[name] = Math.max(score, dynamicSectionScore[name] || -1000000000);
+                }
             }
         }
     }
     if (sections) {
         let sectionOrder = Object.create(null), pos = 0;
         let cmp = (a, b)=>{
-            var _a, _b;
-            return ((_a = a.rank) !== null && _a !== void 0 ? _a : 1e9) - ((_b = b.rank) !== null && _b !== void 0 ? _b : 1e9) || (a.name < b.name ? -1 : 1);
+            return (a.rank === "dynamic" && b.rank === "dynamic" ? dynamicSectionScore[b.name] - dynamicSectionScore[a.name] : 0) || (typeof a.rank == "number" ? a.rank : 1e9) - (typeof b.rank == "number" ? b.rank : 1e9) || (a.name < b.name ? -1 : 1);
         };
         for (let s of sections.sort(cmp)){
             pos -= 1e5;
@@ -25698,9 +25945,10 @@ class CompletionDialog {
         }, prev ? prev.timestamp : Date.now(), selected, false);
     }
     map(changes) {
-        return new CompletionDialog(this.options, this.attrs, Object.assign(Object.assign({}, this.tooltip), {
+        return new CompletionDialog(this.options, this.attrs, {
+            ...this.tooltip,
             pos: changes.mapPos(this.tooltip.pos)
-        }), this.timestamp, this.selected, this.disabled);
+        }, this.timestamp, this.selected, this.disabled);
     }
     setDisabled() {
         return new CompletionDialog(this.options, this.attrs, this.tooltip, this.timestamp, this.selected, true);
@@ -25867,9 +26115,10 @@ function applyCompletion(view, option) {
     const apply = option.completion.apply || option.completion.label;
     let result = view.state.field(completionState).active.find((a)=>a.source == option.source);
     if (!(result instanceof ActiveResult)) return false;
-    if (typeof apply == "string") view.dispatch(Object.assign(Object.assign({}, insertCompletionText(view.state, apply, result.from, result.to)), {
+    if (typeof apply == "string") view.dispatch({
+        ...insertCompletionText(view.state, apply, result.from, result.to),
         annotations: pickedCompletion.of(option.completion)
-    }));
+    });
     else apply(view, option.completion, result.from, result.to);
     return true;
 }
@@ -26284,7 +26533,7 @@ class Snippet {
         let fields = [];
         let lines = [], positions = [], m;
         for (let line of template.split(/\r\n?|\n/)){
-            while(m = /[#$]\{(?:(\d+)(?::([^}]*))?|((?:\\[{}]|[^}])*))\}/.exec(line)){
+            while(m = /[#$]\{(?:(\d+)(?::([^{}]*))?|((?:\\[{}]|[^{}])*))\}/.exec(line)){
                 let seq = m[1] ? +m[1] : null, rawName = m[2] || m[3] || "", found = -1;
                 let name = rawName.replace(/\\[{}]/g, (m)=>m[1]);
                 for(let i = 0; i < fields.length; i++)if (seq != null ? fields[i].seq == seq : name ? fields[i].name == name : false) found = i;
@@ -26297,6 +26546,11 @@ class Snippet {
                     });
                     found = i;
                     for (let pos of positions)if (pos.field >= found) pos.field++;
+                }
+                for (let pos of positions)if (pos.line == lines.length && pos.from > m.index) {
+                    let snip = m[2] ? 3 + (m[1] || "").length : 2;
+                    pos.from -= snip;
+                    pos.to -= snip;
                 }
                 positions.push(new FieldPos(found, lines.length, m.index, m.index + name.length));
                 line = line.slice(0, m.index) + rawName + line.slice(m.index + m[0].length);
@@ -26332,7 +26586,7 @@ class ActiveSnippet {
     constructor(ranges, active){
         this.ranges = ranges;
         this.active = active;
-        this.deco = (0, _view.Decoration).set(ranges.map((r)=>(r.from == r.to ? fieldMarker : fieldRange).range(r.from, r.to)));
+        this.deco = (0, _view.Decoration).set(ranges.map((r)=>(r.from == r.to ? fieldMarker : fieldRange).range(r.from, r.to)), true);
     }
     map(changes) {
         let ranges = [];
@@ -26506,9 +26760,10 @@ Create a completion from a snippet. Returns an object with the
 properties from `completion`, plus an `apply` function that
 applies the snippet.
 */ function snippetCompletion(template, completion) {
-    return Object.assign(Object.assign({}, completion), {
+    return {
+        ...completion,
         apply: snippet(template)
-    });
+    };
 }
 const snippetPointerHandler = /*@__PURE__*/ (0, _view.EditorView).domEventHandlers({
     mousedown (event, view) {
@@ -26908,12 +27163,12 @@ Returns an extension that enables autocompletion.
 /**
 Basic keybindings for autocompletion.
 
- - Ctrl-Space (and Alt-\` on macOS): [`startCompletion`](https://codemirror.net/6/docs/ref/#autocomplete.startCompletion)
+ - Ctrl-Space (and Alt-\` or Alt-i on macOS): [`startCompletion`](https://codemirror.net/6/docs/ref/#autocomplete.startCompletion)
  - Escape: [`closeCompletion`](https://codemirror.net/6/docs/ref/#autocomplete.closeCompletion)
  - ArrowDown: [`moveCompletionSelection`](https://codemirror.net/6/docs/ref/#autocomplete.moveCompletionSelection)`(true)`
  - ArrowUp: [`moveCompletionSelection`](https://codemirror.net/6/docs/ref/#autocomplete.moveCompletionSelection)`(false)`
  - PageDown: [`moveCompletionSelection`](https://codemirror.net/6/docs/ref/#autocomplete.moveCompletionSelection)`(true, "page")`
- - PageDown: [`moveCompletionSelection`](https://codemirror.net/6/docs/ref/#autocomplete.moveCompletionSelection)`(true, "page")`
+ - PageUp: [`moveCompletionSelection`](https://codemirror.net/6/docs/ref/#autocomplete.moveCompletionSelection)`(false, "page")`
  - Enter: [`acceptCompletion`](https://codemirror.net/6/docs/ref/#autocomplete.acceptCompletion)
 */ const completionKeymap = [
     {
@@ -26922,6 +27177,10 @@ Basic keybindings for autocompletion.
     },
     {
         mac: "Alt-`",
+        run: startCompletion
+    },
+    {
+        mac: "Alt-i",
         run: startCompletion
     },
     {
@@ -27034,6 +27293,7 @@ class LintState {
         if (diagnosticFilter) diagnostics = diagnosticFilter(diagnostics, state);
         let sorted = diagnostics.slice().sort((a, b)=>a.from - b.from || a.to - b.to);
         let deco = new (0, _state.RangeSetBuilder)(), active = [], pos = 0;
+        let scan = state.doc.iter(), scanPos = 0, docLen = state.doc.length;
         for(let i = 0;;){
             let next = i == sorted.length ? null : sorted[i];
             if (!next && !active.length) break;
@@ -27043,6 +27303,7 @@ class LintState {
                 to = active.reduce((p, d)=>Math.min(p, d.to), next && next.from > from ? next.from : 1e8);
             } else {
                 from = next.from;
+                if (from > docLen) break;
                 to = next.to;
                 active.push(next);
                 i++;
@@ -27058,8 +27319,30 @@ class LintState {
                     break;
                 }
             }
+            to = Math.min(to, docLen);
+            let widget = false;
+            if (active.some((d)=>d.from == from && (d.to == to || to == docLen))) {
+                widget = from == to;
+                if (!widget && to - from < 10) {
+                    let behind = from - (scanPos + scan.value.length);
+                    if (behind > 0) {
+                        scan.next(behind);
+                        scanPos = from;
+                    }
+                    for(let check = from;;){
+                        if (check >= to) {
+                            widget = true;
+                            break;
+                        }
+                        if (!scan.lineBreak && scanPos + scan.value.length > check) break;
+                        check = scanPos + scan.value.length;
+                        scanPos += scan.value.length;
+                        scan.next();
+                    }
+                }
+            }
             let sev = maxSeverity(active);
-            if (active.some((d)=>d.from == d.to || d.from == d.to - 1 && state.doc.lineAt(d.from).to == d.from)) deco.add(from, from, (0, _view.Decoration).widget({
+            if (widget) deco.add(from, from, (0, _view.Decoration).widget({
                 widget: new DiagnosticWidget(sev),
                 diagnostics: active.slice()
             }));
@@ -27072,6 +27355,7 @@ class LintState {
                 }));
             }
             pos = to;
+            if (pos == docLen) break;
             for(let i = 0; i < active.length; i++)if (active[i].to <= pos) active.splice(i--, 1);
         }
         let set = deco.finish();
@@ -27322,24 +27606,36 @@ function batchResults(promises, sink, error) {
 }
 const lintConfig = /*@__PURE__*/ (0, _state.Facet).define({
     combine (input) {
-        return Object.assign({
-            sources: input.map((i)=>i.source).filter((x)=>x != null)
-        }, (0, _state.combineConfig)(input.map((i)=>i.config), {
-            delay: 750,
-            markerFilter: null,
-            tooltipFilter: null,
-            needsRefresh: null,
-            hideOn: ()=>null
-        }, {
-            needsRefresh: (a, b)=>!a ? b : !b ? a : (u)=>a(u) || b(u)
-        }));
+        return {
+            sources: input.map((i)=>i.source).filter((x)=>x != null),
+            ...(0, _state.combineConfig)(input.map((i)=>i.config), {
+                delay: 750,
+                markerFilter: null,
+                tooltipFilter: null,
+                needsRefresh: null,
+                hideOn: ()=>null
+            }, {
+                delay: Math.max,
+                markerFilter: combineFilter,
+                tooltipFilter: combineFilter,
+                needsRefresh: (a, b)=>!a ? b : !b ? a : (u)=>a(u) || b(u),
+                hideOn: (a, b)=>!a ? b : !b ? a : (t, x, y)=>a(t, x, y) || b(t, x, y),
+                autoPanel: (a, b)=>a || b
+            })
+        };
     }
 });
+function combineFilter(a, b) {
+    return !a ? b : !b ? a : (d, s)=>b(a(d, s), s);
+}
 /**
 Given a diagnostic source, this function returns an extension that
 enables linting with that source. It will be called whenever the
-editor is idle (after its content changed). If `null` is given as
-source, this only configures the lint extension.
+editor is idle (after its content changed).
+
+Note that settings given here will apply to all linters active in
+the editor. If `null` is given as source, this only configures the
+lint extension.
 */ function linter(source, config = {}) {
     return [
         lintConfig.of({
@@ -27392,9 +27688,10 @@ function renderDiagnostic(view, diagnostic, inPanel) {
             (0, _creltDefault.default)("u", name.slice(keyIndex, keyIndex + 1)),
             name.slice(keyIndex + 1)
         ];
+        let markClass = action.markClass ? " " + action.markClass : "";
         return (0, _creltDefault.default)("button", {
             type: "button",
-            class: "cm-diagnosticAction",
+            class: "cm-diagnosticAction" + markClass,
             onclick: click,
             onmousedown: click,
             "aria-label": ` Action: ${name}${keyIndex < 0 ? "" : ` (access key "${keys[i]})"`}.`
@@ -27810,9 +28107,10 @@ const lintGutterTooltip = /*@__PURE__*/ (0, _state.StateField).define({
         return null;
     },
     update (tooltip, tr) {
-        if (tooltip && tr.docChanged) tooltip = hideTooltip(tr, tooltip) ? null : Object.assign(Object.assign({}, tooltip), {
+        if (tooltip && tr.docChanged) tooltip = hideTooltip(tr, tooltip) ? null : {
+            ...tooltip,
             pos: tr.changes.mapPos(tooltip.pos)
-        });
+        };
         return tr.effects.reduce((t, e)=>e.is(setLintGutterTooltip) ? e.value : t, tooltip);
     },
     provide: (field)=>(0, _view.showTooltip).from(field)
@@ -28525,8 +28823,7 @@ about the parse state.
         var _a;
         let depth = action >> 19 /* Action.ReduceDepthShift */ , type = action & 65535 /* Action.ValueMask */ ;
         let { parser } = this.p;
-        let lookaheadRecord = this.reducePos < this.pos - 25 /* Lookahead.Margin */ ;
-        if (lookaheadRecord) this.setLookAhead(this.pos);
+        let lookaheadRecord = this.reducePos < this.pos - 25 /* Lookahead.Margin */  && this.setLookAhead(this.pos);
         let dPrec = parser.dynamicPrecedence(type);
         if (dPrec) this.score += dPrec;
         if (depth == 0) {
@@ -28593,7 +28890,7 @@ about the parse state.
         if (!mustSink || this.pos == end) this.buffer.push(term, start, end, size);
         else {
             let index = this.buffer.length;
-            if (index > 0 && this.buffer[index - 4] != 0 /* Term.Err */ ) {
+            if (index > 0 && (this.buffer[index - 4] != 0 /* Term.Err */  || this.buffer[index - 1] < 0)) {
                 let mustMove = false;
                 for(let scan = index; scan > 0 && this.buffer[scan - 2] > end; scan -= 4)if (this.buffer[scan - 1] >= 0) {
                     mustMove = true;
@@ -28849,10 +29146,10 @@ about the parse state.
     /**
     @internal
     */ setLookAhead(lookAhead) {
-        if (lookAhead > this.lookAhead) {
-            this.emitLookAhead();
-            this.lookAhead = lookAhead;
-        }
+        if (lookAhead <= this.lookAhead) return false;
+        this.emitLookAhead();
+        this.lookAhead = lookAhead;
+        return true;
     }
     /**
     @internal
@@ -29670,7 +29967,7 @@ class Parse {
                 if (done) continue;
             }
             let force = stack.split(), forceBase = base;
-            for(let j = 0; force.forceReduce() && j < 10 /* Rec.ForceReduceLimit */ ; j++){
+            for(let j = 0; j < 10 /* Rec.ForceReduceLimit */  && force.forceReduce(); j++){
                 if (verbose) console.log(forceBase + this.stackID(force) + " (via force-reduce)");
                 let done = this.advanceFully(force, newStacks);
                 if (done) break;
@@ -30935,6 +31232,2256 @@ const parser = (0, _lr.LRParser).deserialize({
     tokenPrec: 7668
 });
 
+},{"@lezer/lr":"hqnf3","@lezer/highlight":"5AwBv","@parcel/transformer-js/src/esmodule-helpers.js":"jnFvT"}],"3QU1O":[function(require,module,exports,__globalThis) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "autoCloseTags", ()=>autoCloseTags);
+parcelHelpers.export(exports, "completionPath", ()=>completionPath);
+parcelHelpers.export(exports, "esLint", ()=>esLint);
+parcelHelpers.export(exports, "javascript", ()=>javascript);
+parcelHelpers.export(exports, "javascriptLanguage", ()=>javascriptLanguage);
+parcelHelpers.export(exports, "jsxLanguage", ()=>jsxLanguage);
+parcelHelpers.export(exports, "localCompletionSource", ()=>localCompletionSource);
+parcelHelpers.export(exports, "scopeCompletionSource", ()=>scopeCompletionSource);
+parcelHelpers.export(exports, "snippets", ()=>snippets);
+parcelHelpers.export(exports, "tsxLanguage", ()=>tsxLanguage);
+parcelHelpers.export(exports, "typescriptLanguage", ()=>typescriptLanguage);
+parcelHelpers.export(exports, "typescriptSnippets", ()=>typescriptSnippets);
+var _javascript = require("@lezer/javascript");
+var _language = require("@codemirror/language");
+var _state = require("@codemirror/state");
+var _view = require("@codemirror/view");
+var _autocomplete = require("@codemirror/autocomplete");
+var _common = require("@lezer/common");
+/**
+A collection of JavaScript-related
+[snippets](https://codemirror.net/6/docs/ref/#autocomplete.snippet).
+*/ const snippets = [
+    /*@__PURE__*/ (0, _autocomplete.snippetCompletion)("function ${name}(${params}) {\n\t${}\n}", {
+        label: "function",
+        detail: "definition",
+        type: "keyword"
+    }),
+    /*@__PURE__*/ (0, _autocomplete.snippetCompletion)("for (let ${index} = 0; ${index} < ${bound}; ${index}++) {\n\t${}\n}", {
+        label: "for",
+        detail: "loop",
+        type: "keyword"
+    }),
+    /*@__PURE__*/ (0, _autocomplete.snippetCompletion)("for (let ${name} of ${collection}) {\n\t${}\n}", {
+        label: "for",
+        detail: "of loop",
+        type: "keyword"
+    }),
+    /*@__PURE__*/ (0, _autocomplete.snippetCompletion)("do {\n\t${}\n} while (${})", {
+        label: "do",
+        detail: "loop",
+        type: "keyword"
+    }),
+    /*@__PURE__*/ (0, _autocomplete.snippetCompletion)("while (${}) {\n\t${}\n}", {
+        label: "while",
+        detail: "loop",
+        type: "keyword"
+    }),
+    /*@__PURE__*/ (0, _autocomplete.snippetCompletion)("try {\n\t${}\n} catch (${error}) {\n\t${}\n}", {
+        label: "try",
+        detail: "/ catch block",
+        type: "keyword"
+    }),
+    /*@__PURE__*/ (0, _autocomplete.snippetCompletion)("if (${}) {\n\t${}\n}", {
+        label: "if",
+        detail: "block",
+        type: "keyword"
+    }),
+    /*@__PURE__*/ (0, _autocomplete.snippetCompletion)("if (${}) {\n\t${}\n} else {\n\t${}\n}", {
+        label: "if",
+        detail: "/ else block",
+        type: "keyword"
+    }),
+    /*@__PURE__*/ (0, _autocomplete.snippetCompletion)("class ${name} {\n\tconstructor(${params}) {\n\t\t${}\n\t}\n}", {
+        label: "class",
+        detail: "definition",
+        type: "keyword"
+    }),
+    /*@__PURE__*/ (0, _autocomplete.snippetCompletion)("import {${names}} from \"${module}\"\n${}", {
+        label: "import",
+        detail: "named",
+        type: "keyword"
+    }),
+    /*@__PURE__*/ (0, _autocomplete.snippetCompletion)("import ${name} from \"${module}\"\n${}", {
+        label: "import",
+        detail: "default",
+        type: "keyword"
+    })
+];
+/**
+A collection of snippet completions for TypeScript. Includes the
+JavaScript [snippets](https://codemirror.net/6/docs/ref/#lang-javascript.snippets).
+*/ const typescriptSnippets = /*@__PURE__*/ snippets.concat([
+    /*@__PURE__*/ (0, _autocomplete.snippetCompletion)("interface ${name} {\n\t${}\n}", {
+        label: "interface",
+        detail: "definition",
+        type: "keyword"
+    }),
+    /*@__PURE__*/ (0, _autocomplete.snippetCompletion)("type ${name} = ${type}", {
+        label: "type",
+        detail: "definition",
+        type: "keyword"
+    }),
+    /*@__PURE__*/ (0, _autocomplete.snippetCompletion)("enum ${name} {\n\t${}\n}", {
+        label: "enum",
+        detail: "definition",
+        type: "keyword"
+    })
+]);
+const cache = /*@__PURE__*/ new (0, _common.NodeWeakMap)();
+const ScopeNodes = /*@__PURE__*/ new Set([
+    "Script",
+    "Block",
+    "FunctionExpression",
+    "FunctionDeclaration",
+    "ArrowFunction",
+    "MethodDeclaration",
+    "ForStatement"
+]);
+function defID(type) {
+    return (node, def)=>{
+        let id = node.node.getChild("VariableDefinition");
+        if (id) def(id, type);
+        return true;
+    };
+}
+const functionContext = [
+    "FunctionDeclaration"
+];
+const gatherCompletions = {
+    FunctionDeclaration: /*@__PURE__*/ defID("function"),
+    ClassDeclaration: /*@__PURE__*/ defID("class"),
+    ClassExpression: ()=>true,
+    EnumDeclaration: /*@__PURE__*/ defID("constant"),
+    TypeAliasDeclaration: /*@__PURE__*/ defID("type"),
+    NamespaceDeclaration: /*@__PURE__*/ defID("namespace"),
+    VariableDefinition (node, def) {
+        if (!node.matchContext(functionContext)) def(node, "variable");
+    },
+    TypeDefinition (node, def) {
+        def(node, "type");
+    },
+    __proto__: null
+};
+function getScope(doc, node) {
+    let cached = cache.get(node);
+    if (cached) return cached;
+    let completions = [], top = true;
+    function def(node, type) {
+        let name = doc.sliceString(node.from, node.to);
+        completions.push({
+            label: name,
+            type
+        });
+    }
+    node.cursor((0, _common.IterMode).IncludeAnonymous).iterate((node)=>{
+        if (top) top = false;
+        else if (node.name) {
+            let gather = gatherCompletions[node.name];
+            if (gather && gather(node, def) || ScopeNodes.has(node.name)) return false;
+        } else if (node.to - node.from > 8192) {
+            // Allow caching for bigger internal nodes
+            for (let c of getScope(doc, node.node))completions.push(c);
+            return false;
+        }
+    });
+    cache.set(node, completions);
+    return completions;
+}
+const Identifier = /^[\w$\xa1-\uffff][\w$\d\xa1-\uffff]*$/;
+const dontComplete = [
+    "TemplateString",
+    "String",
+    "RegExp",
+    "LineComment",
+    "BlockComment",
+    "VariableDefinition",
+    "TypeDefinition",
+    "Label",
+    "PropertyDefinition",
+    "PropertyName",
+    "PrivatePropertyDefinition",
+    "PrivatePropertyName",
+    "JSXText",
+    "JSXAttributeValue",
+    "JSXOpenTag",
+    "JSXCloseTag",
+    "JSXSelfClosingTag",
+    ".",
+    "?."
+];
+/**
+Completion source that looks up locally defined names in
+JavaScript code.
+*/ function localCompletionSource(context) {
+    let inner = (0, _language.syntaxTree)(context.state).resolveInner(context.pos, -1);
+    if (dontComplete.indexOf(inner.name) > -1) return null;
+    let isWord = inner.name == "VariableName" || inner.to - inner.from < 20 && Identifier.test(context.state.sliceDoc(inner.from, inner.to));
+    if (!isWord && !context.explicit) return null;
+    let options = [];
+    for(let pos = inner; pos; pos = pos.parent)if (ScopeNodes.has(pos.name)) options = options.concat(getScope(context.state.doc, pos));
+    return {
+        options,
+        from: isWord ? inner.from : context.pos,
+        validFor: Identifier
+    };
+}
+function pathFor(read, member, name) {
+    var _a;
+    let path = [];
+    for(;;){
+        let obj = member.firstChild, prop;
+        if ((obj === null || obj === void 0 ? void 0 : obj.name) == "VariableName") {
+            path.push(read(obj));
+            return {
+                path: path.reverse(),
+                name
+            };
+        } else if ((obj === null || obj === void 0 ? void 0 : obj.name) == "MemberExpression" && ((_a = prop = obj.lastChild) === null || _a === void 0 ? void 0 : _a.name) == "PropertyName") {
+            path.push(read(prop));
+            member = obj;
+        } else return null;
+    }
+}
+/**
+Helper function for defining JavaScript completion sources. It
+returns the completable name and object path for a completion
+context, or null if no name/property completion should happen at
+that position. For example, when completing after `a.b.c` it will
+return `{path: ["a", "b"], name: "c"}`. When completing after `x`
+it will return `{path: [], name: "x"}`. When not in a property or
+name, it will return null if `context.explicit` is false, and
+`{path: [], name: ""}` otherwise.
+*/ function completionPath(context) {
+    let read = (node)=>context.state.doc.sliceString(node.from, node.to);
+    let inner = (0, _language.syntaxTree)(context.state).resolveInner(context.pos, -1);
+    if (inner.name == "PropertyName") return pathFor(read, inner.parent, read(inner));
+    else if ((inner.name == "." || inner.name == "?.") && inner.parent.name == "MemberExpression") return pathFor(read, inner.parent, "");
+    else if (dontComplete.indexOf(inner.name) > -1) return null;
+    else if (inner.name == "VariableName" || inner.to - inner.from < 20 && Identifier.test(read(inner))) return {
+        path: [],
+        name: read(inner)
+    };
+    else if (inner.name == "MemberExpression") return pathFor(read, inner, "");
+    else return context.explicit ? {
+        path: [],
+        name: ""
+    } : null;
+}
+function enumeratePropertyCompletions(obj, top) {
+    let options = [], seen = new Set;
+    for(let depth = 0;; depth++){
+        for (let name of (Object.getOwnPropertyNames || Object.keys)(obj)){
+            if (!/^[a-zA-Z_$\xaa-\uffdc][\w$\xaa-\uffdc]*$/.test(name) || seen.has(name)) continue;
+            seen.add(name);
+            let value;
+            try {
+                value = obj[name];
+            } catch (_) {
+                continue;
+            }
+            options.push({
+                label: name,
+                type: typeof value == "function" ? /^[A-Z]/.test(name) ? "class" : top ? "function" : "method" : top ? "variable" : "property",
+                boost: -depth
+            });
+        }
+        let next = Object.getPrototypeOf(obj);
+        if (!next) return options;
+        obj = next;
+    }
+}
+/**
+Defines a [completion source](https://codemirror.net/6/docs/ref/#autocomplete.CompletionSource) that
+completes from the given scope object (for example `globalThis`).
+Will enter properties of the object when completing properties on
+a directly-named path.
+*/ function scopeCompletionSource(scope) {
+    let cache = new Map;
+    return (context)=>{
+        let path = completionPath(context);
+        if (!path) return null;
+        let target = scope;
+        for (let step of path.path){
+            target = target[step];
+            if (!target) return null;
+        }
+        let options = cache.get(target);
+        if (!options) cache.set(target, options = enumeratePropertyCompletions(target, !path.path.length));
+        return {
+            from: context.pos - path.name.length,
+            options,
+            validFor: Identifier
+        };
+    };
+}
+/**
+A language provider based on the [Lezer JavaScript
+parser](https://github.com/lezer-parser/javascript), extended with
+highlighting and indentation information.
+*/ const javascriptLanguage = /*@__PURE__*/ (0, _language.LRLanguage).define({
+    name: "javascript",
+    parser: /*@__PURE__*/ (0, _javascript.parser).configure({
+        props: [
+            /*@__PURE__*/ (0, _language.indentNodeProp).add({
+                IfStatement: /*@__PURE__*/ (0, _language.continuedIndent)({
+                    except: /^\s*({|else\b)/
+                }),
+                TryStatement: /*@__PURE__*/ (0, _language.continuedIndent)({
+                    except: /^\s*({|catch\b|finally\b)/
+                }),
+                LabeledStatement: (0, _language.flatIndent),
+                SwitchBody: (context)=>{
+                    let after = context.textAfter, closed = /^\s*\}/.test(after), isCase = /^\s*(case|default)\b/.test(after);
+                    return context.baseIndent + (closed ? 0 : isCase ? 1 : 2) * context.unit;
+                },
+                Block: /*@__PURE__*/ (0, _language.delimitedIndent)({
+                    closing: "}"
+                }),
+                ArrowFunction: (cx)=>cx.baseIndent + cx.unit,
+                "TemplateString BlockComment": ()=>null,
+                "Statement Property": /*@__PURE__*/ (0, _language.continuedIndent)({
+                    except: /^\s*{/
+                }),
+                JSXElement (context) {
+                    let closed = /^\s*<\//.test(context.textAfter);
+                    return context.lineIndent(context.node.from) + (closed ? 0 : context.unit);
+                },
+                JSXEscape (context) {
+                    let closed = /\s*\}/.test(context.textAfter);
+                    return context.lineIndent(context.node.from) + (closed ? 0 : context.unit);
+                },
+                "JSXOpenTag JSXSelfClosingTag" (context) {
+                    return context.column(context.node.from) + context.unit;
+                }
+            }),
+            /*@__PURE__*/ (0, _language.foldNodeProp).add({
+                "Block ClassBody SwitchBody EnumBody ObjectExpression ArrayExpression ObjectType": (0, _language.foldInside),
+                BlockComment (tree) {
+                    return {
+                        from: tree.from + 2,
+                        to: tree.to - 2
+                    };
+                }
+            })
+        ]
+    }),
+    languageData: {
+        closeBrackets: {
+            brackets: [
+                "(",
+                "[",
+                "{",
+                "'",
+                '"',
+                "`"
+            ]
+        },
+        commentTokens: {
+            line: "//",
+            block: {
+                open: "/*",
+                close: "*/"
+            }
+        },
+        indentOnInput: /^\s*(?:case |default:|\{|\}|<\/)$/,
+        wordChars: "$"
+    }
+});
+const jsxSublanguage = {
+    test: (node)=>/^JSX/.test(node.name),
+    facet: /*@__PURE__*/ (0, _language.defineLanguageFacet)({
+        commentTokens: {
+            block: {
+                open: "{/*",
+                close: "*/}"
+            }
+        }
+    })
+};
+/**
+A language provider for TypeScript.
+*/ const typescriptLanguage = /*@__PURE__*/ javascriptLanguage.configure({
+    dialect: "ts"
+}, "typescript");
+/**
+Language provider for JSX.
+*/ const jsxLanguage = /*@__PURE__*/ javascriptLanguage.configure({
+    dialect: "jsx",
+    props: [
+        /*@__PURE__*/ (0, _language.sublanguageProp).add((n)=>n.isTop ? [
+                jsxSublanguage
+            ] : undefined)
+    ]
+});
+/**
+Language provider for JSX + TypeScript.
+*/ const tsxLanguage = /*@__PURE__*/ javascriptLanguage.configure({
+    dialect: "jsx ts",
+    props: [
+        /*@__PURE__*/ (0, _language.sublanguageProp).add((n)=>n.isTop ? [
+                jsxSublanguage
+            ] : undefined)
+    ]
+}, "typescript");
+let kwCompletion = (name)=>({
+        label: name,
+        type: "keyword"
+    });
+const keywords = /*@__PURE__*/ "break case const continue default delete export extends false finally in instanceof let new return static super switch this throw true typeof var yield".split(" ").map(kwCompletion);
+const typescriptKeywords = /*@__PURE__*/ keywords.concat(/*@__PURE__*/ [
+    "declare",
+    "implements",
+    "private",
+    "protected",
+    "public"
+].map(kwCompletion));
+/**
+JavaScript support. Includes [snippet](https://codemirror.net/6/docs/ref/#lang-javascript.snippets)
+and local variable completion.
+*/ function javascript(config = {}) {
+    let lang = config.jsx ? config.typescript ? tsxLanguage : jsxLanguage : config.typescript ? typescriptLanguage : javascriptLanguage;
+    let completions = config.typescript ? typescriptSnippets.concat(typescriptKeywords) : snippets.concat(keywords);
+    return new (0, _language.LanguageSupport)(lang, [
+        javascriptLanguage.data.of({
+            autocomplete: (0, _autocomplete.ifNotIn)(dontComplete, (0, _autocomplete.completeFromList)(completions))
+        }),
+        javascriptLanguage.data.of({
+            autocomplete: localCompletionSource
+        }),
+        config.jsx ? autoCloseTags : []
+    ]);
+}
+function findOpenTag(node) {
+    for(;;){
+        if (node.name == "JSXOpenTag" || node.name == "JSXSelfClosingTag" || node.name == "JSXFragmentTag") return node;
+        if (node.name == "JSXEscape" || !node.parent) return null;
+        node = node.parent;
+    }
+}
+function elementName(doc, tree, max = doc.length) {
+    for(let ch = tree === null || tree === void 0 ? void 0 : tree.firstChild; ch; ch = ch.nextSibling){
+        if (ch.name == "JSXIdentifier" || ch.name == "JSXBuiltin" || ch.name == "JSXNamespacedName" || ch.name == "JSXMemberExpression") return doc.sliceString(ch.from, Math.min(ch.to, max));
+    }
+    return "";
+}
+const android = typeof navigator == "object" && /*@__PURE__*/ /Android\b/.test(navigator.userAgent);
+/**
+Extension that will automatically insert JSX close tags when a `>` or
+`/` is typed.
+*/ const autoCloseTags = /*@__PURE__*/ (0, _view.EditorView).inputHandler.of((view, from, to, text, defaultInsert)=>{
+    if ((android ? view.composing : view.compositionStarted) || view.state.readOnly || from != to || text != ">" && text != "/" || !javascriptLanguage.isActiveAt(view.state, from, -1)) return false;
+    let base = defaultInsert(), { state } = base;
+    let closeTags = state.changeByRange((range)=>{
+        var _a;
+        let { head } = range, around = (0, _language.syntaxTree)(state).resolveInner(head - 1, -1), name;
+        if (around.name == "JSXStartTag") around = around.parent;
+        if (state.doc.sliceString(head - 1, head) != text || around.name == "JSXAttributeValue" && around.to > head) ;
+        else if (text == ">" && around.name == "JSXFragmentTag") return {
+            range,
+            changes: {
+                from: head,
+                insert: `</>`
+            }
+        };
+        else if (text == "/" && around.name == "JSXStartCloseTag") {
+            let empty = around.parent, base = empty.parent;
+            if (base && empty.from == head - 2 && ((name = elementName(state.doc, base.firstChild, head)) || ((_a = base.firstChild) === null || _a === void 0 ? void 0 : _a.name) == "JSXFragmentTag")) {
+                let insert = `${name}>`;
+                return {
+                    range: (0, _state.EditorSelection).cursor(head + insert.length, -1),
+                    changes: {
+                        from: head,
+                        insert
+                    }
+                };
+            }
+        } else if (text == ">") {
+            let openTag = findOpenTag(around);
+            if (openTag && openTag.name == "JSXOpenTag" && !/^\/?>|^<\//.test(state.doc.sliceString(head, head + 2)) && (name = elementName(state.doc, openTag, head))) return {
+                range,
+                changes: {
+                    from: head,
+                    insert: `</${name}>`
+                }
+            };
+        }
+        return {
+            range
+        };
+    });
+    if (closeTags.changes.empty) return false;
+    view.dispatch([
+        base,
+        state.update(closeTags, {
+            userEvent: "input.complete",
+            scrollIntoView: true
+        })
+    ]);
+    return true;
+});
+/**
+Connects an [ESLint](https://eslint.org/) linter to CodeMirror's
+[lint](https://codemirror.net/6/docs/ref/#lint) integration. `eslint` should be an instance of the
+[`Linter`](https://eslint.org/docs/developer-guide/nodejs-api#linter)
+class, and `config` an optional ESLint configuration. The return
+value of this function can be passed to [`linter`](https://codemirror.net/6/docs/ref/#lint.linter)
+to create a JavaScript linting extension.
+
+Note that ESLint targets node, and is tricky to run in the
+browser. The
+[eslint-linter-browserify](https://github.com/UziTech/eslint-linter-browserify)
+package may help with that (see
+[example](https://github.com/UziTech/eslint-linter-browserify/blob/master/example/script.js)).
+*/ function esLint(eslint, config) {
+    if (!config) {
+        config = {
+            parserOptions: {
+                ecmaVersion: 2019,
+                sourceType: "module"
+            },
+            env: {
+                browser: true,
+                node: true,
+                es6: true,
+                es2015: true,
+                es2017: true,
+                es2020: true
+            },
+            rules: {}
+        };
+        eslint.getRules().forEach((desc, name)=>{
+            var _a;
+            if ((_a = desc.meta.docs) === null || _a === void 0 ? void 0 : _a.recommended) config.rules[name] = 2;
+        });
+    }
+    return (view)=>{
+        let { state } = view, found = [];
+        for (let { from, to } of javascriptLanguage.findRegions(state)){
+            let fromLine = state.doc.lineAt(from), offset = {
+                line: fromLine.number - 1,
+                col: from - fromLine.from,
+                pos: from
+            };
+            for (let d of eslint.verify(state.sliceDoc(from, to), config))found.push(translateDiagnostic(d, state.doc, offset));
+        }
+        return found;
+    };
+}
+function mapPos(line, col, doc, offset) {
+    return doc.line(line + offset.line).from + col + (line == 1 ? offset.col - 1 : -1);
+}
+function translateDiagnostic(input, doc, offset) {
+    let start = mapPos(input.line, input.column, doc, offset);
+    let result = {
+        from: start,
+        to: input.endLine != null && input.endColumn != 1 ? mapPos(input.endLine, input.endColumn, doc, offset) : start,
+        message: input.message,
+        source: input.ruleId ? "eslint:" + input.ruleId : "eslint",
+        severity: input.severity == 1 ? "warning" : "error"
+    };
+    if (input.fix) {
+        let { range, text } = input.fix, from = range[0] + offset.pos - start, to = range[1] + offset.pos - start;
+        result.actions = [
+            {
+                name: "fix",
+                apply (view, start) {
+                    view.dispatch({
+                        changes: {
+                            from: start + from,
+                            to: start + to,
+                            insert: text
+                        },
+                        scrollIntoView: true
+                    });
+                }
+            }
+        ];
+    }
+    return result;
+}
+
+},{"@lezer/javascript":"6aBSz","@codemirror/language":"dx7XI","@codemirror/state":"axaOu","@codemirror/view":"c2noD","@codemirror/autocomplete":"20ht8","@lezer/common":"6f22T","@parcel/transformer-js/src/esmodule-helpers.js":"jnFvT"}],"6aBSz":[function(require,module,exports,__globalThis) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "parser", ()=>parser);
+var _lr = require("@lezer/lr");
+var _highlight = require("@lezer/highlight");
+// This file was generated by lezer-generator. You probably shouldn't edit it.
+const noSemi = 316, noSemiType = 317, incdec = 1, incdecPrefix = 2, questionDot = 3, JSXStartTag = 4, insertSemi = 318, spaces = 320, newline = 321, LineComment = 5, BlockComment = 6, Dialect_jsx = 0;
+/* Hand-written tokenizers for JavaScript tokens that can't be
+   expressed by lezer's built-in tokenizer. */ const space = [
+    9,
+    10,
+    11,
+    12,
+    13,
+    32,
+    133,
+    160,
+    5760,
+    8192,
+    8193,
+    8194,
+    8195,
+    8196,
+    8197,
+    8198,
+    8199,
+    8200,
+    8201,
+    8202,
+    8232,
+    8233,
+    8239,
+    8287,
+    12288
+];
+const braceR = 125, semicolon = 59, slash = 47, star = 42, plus = 43, minus = 45, lt = 60, comma = 44, question = 63, dot = 46, bracketL = 91;
+const trackNewline = new (0, _lr.ContextTracker)({
+    start: false,
+    shift (context, term) {
+        return term == LineComment || term == BlockComment || term == spaces ? context : term == newline;
+    },
+    strict: false
+});
+const insertSemicolon = new (0, _lr.ExternalTokenizer)((input, stack)=>{
+    let { next } = input;
+    if (next == braceR || next == -1 || stack.context) input.acceptToken(insertSemi);
+}, {
+    contextual: true,
+    fallback: true
+});
+const noSemicolon = new (0, _lr.ExternalTokenizer)((input, stack)=>{
+    let { next } = input, after;
+    if (space.indexOf(next) > -1) return;
+    if (next == slash && ((after = input.peek(1)) == slash || after == star)) return;
+    if (next != braceR && next != semicolon && next != -1 && !stack.context) input.acceptToken(noSemi);
+}, {
+    contextual: true
+});
+const noSemicolonType = new (0, _lr.ExternalTokenizer)((input, stack)=>{
+    if (input.next == bracketL && !stack.context) input.acceptToken(noSemiType);
+}, {
+    contextual: true
+});
+const operatorToken = new (0, _lr.ExternalTokenizer)((input, stack)=>{
+    let { next } = input;
+    if (next == plus || next == minus) {
+        input.advance();
+        if (next == input.next) {
+            input.advance();
+            let mayPostfix = !stack.context && stack.canShift(incdec);
+            input.acceptToken(mayPostfix ? incdec : incdecPrefix);
+        }
+    } else if (next == question && input.peek(1) == dot) {
+        input.advance();
+        input.advance();
+        if (input.next < 48 || input.next > 57) input.acceptToken(questionDot);
+    }
+}, {
+    contextual: true
+});
+function identifierChar(ch, start) {
+    return ch >= 65 && ch <= 90 || ch >= 97 && ch <= 122 || ch == 95 || ch >= 192 || !start && ch >= 48 && ch <= 57;
+}
+const jsx = new (0, _lr.ExternalTokenizer)((input, stack)=>{
+    if (input.next != lt || !stack.dialectEnabled(Dialect_jsx)) return;
+    input.advance();
+    if (input.next == slash) return;
+    // Scan for an identifier followed by a comma or 'extends', don't
+    // treat this as a start tag if present.
+    let back = 0;
+    while(space.indexOf(input.next) > -1){
+        input.advance();
+        back++;
+    }
+    if (identifierChar(input.next, true)) {
+        input.advance();
+        back++;
+        while(identifierChar(input.next, false)){
+            input.advance();
+            back++;
+        }
+        while(space.indexOf(input.next) > -1){
+            input.advance();
+            back++;
+        }
+        if (input.next == comma) return;
+        for(let i = 0;; i++){
+            if (i == 7) {
+                if (!identifierChar(input.next, true)) return;
+                break;
+            }
+            if (input.next != "extends".charCodeAt(i)) break;
+            input.advance();
+            back++;
+        }
+    }
+    input.acceptToken(JSXStartTag, -back);
+});
+const jsHighlight = (0, _highlight.styleTags)({
+    "get set async static": (0, _highlight.tags).modifier,
+    "for while do if else switch try catch finally return throw break continue default case defer": (0, _highlight.tags).controlKeyword,
+    "in of await yield void typeof delete instanceof as satisfies": (0, _highlight.tags).operatorKeyword,
+    "let var const using function class extends": (0, _highlight.tags).definitionKeyword,
+    "import export from": (0, _highlight.tags).moduleKeyword,
+    "with debugger new": (0, _highlight.tags).keyword,
+    TemplateString: (0, _highlight.tags).special((0, _highlight.tags).string),
+    super: (0, _highlight.tags).atom,
+    BooleanLiteral: (0, _highlight.tags).bool,
+    this: (0, _highlight.tags).self,
+    null: (0, _highlight.tags).null,
+    Star: (0, _highlight.tags).modifier,
+    VariableName: (0, _highlight.tags).variableName,
+    "CallExpression/VariableName TaggedTemplateExpression/VariableName": (0, _highlight.tags).function((0, _highlight.tags).variableName),
+    VariableDefinition: (0, _highlight.tags).definition((0, _highlight.tags).variableName),
+    Label: (0, _highlight.tags).labelName,
+    PropertyName: (0, _highlight.tags).propertyName,
+    PrivatePropertyName: (0, _highlight.tags).special((0, _highlight.tags).propertyName),
+    "CallExpression/MemberExpression/PropertyName": (0, _highlight.tags).function((0, _highlight.tags).propertyName),
+    "FunctionDeclaration/VariableDefinition": (0, _highlight.tags).function((0, _highlight.tags).definition((0, _highlight.tags).variableName)),
+    "ClassDeclaration/VariableDefinition": (0, _highlight.tags).definition((0, _highlight.tags).className),
+    "NewExpression/VariableName": (0, _highlight.tags).className,
+    PropertyDefinition: (0, _highlight.tags).definition((0, _highlight.tags).propertyName),
+    PrivatePropertyDefinition: (0, _highlight.tags).definition((0, _highlight.tags).special((0, _highlight.tags).propertyName)),
+    UpdateOp: (0, _highlight.tags).updateOperator,
+    "LineComment Hashbang": (0, _highlight.tags).lineComment,
+    BlockComment: (0, _highlight.tags).blockComment,
+    Number: (0, _highlight.tags).number,
+    String: (0, _highlight.tags).string,
+    Escape: (0, _highlight.tags).escape,
+    ArithOp: (0, _highlight.tags).arithmeticOperator,
+    LogicOp: (0, _highlight.tags).logicOperator,
+    BitOp: (0, _highlight.tags).bitwiseOperator,
+    CompareOp: (0, _highlight.tags).compareOperator,
+    RegExp: (0, _highlight.tags).regexp,
+    Equals: (0, _highlight.tags).definitionOperator,
+    Arrow: (0, _highlight.tags).function((0, _highlight.tags).punctuation),
+    ": Spread": (0, _highlight.tags).punctuation,
+    "( )": (0, _highlight.tags).paren,
+    "[ ]": (0, _highlight.tags).squareBracket,
+    "{ }": (0, _highlight.tags).brace,
+    "InterpolationStart InterpolationEnd": (0, _highlight.tags).special((0, _highlight.tags).brace),
+    ".": (0, _highlight.tags).derefOperator,
+    ", ;": (0, _highlight.tags).separator,
+    "@": (0, _highlight.tags).meta,
+    TypeName: (0, _highlight.tags).typeName,
+    TypeDefinition: (0, _highlight.tags).definition((0, _highlight.tags).typeName),
+    "type enum interface implements namespace module declare": (0, _highlight.tags).definitionKeyword,
+    "abstract global Privacy readonly override": (0, _highlight.tags).modifier,
+    "is keyof unique infer asserts": (0, _highlight.tags).operatorKeyword,
+    JSXAttributeValue: (0, _highlight.tags).attributeValue,
+    JSXText: (0, _highlight.tags).content,
+    "JSXStartTag JSXStartCloseTag JSXSelfCloseEndTag JSXEndTag": (0, _highlight.tags).angleBracket,
+    "JSXIdentifier JSXNameSpacedName": (0, _highlight.tags).tagName,
+    "JSXAttribute/JSXIdentifier JSXAttribute/JSXNameSpacedName": (0, _highlight.tags).attributeName,
+    "JSXBuiltin/JSXIdentifier": (0, _highlight.tags).standard((0, _highlight.tags).tagName)
+});
+// This file was generated by lezer-generator. You probably shouldn't edit it.
+const spec_identifier = {
+    __proto__: null,
+    export: 20,
+    as: 25,
+    from: 33,
+    default: 36,
+    async: 41,
+    function: 42,
+    in: 52,
+    out: 55,
+    const: 56,
+    extends: 60,
+    this: 64,
+    true: 72,
+    false: 72,
+    null: 84,
+    void: 88,
+    typeof: 92,
+    super: 108,
+    new: 142,
+    delete: 154,
+    yield: 163,
+    await: 167,
+    class: 172,
+    public: 235,
+    private: 235,
+    protected: 235,
+    readonly: 237,
+    instanceof: 256,
+    satisfies: 259,
+    import: 292,
+    keyof: 349,
+    unique: 353,
+    infer: 359,
+    asserts: 395,
+    is: 397,
+    abstract: 417,
+    implements: 419,
+    type: 421,
+    let: 424,
+    var: 426,
+    using: 429,
+    interface: 435,
+    enum: 439,
+    namespace: 445,
+    module: 447,
+    declare: 451,
+    global: 455,
+    defer: 471,
+    for: 476,
+    of: 485,
+    while: 488,
+    with: 492,
+    do: 496,
+    if: 500,
+    else: 502,
+    switch: 506,
+    case: 512,
+    try: 518,
+    catch: 522,
+    finally: 526,
+    return: 530,
+    throw: 534,
+    break: 538,
+    continue: 542,
+    debugger: 546
+};
+const spec_word = {
+    __proto__: null,
+    async: 129,
+    get: 131,
+    set: 133,
+    declare: 195,
+    public: 197,
+    private: 197,
+    protected: 197,
+    static: 199,
+    abstract: 201,
+    override: 203,
+    readonly: 209,
+    accessor: 211,
+    new: 401
+};
+const spec_LessThan = {
+    __proto__: null,
+    "<": 193
+};
+const parser = (0, _lr.LRParser).deserialize({
+    version: 14,
+    states: "$F|Q%TQlOOO%[QlOOO'_QpOOP(lO`OOO*zQ!0MxO'#CiO+RO#tO'#CjO+aO&jO'#CjO+oO#@ItO'#DaO.QQlO'#DgO.bQlO'#DrO%[QlO'#DzO0fQlO'#ESOOQ!0Lf'#E['#E[O1PQ`O'#EXOOQO'#Ep'#EpOOQO'#Il'#IlO1XQ`O'#GsO1dQ`O'#EoO1iQ`O'#EoO3hQ!0MxO'#JrO6[Q!0MxO'#JsO6uQ`O'#F]O6zQ,UO'#FtOOQ!0Lf'#Ff'#FfO7VO7dO'#FfO9XQMhO'#F|O9`Q`O'#F{OOQ!0Lf'#Js'#JsOOQ!0Lb'#Jr'#JrO9eQ`O'#GwOOQ['#K_'#K_O9pQ`O'#IYO9uQ!0LrO'#IZOOQ['#J`'#J`OOQ['#I_'#I_Q`QlOOQ`QlOOO9}Q!L^O'#DvO:UQlO'#EOO:]QlO'#EQO9kQ`O'#GsO:dQMhO'#CoO:rQ`O'#EnO:}Q`O'#EyO;hQMhO'#FeO;xQ`O'#GsOOQO'#K`'#K`O;}Q`O'#K`O<]Q`O'#G{O<]Q`O'#G|O<]Q`O'#HOO9kQ`O'#HRO=SQ`O'#HUO>kQ`O'#CeO>{Q`O'#HcO?TQ`O'#HiO?TQ`O'#HkO`QlO'#HmO?TQ`O'#HoO?TQ`O'#HrO?YQ`O'#HxO?_Q!0LsO'#IOO%[QlO'#IQO?jQ!0LsO'#ISO?uQ!0LsO'#IUO9uQ!0LrO'#IWO@QQ!0MxO'#CiOASQpO'#DlQOQ`OOO%[QlO'#EQOAjQ`O'#ETO:dQMhO'#EnOAuQ`O'#EnOBQQ!bO'#FeOOQ['#Cg'#CgOOQ!0Lb'#Dq'#DqOOQ!0Lb'#Jv'#JvO%[QlO'#JvOOQO'#Jy'#JyOOQO'#Ih'#IhOCQQpO'#EgOOQ!0Lb'#Ef'#EfOOQ!0Lb'#J}'#J}OC|Q!0MSO'#EgODWQpO'#EWOOQO'#Jx'#JxODlQpO'#JyOEyQpO'#EWODWQpO'#EgPFWO&2DjO'#CbPOOO)CD})CD}OOOO'#I`'#I`OFcO#tO,59UOOQ!0Lh,59U,59UOOOO'#Ia'#IaOFqO&jO,59UOGPQ!L^O'#DcOOOO'#Ic'#IcOGWO#@ItO,59{OOQ!0Lf,59{,59{OGfQlO'#IdOGyQ`O'#JtOIxQ!fO'#JtO+}QlO'#JtOJPQ`O,5:ROJgQ`O'#EpOJtQ`O'#KTOKPQ`O'#KSOKPQ`O'#KSOKXQ`O,5;^OK^Q`O'#KROOQ!0Ln,5:^,5:^OKeQlO,5:^OMcQ!0MxO,5:fONSQ`O,5:nONmQ!0LrO'#KQONtQ`O'#KPO9eQ`O'#KPO! YQ`O'#KPO! bQ`O,5;]O! gQ`O'#KPO!#lQ!fO'#JsOOQ!0Lh'#Ci'#CiO%[QlO'#ESO!$[Q!fO,5:sOOQS'#Jz'#JzOOQO-E<j-E<jO9kQ`O,5=_O!$rQ`O,5=_O!$wQlO,5;ZO!&zQMhO'#EkO!(eQ`O,5;ZO!(jQlO'#DyO!(tQpO,5;dO!(|QpO,5;dO%[QlO,5;dOOQ['#FT'#FTOOQ['#FV'#FVO%[QlO,5;eO%[QlO,5;eO%[QlO,5;eO%[QlO,5;eO%[QlO,5;eO%[QlO,5;eO%[QlO,5;eO%[QlO,5;eO%[QlO,5;eO%[QlO,5;eOOQ['#FZ'#FZO!)[QlO,5;tOOQ!0Lf,5;y,5;yOOQ!0Lf,5;z,5;zOOQ!0Lf,5;|,5;|O%[QlO'#IpO!+_Q!0LrO,5<iO%[QlO,5;eO!&zQMhO,5;eO!+|QMhO,5;eO!-nQMhO'#E^O%[QlO,5;wOOQ!0Lf,5;{,5;{O!-uQ,UO'#FjO!.rQ,UO'#KXO!.^Q,UO'#KXO!.yQ,UO'#KXOOQO'#KX'#KXO!/_Q,UO,5<SOOOW,5<`,5<`O!/pQlO'#FvOOOW'#Io'#IoO7VO7dO,5<QO!/wQ,UO'#FxOOQ!0Lf,5<Q,5<QO!0hQ$IUO'#CyOOQ!0Lh'#C}'#C}O!0{O#@ItO'#DRO!1iQMjO,5<eO!1pQ`O,5<hO!3YQ(CWO'#GXO!3jQ`O'#GYO!3oQ`O'#GYO!5_Q(CWO'#G^O!6dQpO'#GbOOQO'#Gn'#GnO!,TQMhO'#GmOOQO'#Gp'#GpO!,TQMhO'#GoO!7VQ$IUO'#JlOOQ!0Lh'#Jl'#JlO!7aQ`O'#JkO!7oQ`O'#JjO!7wQ`O'#CuOOQ!0Lh'#C{'#C{O!8YQ`O'#C}OOQ!0Lh'#DV'#DVOOQ!0Lh'#DX'#DXO!8_Q`O,5<eO1SQ`O'#DZO!,TQMhO'#GPO!,TQMhO'#GRO!8gQ`O'#GTO!8lQ`O'#GUO!3oQ`O'#G[O!,TQMhO'#GaO<]Q`O'#JkO!8qQ`O'#EqO!9`Q`O,5<gOOQ!0Lb'#Cr'#CrO!9hQ`O'#ErO!:bQpO'#EsOOQ!0Lb'#KR'#KRO!:iQ!0LrO'#KaO9uQ!0LrO,5=cO`QlO,5>tOOQ['#Jh'#JhOOQ[,5>u,5>uOOQ[-E<]-E<]O!<hQ!0MxO,5:bO!:]QpO,5:`O!?RQ!0MxO,5:jO%[QlO,5:jO!AiQ!0MxO,5:lOOQO,5@z,5@zO!BYQMhO,5=_O!BhQ!0LrO'#JiO9`Q`O'#JiO!ByQ!0LrO,59ZO!CUQpO,59ZO!C^QMhO,59ZO:dQMhO,59ZO!CiQ`O,5;ZO!CqQ`O'#HbO!DVQ`O'#KdO%[QlO,5;}O!:]QpO,5<PO!D_Q`O,5=zO!DdQ`O,5=zO!DiQ`O,5=zO!DwQ`O,5=zO9uQ!0LrO,5=zO<]Q`O,5=jOOQO'#Cy'#CyO!EOQpO,5=gO!EWQMhO,5=hO!EcQ`O,5=jO!EhQ!bO,5=mO!EpQ`O'#K`O?YQ`O'#HWO9kQ`O'#HYO!EuQ`O'#HYO:dQMhO'#H[O!EzQ`O'#H[OOQ[,5=p,5=pO!FPQ`O'#H]O!FbQ`O'#CoO!FgQ`O,59PO!FqQ`O,59PO!HvQlO,59POOQ[,59P,59PO!IWQ!0LrO,59PO%[QlO,59PO!KcQlO'#HeOOQ['#Hf'#HfOOQ['#Hg'#HgO`QlO,5=}O!KyQ`O,5=}O`QlO,5>TO`QlO,5>VO!LOQ`O,5>XO`QlO,5>ZO!LTQ`O,5>^O!LYQlO,5>dOOQ[,5>j,5>jO%[QlO,5>jO9uQ!0LrO,5>lOOQ[,5>n,5>nO#!dQ`O,5>nOOQ[,5>p,5>pO#!dQ`O,5>pOOQ[,5>r,5>rO##QQpO'#D_O%[QlO'#JvO##sQpO'#JvO##}QpO'#DmO#$`QpO'#DmO#&qQlO'#DmO#&xQ`O'#JuO#'QQ`O,5:WO#'VQ`O'#EtO#'eQ`O'#KUO#'mQ`O,5;_O#'rQpO'#DmO#(PQpO'#EVOOQ!0Lf,5:o,5:oO%[QlO,5:oO#(WQ`O,5:oO?YQ`O,5;YO!CUQpO,5;YO!C^QMhO,5;YO:dQMhO,5;YO#(`Q`O,5@bO#(eQ07dO,5:sOOQO-E<f-E<fO#)kQ!0MSO,5;RODWQpO,5:rO#)uQpO,5:rODWQpO,5;RO!ByQ!0LrO,5:rOOQ!0Lb'#Ej'#EjOOQO,5;R,5;RO%[QlO,5;RO#*SQ!0LrO,5;RO#*_Q!0LrO,5;RO!CUQpO,5:rOOQO,5;X,5;XO#*mQ!0LrO,5;RPOOO'#I^'#I^P#+RO&2DjO,58|POOO,58|,58|OOOO-E<^-E<^OOQ!0Lh1G.p1G.pOOOO-E<_-E<_OOOO,59},59}O#+^Q!bO,59}OOOO-E<a-E<aOOQ!0Lf1G/g1G/gO#+cQ!fO,5?OO+}QlO,5?OOOQO,5?U,5?UO#+mQlO'#IdOOQO-E<b-E<bO#+zQ`O,5@`O#,SQ!fO,5@`O#,ZQ`O,5@nOOQ!0Lf1G/m1G/mO%[QlO,5@oO#,cQ`O'#IjOOQO-E<h-E<hO#,ZQ`O,5@nOOQ!0Lb1G0x1G0xOOQ!0Ln1G/x1G/xOOQ!0Ln1G0Y1G0YO%[QlO,5@lO#,wQ!0LrO,5@lO#-YQ!0LrO,5@lO#-aQ`O,5@kO9eQ`O,5@kO#-iQ`O,5@kO#-wQ`O'#ImO#-aQ`O,5@kOOQ!0Lb1G0w1G0wO!(tQpO,5:uO!)PQpO,5:uOOQS,5:w,5:wO#.iQdO,5:wO#.qQMhO1G2yO9kQ`O1G2yOOQ!0Lf1G0u1G0uO#/PQ!0MxO1G0uO#0UQ!0MvO,5;VOOQ!0Lh'#GW'#GWO#0rQ!0MzO'#JlO!$wQlO1G0uO#2}Q!fO'#JwO%[QlO'#JwO#3XQ`O,5:eOOQ!0Lh'#D_'#D_OOQ!0Lf1G1O1G1OO%[QlO1G1OOOQ!0Lf1G1f1G1fO#3^Q`O1G1OO#5rQ!0MxO1G1PO#5yQ!0MxO1G1PO#8aQ!0MxO1G1PO#8hQ!0MxO1G1PO#;OQ!0MxO1G1PO#=fQ!0MxO1G1PO#=mQ!0MxO1G1PO#=tQ!0MxO1G1PO#@[Q!0MxO1G1PO#@cQ!0MxO1G1PO#BpQ?MtO'#CiO#DkQ?MtO1G1`O#DrQ?MtO'#JsO#EVQ!0MxO,5?[OOQ!0Lb-E<n-E<nO#GdQ!0MxO1G1PO#HaQ!0MzO1G1POOQ!0Lf1G1P1G1PO#IdQMjO'#J|O#InQ`O,5:xO#IsQ!0MxO1G1cO#JgQ,UO,5<WO#JoQ,UO,5<XO#JwQ,UO'#FoO#K`Q`O'#FnOOQO'#KY'#KYOOQO'#In'#InO#KeQ,UO1G1nOOQ!0Lf1G1n1G1nOOOW1G1y1G1yO#KvQ?MtO'#JrO#LQQ`O,5<bO!)[QlO,5<bOOOW-E<m-E<mOOQ!0Lf1G1l1G1lO#LVQpO'#KXOOQ!0Lf,5<d,5<dO#L_QpO,5<dO#LdQMhO'#DTOOOO'#Ib'#IbO#LkO#@ItO,59mOOQ!0Lh,59m,59mO%[QlO1G2PO!8lQ`O'#IrO#LvQ`O,5<zOOQ!0Lh,5<w,5<wO!,TQMhO'#IuO#MdQMjO,5=XO!,TQMhO'#IwO#NVQMjO,5=ZO!&zQMhO,5=]OOQO1G2S1G2SO#NaQ!dO'#CrO#NtQ(CWO'#ErO$ |QpO'#GbO$!dQ!dO,5<sO$!kQ`O'#K[O9eQ`O'#K[O$!yQ`O,5<uO$#aQ!dO'#C{O!,TQMhO,5<tO$#kQ`O'#GZO$$PQ`O,5<tO$$UQ!dO'#GWO$$cQ!dO'#K]O$$mQ`O'#K]O!&zQMhO'#K]O$$rQ`O,5<xO$$wQlO'#JvO$%RQpO'#GcO#$`QpO'#GcO$%dQ`O'#GgO!3oQ`O'#GkO$%iQ!0LrO'#ItO$%tQpO,5<|OOQ!0Lp,5<|,5<|O$%{QpO'#GcO$&YQpO'#GdO$&kQpO'#GdO$&pQMjO,5=XO$'QQMjO,5=ZOOQ!0Lh,5=^,5=^O!,TQMhO,5@VO!,TQMhO,5@VO$'bQ`O'#IyO$'vQ`O,5@UO$(OQ`O,59aOOQ!0Lh,59i,59iO$(TQ`O,5@VO$)TQ$IYO,59uOOQ!0Lh'#Jp'#JpO$)vQMjO,5<kO$*iQMjO,5<mO@zQ`O,5<oOOQ!0Lh,5<p,5<pO$*sQ`O,5<vO$*xQMjO,5<{O$+YQ`O'#KPO!$wQlO1G2RO$+_Q`O1G2RO9eQ`O'#KSO9eQ`O'#EtO%[QlO'#EtO9eQ`O'#I{O$+dQ!0LrO,5@{OOQ[1G2}1G2}OOQ[1G4`1G4`OOQ!0Lf1G/|1G/|OOQ!0Lf1G/z1G/zO$-fQ!0MxO1G0UOOQ[1G2y1G2yO!&zQMhO1G2yO%[QlO1G2yO#.tQ`O1G2yO$/jQMhO'#EkOOQ!0Lb,5@T,5@TO$/wQ!0LrO,5@TOOQ[1G.u1G.uO!ByQ!0LrO1G.uO!CUQpO1G.uO!C^QMhO1G.uO$0YQ`O1G0uO$0_Q`O'#CiO$0jQ`O'#KeO$0rQ`O,5=|O$0wQ`O'#KeO$0|Q`O'#KeO$1[Q`O'#JRO$1jQ`O,5AOO$1rQ!fO1G1iOOQ!0Lf1G1k1G1kO9kQ`O1G3fO@zQ`O1G3fO$1yQ`O1G3fO$2OQ`O1G3fO!DiQ`O1G3fO9uQ!0LrO1G3fOOQ[1G3f1G3fO!EcQ`O1G3UO!&zQMhO1G3RO$2TQ`O1G3ROOQ[1G3S1G3SO!&zQMhO1G3SO$2YQ`O1G3SO$2bQpO'#HQOOQ[1G3U1G3UO!6_QpO'#I}O!EhQ!bO1G3XOOQ[1G3X1G3XOOQ[,5=r,5=rO$2jQMhO,5=tO9kQ`O,5=tO$%dQ`O,5=vO9`Q`O,5=vO!CUQpO,5=vO!C^QMhO,5=vO:dQMhO,5=vO$2xQ`O'#KcO$3TQ`O,5=wOOQ[1G.k1G.kO$3YQ!0LrO1G.kO@zQ`O1G.kO$3eQ`O1G.kO9uQ!0LrO1G.kO$5mQ!fO,5AQO$5zQ`O,5AQO9eQ`O,5AQO$6VQlO,5>PO$6^Q`O,5>POOQ[1G3i1G3iO`QlO1G3iOOQ[1G3o1G3oOOQ[1G3q1G3qO?TQ`O1G3sO$6cQlO1G3uO$:gQlO'#HtOOQ[1G3x1G3xO$:tQ`O'#HzO?YQ`O'#H|OOQ[1G4O1G4OO$:|QlO1G4OO9uQ!0LrO1G4UOOQ[1G4W1G4WOOQ!0Lb'#G_'#G_O9uQ!0LrO1G4YO9uQ!0LrO1G4[O$?TQ`O,5@bO!)[QlO,5;`O9eQ`O,5;`O?YQ`O,5:XO!)[QlO,5:XO!CUQpO,5:XO$?YQ?MtO,5:XOOQO,5;`,5;`O$?dQpO'#IeO$?zQ`O,5@aOOQ!0Lf1G/r1G/rO$@SQpO'#IkO$@^Q`O,5@pOOQ!0Lb1G0y1G0yO#$`QpO,5:XOOQO'#Ig'#IgO$@fQpO,5:qOOQ!0Ln,5:q,5:qO#(ZQ`O1G0ZOOQ!0Lf1G0Z1G0ZO%[QlO1G0ZOOQ!0Lf1G0t1G0tO?YQ`O1G0tO!CUQpO1G0tO!C^QMhO1G0tOOQ!0Lb1G5|1G5|O!ByQ!0LrO1G0^OOQO1G0m1G0mO%[QlO1G0mO$@mQ!0LrO1G0mO$@xQ!0LrO1G0mO!CUQpO1G0^ODWQpO1G0^O$AWQ!0LrO1G0mOOQO1G0^1G0^O$AlQ!0MxO1G0mPOOO-E<[-E<[POOO1G.h1G.hOOOO1G/i1G/iO$AvQ!bO,5<iO$BOQ!fO1G4jOOQO1G4p1G4pO%[QlO,5?OO$BYQ`O1G5zO$BbQ`O1G6YO$BjQ!fO1G6ZO9eQ`O,5?UO$BtQ!0MxO1G6WO%[QlO1G6WO$CUQ!0LrO1G6WO$CgQ`O1G6VO$CgQ`O1G6VO9eQ`O1G6VO$CoQ`O,5?XO9eQ`O,5?XOOQO,5?X,5?XO$DTQ`O,5?XO$+YQ`O,5?XOOQO-E<k-E<kOOQS1G0a1G0aOOQS1G0c1G0cO#.lQ`O1G0cOOQ[7+(e7+(eO!&zQMhO7+(eO%[QlO7+(eO$DcQ`O7+(eO$DnQMhO7+(eO$D|Q!0MzO,5=XO$GXQ!0MzO,5=ZO$IdQ!0MzO,5=XO$KuQ!0MzO,5=ZO$NWQ!0MzO,59uO%!]Q!0MzO,5<kO%$hQ!0MzO,5<mO%&sQ!0MzO,5<{OOQ!0Lf7+&a7+&aO%)UQ!0MxO7+&aO%)xQlO'#IfO%*VQ`O,5@cO%*_Q!fO,5@cOOQ!0Lf1G0P1G0PO%*iQ`O7+&jOOQ!0Lf7+&j7+&jO%*nQ?MtO,5:fO%[QlO7+&zO%*xQ?MtO,5:bO%+VQ?MtO,5:jO%+aQ?MtO,5:lO%+kQMhO'#IiO%+uQ`O,5@hOOQ!0Lh1G0d1G0dOOQO1G1r1G1rOOQO1G1s1G1sO%+}Q!jO,5<ZO!)[QlO,5<YOOQO-E<l-E<lOOQ!0Lf7+'Y7+'YOOOW7+'e7+'eOOOW1G1|1G1|O%,YQ`O1G1|OOQ!0Lf1G2O1G2OOOOO,59o,59oO%,_Q!dO,59oOOOO-E<`-E<`OOQ!0Lh1G/X1G/XO%,fQ!0MxO7+'kOOQ!0Lh,5?^,5?^O%-YQMhO1G2fP%-aQ`O'#IrPOQ!0Lh-E<p-E<pO%-}QMjO,5?aOOQ!0Lh-E<s-E<sO%.pQMjO,5?cOOQ!0Lh-E<u-E<uO%.zQ!dO1G2wO%/RQ!dO'#CrO%/iQMhO'#KSO$$wQlO'#JvOOQ!0Lh1G2_1G2_O%/sQ`O'#IqO%0[Q`O,5@vO%0[Q`O,5@vO%0dQ`O,5@vO%0oQ`O,5@vOOQO1G2a1G2aO%0}QMjO1G2`O$+YQ`O'#K[O!,TQMhO1G2`O%1_Q(CWO'#IsO%1lQ`O,5@wO!&zQMhO,5@wO%1tQ!dO,5@wOOQ!0Lh1G2d1G2dO%4UQ!fO'#CiO%4`Q`O,5=POOQ!0Lb,5<},5<}O%4hQpO,5<}OOQ!0Lb,5=O,5=OOCwQ`O,5<}O%4sQpO,5<}OOQ!0Lb,5=R,5=RO$+YQ`O,5=VOOQO,5?`,5?`OOQO-E<r-E<rOOQ!0Lp1G2h1G2hO#$`QpO,5<}O$$wQlO,5=PO%5RQ`O,5=OO%5^QpO,5=OO!,TQMhO'#IuO%6WQMjO1G2sO!,TQMhO'#IwO%6yQMjO1G2uO%7TQMjO1G5qO%7_QMjO1G5qOOQO,5?e,5?eOOQO-E<w-E<wOOQO1G.{1G.{O!,TQMhO1G5qO!,TQMhO1G5qO!:]QpO,59wO%[QlO,59wOOQ!0Lh,5<j,5<jO%7lQ`O1G2ZO!,TQMhO1G2bO%7qQ!0MxO7+'mOOQ!0Lf7+'m7+'mO!$wQlO7+'mO%8eQ`O,5;`OOQ!0Lb,5?g,5?gOOQ!0Lb-E<y-E<yO%8jQ!dO'#K^O#(ZQ`O7+(eO4UQ!fO7+(eO$DfQ`O7+(eO%8tQ!0MvO'#CiO%9XQ!0MvO,5=SO%9lQ`O,5=SO%9tQ`O,5=SOOQ!0Lb1G5o1G5oOOQ[7+$a7+$aO!ByQ!0LrO7+$aO!CUQpO7+$aO!$wQlO7+&aO%9yQ`O'#JQO%:bQ`O,5APOOQO1G3h1G3hO9kQ`O,5APO%:bQ`O,5APO%:jQ`O,5APOOQO,5?m,5?mOOQO-E=P-E=POOQ!0Lf7+'T7+'TO%:oQ`O7+)QO9uQ!0LrO7+)QO9kQ`O7+)QO@zQ`O7+)QO%:tQ`O7+)QOOQ[7+)Q7+)QOOQ[7+(p7+(pO%:yQ!0MvO7+(mO!&zQMhO7+(mO!E^Q`O7+(nOOQ[7+(n7+(nO!&zQMhO7+(nO%;TQ`O'#KbO%;`Q`O,5=lOOQO,5?i,5?iOOQO-E<{-E<{OOQ[7+(s7+(sO%<rQpO'#HZOOQ[1G3`1G3`O!&zQMhO1G3`O%[QlO1G3`O%<yQ`O1G3`O%=UQMhO1G3`O9uQ!0LrO1G3bO$%dQ`O1G3bO9`Q`O1G3bO!CUQpO1G3bO!C^QMhO1G3bO%=dQ`O'#JPO%=xQ`O,5@}O%>QQpO,5@}OOQ!0Lb1G3c1G3cOOQ[7+$V7+$VO@zQ`O7+$VO9uQ!0LrO7+$VO%>]Q`O7+$VO%[QlO1G6lO%[QlO1G6mO%>bQ!0LrO1G6lO%>lQlO1G3kO%>sQ`O1G3kO%>xQlO1G3kOOQ[7+)T7+)TO9uQ!0LrO7+)_O`QlO7+)aOOQ['#Kh'#KhOOQ['#JS'#JSO%?PQlO,5>`OOQ[,5>`,5>`O%[QlO'#HuO%?^Q`O'#HwOOQ[,5>f,5>fO9eQ`O,5>fOOQ[,5>h,5>hOOQ[7+)j7+)jOOQ[7+)p7+)pOOQ[7+)t7+)tOOQ[7+)v7+)vO%?cQpO1G5|O%?}Q?MtO1G0zO%@XQ`O1G0zOOQO1G/s1G/sO%@dQ?MtO1G/sO?YQ`O1G/sO!)[QlO'#DmOOQO,5?P,5?POOQO-E<c-E<cOOQO,5?V,5?VOOQO-E<i-E<iO!CUQpO1G/sOOQO-E<e-E<eOOQ!0Ln1G0]1G0]OOQ!0Lf7+%u7+%uO#(ZQ`O7+%uOOQ!0Lf7+&`7+&`O?YQ`O7+&`O!CUQpO7+&`OOQO7+%x7+%xO$AlQ!0MxO7+&XOOQO7+&X7+&XO%[QlO7+&XO%@nQ!0LrO7+&XO!ByQ!0LrO7+%xO!CUQpO7+%xO%@yQ!0LrO7+&XO%AXQ!0MxO7++rO%[QlO7++rO%AiQ`O7++qO%AiQ`O7++qOOQO1G4s1G4sO9eQ`O1G4sO%AqQ`O1G4sOOQS7+%}7+%}O#(ZQ`O<<LPO4UQ!fO<<LPO%BPQ`O<<LPOOQ[<<LP<<LPO!&zQMhO<<LPO%[QlO<<LPO%BXQ`O<<LPO%BdQ!0MzO,5?aO%DoQ!0MzO,5?cO%FzQ!0MzO1G2`O%I]Q!0MzO1G2sO%KhQ!0MzO1G2uO%MsQ!fO,5?QO%[QlO,5?QOOQO-E<d-E<dO%M}Q`O1G5}OOQ!0Lf<<JU<<JUO%NVQ?MtO1G0uO&!^Q?MtO1G1PO&!eQ?MtO1G1PO&$fQ?MtO1G1PO&$mQ?MtO1G1PO&&nQ?MtO1G1PO&(oQ?MtO1G1PO&(vQ?MtO1G1PO&(}Q?MtO1G1PO&+OQ?MtO1G1PO&+VQ?MtO1G1PO&+^Q!0MxO<<JfO&-UQ?MtO1G1PO&.RQ?MvO1G1PO&/UQ?MvO'#JlO&1[Q?MtO1G1cO&1iQ?MtO1G0UO&1sQMjO,5?TOOQO-E<g-E<gO!)[QlO'#FqOOQO'#KZ'#KZOOQO1G1u1G1uO&1}Q`O1G1tO&2SQ?MtO,5?[OOOW7+'h7+'hOOOO1G/Z1G/ZO&2^Q!dO1G4xOOQ!0Lh7+(Q7+(QP!&zQMhO,5?^O!,TQMhO7+(cO&2eQ`O,5?]O9eQ`O,5?]O$+YQ`O,5?]OOQO-E<o-E<oO&2sQ`O1G6bO&2sQ`O1G6bO&2{Q`O1G6bO&3WQMjO7+'zO&3hQ!dO,5?_O&3rQ`O,5?_O!&zQMhO,5?_OOQO-E<q-E<qO&3wQ!dO1G6cO&4RQ`O1G6cO&4ZQ`O1G2kO!&zQMhO1G2kOOQ!0Lb1G2i1G2iOOQ!0Lb1G2j1G2jO%4hQpO1G2iO!CUQpO1G2iOCwQ`O1G2iOOQ!0Lb1G2q1G2qO&4`QpO1G2iO&4nQ`O1G2kO$+YQ`O1G2jOCwQ`O1G2jO$$wQlO1G2kO&4vQ`O1G2jO&5jQMjO,5?aOOQ!0Lh-E<t-E<tO&6]QMjO,5?cOOQ!0Lh-E<v-E<vO!,TQMhO7++]O&6gQMjO7++]O&6qQMjO7++]OOQ!0Lh1G/c1G/cO&7OQ`O1G/cOOQ!0Lh7+'u7+'uO&7TQMjO7+'|O&7eQ!0MxO<<KXOOQ!0Lf<<KX<<KXO&8XQ`O1G0zO!&zQMhO'#IzO&8^Q`O,5@xO&:`Q!fO<<LPO!&zQMhO1G2nO&:gQ!0LrO1G2nOOQ[<<G{<<G{O!ByQ!0LrO<<G{O&:xQ!0MxO<<I{OOQ!0Lf<<I{<<I{OOQO,5?l,5?lO&;lQ`O,5?lO&;qQ`O,5?lOOQO-E=O-E=OO&<PQ`O1G6kO&<PQ`O1G6kO9kQ`O1G6kO@zQ`O<<LlOOQ[<<Ll<<LlO&<XQ`O<<LlO9uQ!0LrO<<LlO9kQ`O<<LlOOQ[<<LX<<LXO%:yQ!0MvO<<LXOOQ[<<LY<<LYO!E^Q`O<<LYO&<^QpO'#I|O&<iQ`O,5@|O!)[QlO,5@|OOQ[1G3W1G3WOOQO'#JO'#JOO9uQ!0LrO'#JOO&<qQpO,5=uOOQ[,5=u,5=uO&<xQpO'#EgO&=PQpO'#GeO&=UQ`O7+(zO&=ZQ`O7+(zOOQ[7+(z7+(zO!&zQMhO7+(zO%[QlO7+(zO&=cQ`O7+(zOOQ[7+(|7+(|O9uQ!0LrO7+(|O$%dQ`O7+(|O9`Q`O7+(|O!CUQpO7+(|O&=nQ`O,5?kOOQO-E<}-E<}OOQO'#H^'#H^O&=yQ`O1G6iO9uQ!0LrO<<GqOOQ[<<Gq<<GqO@zQ`O<<GqO&>RQ`O7+,WO&>WQ`O7+,XO%[QlO7+,WO%[QlO7+,XOOQ[7+)V7+)VO&>]Q`O7+)VO&>bQlO7+)VO&>iQ`O7+)VOOQ[<<Ly<<LyOOQ[<<L{<<L{OOQ[-E=Q-E=QOOQ[1G3z1G3zO&>nQ`O,5>aOOQ[,5>c,5>cO&>sQ`O1G4QO9eQ`O7+&fO!)[QlO7+&fOOQO7+%_7+%_O&>xQ?MtO1G6ZO?YQ`O7+%_OOQ!0Lf<<Ia<<IaOOQ!0Lf<<Iz<<IzO?YQ`O<<IzOOQO<<Is<<IsO$AlQ!0MxO<<IsO%[QlO<<IsOOQO<<Id<<IdO!ByQ!0LrO<<IdO&?SQ!0LrO<<IsO&?_Q!0MxO<= ^O&?oQ`O<= ]OOQO7+*_7+*_O9eQ`O7+*_OOQ[ANAkANAkO&?wQ!fOANAkO!&zQMhOANAkO#(ZQ`OANAkO4UQ!fOANAkO&@OQ`OANAkO%[QlOANAkO&@WQ!0MzO7+'zO&BiQ!0MzO,5?aO&DtQ!0MzO,5?cO&GPQ!0MzO7+'|O&IbQ!fO1G4lO&IlQ?MtO7+&aO&KpQ?MvO,5=XO&MwQ?MvO,5=ZO&NXQ?MvO,5=XO&NiQ?MvO,5=ZO&NyQ?MvO,59uO'#PQ?MvO,5<kO'%SQ?MvO,5<mO''hQ?MvO,5<{O')^Q?MtO7+'kO')kQ?MtO7+'mO')xQ`O,5<]OOQO7+'`7+'`OOQ!0Lh7+*d7+*dO')}QMjO<<K}OOQO1G4w1G4wO'*UQ`O1G4wO'*aQ`O1G4wO'*oQ`O7++|O'*oQ`O7++|O!&zQMhO1G4yO'*wQ!dO1G4yO'+RQ`O7++}O'+ZQ`O7+(VO'+fQ!dO7+(VOOQ!0Lb7+(T7+(TOOQ!0Lb7+(U7+(UO!CUQpO7+(TOCwQ`O7+(TO'+pQ`O7+(VO!&zQMhO7+(VO$+YQ`O7+(UO'+uQ`O7+(VOCwQ`O7+(UO'+}QMjO<<NwO!,TQMhO<<NwOOQ!0Lh7+$}7+$}O',XQ!dO,5?fOOQO-E<x-E<xO',cQ!0MvO7+(YO!&zQMhO7+(YOOQ[AN=gAN=gO9kQ`O1G5WOOQO1G5W1G5WO',sQ`O1G5WO',xQ`O7+,VO',xQ`O7+,VO9uQ!0LrOANBWO@zQ`OANBWOOQ[ANBWANBWO'-QQ`OANBWOOQ[ANAsANAsOOQ[ANAtANAtO'-VQ`O,5?hOOQO-E<z-E<zO'-bQ?MtO1G6hOOQO,5?j,5?jOOQO-E<|-E<|OOQ[1G3a1G3aO'-lQ`O,5=POOQ[<<Lf<<LfO!&zQMhO<<LfO&=UQ`O<<LfO'-qQ`O<<LfO%[QlO<<LfOOQ[<<Lh<<LhO9uQ!0LrO<<LhO$%dQ`O<<LhO9`Q`O<<LhO'-yQpO1G5VO'.UQ`O7+,TOOQ[AN=]AN=]O9uQ!0LrOAN=]OOQ[<= r<= rOOQ[<= s<= sO'.^Q`O<= rO'.cQ`O<= sOOQ[<<Lq<<LqO'.hQ`O<<LqO'.mQlO<<LqOOQ[1G3{1G3{O?YQ`O7+)lO'.tQ`O<<JQO'/PQ?MtO<<JQOOQO<<Hy<<HyOOQ!0LfAN?fAN?fOOQOAN?_AN?_O$AlQ!0MxOAN?_OOQOAN?OAN?OO%[QlOAN?_OOQO<<My<<MyOOQ[G27VG27VO!&zQMhOG27VO#(ZQ`OG27VO'/ZQ!fOG27VO4UQ!fOG27VO'/bQ`OG27VO'/jQ?MtO<<JfO'/wQ?MvO1G2`O'1mQ?MvO,5?aO'3pQ?MvO,5?cO'5sQ?MvO1G2sO'7vQ?MvO1G2uO'9yQ?MtO<<KXO':WQ?MtO<<I{OOQO1G1w1G1wO!,TQMhOANAiOOQO7+*c7+*cO':eQ`O7+*cO':pQ`O<= hO':xQ!dO7+*eOOQ!0Lb<<Kq<<KqO$+YQ`O<<KqOCwQ`O<<KqO';SQ`O<<KqO!&zQMhO<<KqOOQ!0Lb<<Ko<<KoO!CUQpO<<KoO';_Q!dO<<KqOOQ!0Lb<<Kp<<KpO';iQ`O<<KqO!&zQMhO<<KqO$+YQ`O<<KpO';nQMjOANDcO';xQ!0MvO<<KtOOQO7+*r7+*rO9kQ`O7+*rO'<YQ`O<= qOOQ[G27rG27rO9uQ!0LrOG27rO@zQ`OG27rO!)[QlO1G5SO'<bQ`O7+,SO'<jQ`O1G2kO&=UQ`OANBQOOQ[ANBQANBQO!&zQMhOANBQO'<oQ`OANBQOOQ[ANBSANBSO9uQ!0LrOANBSO$%dQ`OANBSOOQO'#H_'#H_OOQO7+*q7+*qOOQ[G22wG22wOOQ[ANE^ANE^OOQ[ANE_ANE_OOQ[ANB]ANB]O'<wQ`OANB]OOQ[<<MW<<MWO!)[QlOAN?lOOQOG24yG24yO$AlQ!0MxOG24yO#(ZQ`OLD,qOOQ[LD,qLD,qO!&zQMhOLD,qO'<|Q!fOLD,qO'=TQ?MvO7+'zO'>yQ?MvO,5?aO'@|Q?MvO,5?cO'CPQ?MvO7+'|O'DuQMjOG27TOOQO<<M}<<M}OOQ!0LbANA]ANA]O$+YQ`OANA]OCwQ`OANA]O'EVQ!dOANA]OOQ!0LbANAZANAZO'E^Q`OANA]O!&zQMhOANA]O'EiQ!dOANA]OOQ!0LbANA[ANA[OOQO<<N^<<N^OOQ[LD-^LD-^O9uQ!0LrOLD-^O'EsQ?MtO7+*nOOQO'#Gf'#GfOOQ[G27lG27lO&=UQ`OG27lO!&zQMhOG27lOOQ[G27nG27nO9uQ!0LrOG27nOOQ[G27wG27wO'E}Q?MtOG25WOOQOLD*eLD*eOOQ[!$(!]!$(!]O#(ZQ`O!$(!]O!&zQMhO!$(!]O'FXQ!0MzOG27TOOQ!0LbG26wG26wO$+YQ`OG26wO'HjQ`OG26wOCwQ`OG26wO'HuQ!dOG26wO!&zQMhOG26wOOQ[!$(!x!$(!xOOQ[LD-WLD-WO&=UQ`OLD-WOOQ[LD-YLD-YOOQ[!)9Ew!)9EwO#(ZQ`O!)9EwOOQ!0LbLD,cLD,cO$+YQ`OLD,cOCwQ`OLD,cO'H|Q`OLD,cO'IXQ!dOLD,cOOQ[!$(!r!$(!rOOQ[!.K;c!.K;cO'I`Q?MvOG27TOOQ!0Lb!$( }!$( }O$+YQ`O!$( }OCwQ`O!$( }O'KUQ`O!$( }OOQ!0Lb!)9Ei!)9EiO$+YQ`O!)9EiOCwQ`O!)9EiOOQ!0Lb!.K;T!.K;TO$+YQ`O!.K;TOOQ!0Lb!4/0o!4/0oO!)[QlO'#DzO1PQ`O'#EXO'KaQ!fO'#JrO'KhQ!L^O'#DvO'KoQlO'#EOO'KvQ!fO'#CiO'N^Q!fO'#CiO!)[QlO'#EQO'NnQlO,5;ZO!)[QlO,5;eO!)[QlO,5;eO!)[QlO,5;eO!)[QlO,5;eO!)[QlO,5;eO!)[QlO,5;eO!)[QlO,5;eO!)[QlO,5;eO!)[QlO,5;eO!)[QlO,5;eO!)[QlO'#IpO(!qQ`O,5<iO!)[QlO,5;eO(!yQMhO,5;eO($dQMhO,5;eO!)[QlO,5;wO!&zQMhO'#GmO(!yQMhO'#GmO!&zQMhO'#GoO(!yQMhO'#GoO1SQ`O'#DZO1SQ`O'#DZO!&zQMhO'#GPO(!yQMhO'#GPO!&zQMhO'#GRO(!yQMhO'#GRO!&zQMhO'#GaO(!yQMhO'#GaO!)[QlO,5:jO($kQpO'#D_O($uQpO'#JvO!)[QlO,5@oO'NnQlO1G0uO(%PQ?MtO'#CiO!)[QlO1G2PO!&zQMhO'#IuO(!yQMhO'#IuO!&zQMhO'#IwO(!yQMhO'#IwO(%ZQ!dO'#CrO!&zQMhO,5<tO(!yQMhO,5<tO'NnQlO1G2RO!)[QlO7+&zO!&zQMhO1G2`O(!yQMhO1G2`O!&zQMhO'#IuO(!yQMhO'#IuO!&zQMhO'#IwO(!yQMhO'#IwO!&zQMhO1G2bO(!yQMhO1G2bO'NnQlO7+'mO'NnQlO7+&aO!&zQMhOANAiO(!yQMhOANAiO(%nQ`O'#EoO(%sQ`O'#EoO(%{Q`O'#F]O(&QQ`O'#EyO(&VQ`O'#KTO(&bQ`O'#KRO(&mQ`O,5;ZO(&rQMjO,5<eO(&yQ`O'#GYO('OQ`O'#GYO('TQ`O,5<eO(']Q`O,5<gO('eQ`O,5;ZO('mQ?MtO1G1`O('tQ`O,5<tO('yQ`O,5<tO((OQ`O,5<vO((TQ`O,5<vO((YQ`O1G2RO((_Q`O1G0uO((dQMjO<<K}O((kQMjO<<K}O((rQMhO'#F|O9`Q`O'#F{OAuQ`O'#EnO!)[QlO,5;tO!3oQ`O'#GYO!3oQ`O'#GYO!3oQ`O'#G[O!3oQ`O'#G[O!,TQMhO7+(cO!,TQMhO7+(cO%.zQ!dO1G2wO%.zQ!dO1G2wO!&zQMhO,5=]O!&zQMhO,5=]",
+    stateData: "()x~O'|OS'}OSTOS(ORQ~OPYOQYOSfOY!VOaqOdzOeyOl!POpkOrYOskOtkOzkO|YO!OYO!SWO!WkO!XkO!_XO!iuO!lZO!oYO!pYO!qYO!svO!uwO!xxO!|]O$W|O$niO%h}O%j!QO%l!OO%m!OO%n!OO%q!RO%s!SO%v!TO%w!TO%y!UO&W!WO&^!XO&`!YO&b!ZO&d![O&g!]O&m!^O&s!_O&u!`O&w!aO&y!bO&{!cO(TSO(VTO(YUO(aVO(o[O~OWtO~P`OPYOQYOSfOd!jOe!iOpkOrYOskOtkOzkO|YO!OYO!SWO!WkO!XkO!_!eO!iuO!lZO!oYO!pYO!qYO!svO!u!gO!x!hO$W!kO$niO(T!dO(VTO(YUO(aVO(o[O~Oa!wOs!nO!S!oO!b!yO!c!vO!d!vO!|<VO#T!pO#U!pO#V!xO#W!pO#X!pO#[!zO#]!zO(U!lO(VTO(YUO(e!mO(o!sO~O(O!{O~OP]XR]X[]Xa]Xj]Xr]X!Q]X!S]X!]]X!l]X!p]X#R]X#S]X#`]X#kfX#n]X#o]X#p]X#q]X#r]X#s]X#t]X#u]X#v]X#x]X#z]X#{]X$Q]X'z]X(a]X(r]X(y]X(z]X~O!g%RX~P(qO_!}O(V#PO(W!}O(X#PO~O_#QO(X#PO(Y#PO(Z#QO~Ox#SO!U#TO(b#TO(c#VO~OPYOQYOSfOd!jOe!iOpkOrYOskOtkOzkO|YO!OYO!SWO!WkO!XkO!_!eO!iuO!lZO!oYO!pYO!qYO!svO!u!gO!x!hO$W!kO$niO(T<ZO(VTO(YUO(aVO(o[O~O![#ZO!]#WO!Y(hP!Y(vP~P+}O!^#cO~P`OPYOQYOSfOd!jOe!iOrYOskOtkOzkO|YO!OYO!SWO!WkO!XkO!_!eO!iuO!lZO!oYO!pYO!qYO!svO!u!gO!x!hO$W!kO$niO(VTO(YUO(aVO(o[O~Op#mO![#iO!|]O#i#lO#j#iO(T<[O!k(sP~P.iO!l#oO(T#nO~O!x#sO!|]O%h#tO~O#k#uO~O!g#vO#k#uO~OP$[OR#zO[$cOj$ROr$aO!Q#yO!S#{O!]$_O!l#xO!p$[O#R$RO#n$OO#o$PO#p$PO#q$PO#r$QO#s$RO#t$RO#u$bO#v$SO#x$UO#z$WO#{$XO(aVO(r$YO(y#|O(z#}O~Oa(fX'z(fX'w(fX!k(fX!Y(fX!_(fX%i(fX!g(fX~P1qO#S$dO#`$eO$Q$eOP(gXR(gX[(gXj(gXr(gX!Q(gX!S(gX!](gX!l(gX!p(gX#R(gX#n(gX#o(gX#p(gX#q(gX#r(gX#s(gX#t(gX#u(gX#v(gX#x(gX#z(gX#{(gX(a(gX(r(gX(y(gX(z(gX!_(gX%i(gX~Oa(gX'z(gX'w(gX!Y(gX!k(gXv(gX!g(gX~P4UO#`$eO~O$]$hO$_$gO$f$mO~OSfO!_$nO$i$oO$k$qO~Oh%VOj%dOk%dOp%WOr%XOs$tOt$tOz%YO|%ZO!O%]O!S${O!_$|O!i%bO!l$xO#j%cO$W%`O$t%^O$v%_O$y%aO(T$sO(VTO(YUO(a$uO(y$}O(z%POg(^P~Ol%[O~P7eO!l%eO~O!S%hO!_%iO(T%gO~O!g%mO~Oa%nO'z%nO~O!Q%rO~P%[O(U!lO~P%[O%n%vO~P%[Oh%VO!l%eO(T%gO(U!lO~Oe%}O!l%eO(T%gO~Oj$RO~O!_&PO(T%gO(U!lO(VTO(YUO`)WP~O!Q&SO!l&RO%j&VO&T&WO~P;SO!x#sO~O%s&YO!S)SX!_)SX(T)SX~O(T&ZO~Ol!PO!u&`O%j!QO%l!OO%m!OO%n!OO%q!RO%s!SO%v!TO%w!TO~Od&eOe&dO!x&bO%h&cO%{&aO~P<bOd&hOeyOl!PO!_&gO!u&`O!xxO!|]O%h}O%l!OO%m!OO%n!OO%q!RO%s!SO%v!TO%w!TO%y!UO~Ob&kO#`&nO%j&iO(U!lO~P=gO!l&oO!u&sO~O!l#oO~O!_XO~Oa%nO'x&{O'z%nO~Oa%nO'x'OO'z%nO~Oa%nO'x'QO'z%nO~O'w]X!Y]Xv]X!k]X&[]X!_]X%i]X!g]X~P(qO!b'_O!c'WO!d'WO(U!lO(VTO(YUO~Os'UO!S'TO!['XO(e'SO!^(iP!^(xP~P@nOn'bO!_'`O(T%gO~Oe'gO!l%eO(T%gO~O!Q&SO!l&RO~Os!nO!S!oO!|<VO#T!pO#U!pO#W!pO#X!pO(U!lO(VTO(YUO(e!mO(o!sO~O!b'mO!c'lO!d'lO#V!pO#['nO#]'nO~PBYOa%nOh%VO!g#vO!l%eO'z%nO(r'pO~O!p'tO#`'rO~PChOs!nO!S!oO(VTO(YUO(e!mO(o!sO~O!_XOs(mX!S(mX!b(mX!c(mX!d(mX!|(mX#T(mX#U(mX#V(mX#W(mX#X(mX#[(mX#](mX(U(mX(V(mX(Y(mX(e(mX(o(mX~O!c'lO!d'lO(U!lO~PDWO(P'xO(Q'xO(R'zO~O_!}O(V'|O(W!}O(X'|O~O_#QO(X'|O(Y'|O(Z#QO~Ov(OO~P%[Ox#SO!U#TO(b#TO(c(RO~O![(TO!Y'WX!Y'^X!]'WX!]'^X~P+}O!](VO!Y(hX~OP$[OR#zO[$cOj$ROr$aO!Q#yO!S#{O!](VO!l#xO!p$[O#R$RO#n$OO#o$PO#p$PO#q$PO#r$QO#s$RO#t$RO#u$bO#v$SO#x$UO#z$WO#{$XO(aVO(r$YO(y#|O(z#}O~O!Y(hX~PHRO!Y([O~O!Y(uX!](uX!g(uX!k(uX(r(uX~O#`(uX#k#dX!^(uX~PJUO#`(]O!Y(wX!](wX~O!](^O!Y(vX~O!Y(aO~O#`$eO~PJUO!^(bO~P`OR#zO!Q#yO!S#{O!l#xO(aVOP!na[!naj!nar!na!]!na!p!na#R!na#n!na#o!na#p!na#q!na#r!na#s!na#t!na#u!na#v!na#x!na#z!na#{!na(r!na(y!na(z!na~Oa!na'z!na'w!na!Y!na!k!nav!na!_!na%i!na!g!na~PKlO!k(cO~O!g#vO#`(dO(r'pO!](tXa(tX'z(tX~O!k(tX~PNXO!S%hO!_%iO!|]O#i(iO#j(hO(T%gO~O!](jO!k(sX~O!k(lO~O!S%hO!_%iO#j(hO(T%gO~OP(gXR(gX[(gXj(gXr(gX!Q(gX!S(gX!](gX!l(gX!p(gX#R(gX#n(gX#o(gX#p(gX#q(gX#r(gX#s(gX#t(gX#u(gX#v(gX#x(gX#z(gX#{(gX(a(gX(r(gX(y(gX(z(gX~O!g#vO!k(gX~P! uOR(nO!Q(mO!l#xO#S$dO!|!{a!S!{a~O!x!{a%h!{a!_!{a#i!{a#j!{a(T!{a~P!#vO!x(rO~OPYOQYOSfOd!jOe!iOpkOrYOskOtkOzkO|YO!OYO!SWO!WkO!XkO!_XO!iuO!lZO!oYO!pYO!qYO!svO!u!gO!x!hO$W!kO$niO(T!dO(VTO(YUO(aVO(o[O~Oh%VOp%WOr%XOs$tOt$tOz%YO|%ZO!O<sO!S${O!_$|O!i>VO!l$xO#j<yO$W%`O$t<uO$v<wO$y%aO(T(vO(VTO(YUO(a$uO(y$}O(z%PO~O#k(xO~O![(zO!k(kP~P%[O(e(|O(o[O~O!S)OO!l#xO(e(|O(o[O~OP<UOQ<UOSfOd>ROe!iOpkOr<UOskOtkOzkO|<UO!O<UO!SWO!WkO!XkO!_!eO!i<XO!lZO!o<UO!p<UO!q<UO!s<YO!u<]O!x!hO$W!kO$n>PO(T)]O(VTO(YUO(aVO(o[O~O!]$_Oa$qa'z$qa'w$qa!k$qa!Y$qa!_$qa%i$qa!g$qa~Ol)dO~P!&zOh%VOp%WOr%XOs$tOt$tOz%YO|%ZO!O%]O!S${O!_$|O!i%bO!l$xO#j%cO$W%`O$t%^O$v%_O$y%aO(T(vO(VTO(YUO(a$uO(y$}O(z%PO~Og(pP~P!,TO!Q)iO!g)hO!_$^X$Z$^X$]$^X$_$^X$f$^X~O!g)hO!_({X$Z({X$]({X$_({X$f({X~O!Q)iO~P!.^O!Q)iO!_({X$Z({X$]({X$_({X$f({X~O!_)kO$Z)oO$])jO$_)jO$f)pO~O![)sO~P!)[O$]$hO$_$gO$f)wO~On$zX!Q$zX#S$zX'y$zX(y$zX(z$zX~OgmXg$zXnmX!]mX#`mX~P!0SOx)yO(b)zO(c)|O~On*VO!Q*OO'y*PO(y$}O(z%PO~Og)}O~P!1WOg*WO~Oh%VOr%XOs$tOt$tOz%YO|%ZO!O<sO!S*YO!_*ZO!i>VO!l$xO#j<yO$W%`O$t<uO$v<wO$y%aO(VTO(YUO(a$uO(y$}O(z%PO~Op*`O![*^O(T*XO!k)OP~P!1uO#k*aO~O!l*bO~Oh%VOp%WOr%XOs$tOt$tOz%YO|%ZO!O<sO!S${O!_$|O!i>VO!l$xO#j<yO$W%`O$t<uO$v<wO$y%aO(T*dO(VTO(YUO(a$uO(y$}O(z%PO~O![*gO!Y)PP~P!3tOr*sOs!nO!S*iO!b*qO!c*kO!d*kO!l*bO#[*rO%`*mO(U!lO(VTO(YUO(e!mO~O!^*pO~P!5iO#S$dOn(`X!Q(`X'y(`X(y(`X(z(`X!](`X#`(`X~Og(`X$O(`X~P!6kOn*xO#`*wOg(_X!](_X~O!]*yOg(^X~Oj%dOk%dOl%dO(T&ZOg(^P~Os*|O~Og)}O(T&ZO~O!l+SO~O(T(vO~Op+WO!S%hO![#iO!_%iO!|]O#i#lO#j#iO(T%gO!k(sP~O!g#vO#k+XO~O!S%hO![+ZO!](^O!_%iO(T%gO!Y(vP~Os'[O!S+]O![+[O(VTO(YUO(e(|O~O!^(xP~P!9|O!]+^Oa)TX'z)TX~OP$[OR#zO[$cOj$ROr$aO!Q#yO!S#{O!l#xO!p$[O#R$RO#n$OO#o$PO#p$PO#q$PO#r$QO#s$RO#t$RO#u$bO#v$SO#x$UO#z$WO#{$XO(aVO(r$YO(y#|O(z#}O~Oa!ja!]!ja'z!ja'w!ja!Y!ja!k!jav!ja!_!ja%i!ja!g!ja~P!:tOR#zO!Q#yO!S#{O!l#xO(aVOP!ra[!raj!rar!ra!]!ra!p!ra#R!ra#n!ra#o!ra#p!ra#q!ra#r!ra#s!ra#t!ra#u!ra#v!ra#x!ra#z!ra#{!ra(r!ra(y!ra(z!ra~Oa!ra'z!ra'w!ra!Y!ra!k!rav!ra!_!ra%i!ra!g!ra~P!=[OR#zO!Q#yO!S#{O!l#xO(aVOP!ta[!taj!tar!ta!]!ta!p!ta#R!ta#n!ta#o!ta#p!ta#q!ta#r!ta#s!ta#t!ta#u!ta#v!ta#x!ta#z!ta#{!ta(r!ta(y!ta(z!ta~Oa!ta'z!ta'w!ta!Y!ta!k!tav!ta!_!ta%i!ta!g!ta~P!?rOh%VOn+gO!_'`O%i+fO~O!g+iOa(]X!_(]X'z(]X!](]X~Oa%nO!_XO'z%nO~Oh%VO!l%eO~Oh%VO!l%eO(T%gO~O!g#vO#k(xO~Ob+tO%j+uO(T+qO(VTO(YUO!^)XP~O!]+vO`)WX~O[+zO~O`+{O~O!_&PO(T%gO(U!lO`)WP~O%j,OO~P;SOh%VO#`,SO~Oh%VOn,VO!_$|O~O!_,XO~O!Q,ZO!_XO~O%n%vO~O!x,`O~Oe,eO~Ob,fO(T#nO(VTO(YUO!^)VP~Oe%}O~O%j!QO(T&ZO~P=gO[,kO`,jO~OPYOQYOSfOdzOeyOpkOrYOskOtkOzkO|YO!OYO!SWO!WkO!XkO!iuO!lZO!oYO!pYO!qYO!svO!xxO!|]O$niO%h}O(VTO(YUO(aVO(o[O~O!_!eO!u!gO$W!kO(T!dO~P!FyO`,jOa%nO'z%nO~OPYOQYOSfOd!jOe!iOpkOrYOskOtkOzkO|YO!OYO!SWO!WkO!XkO!_!eO!iuO!lZO!oYO!pYO!qYO!svO!x!hO$W!kO$niO(T!dO(VTO(YUO(aVO(o[O~Oa,pOl!OO!uwO%l!OO%m!OO%n!OO~P!IcO!l&oO~O&^,vO~O!_,xO~O&o,zO&q,{OP&laQ&laS&laY&laa&lad&lae&lal&lap&lar&las&lat&laz&la|&la!O&la!S&la!W&la!X&la!_&la!i&la!l&la!o&la!p&la!q&la!s&la!u&la!x&la!|&la$W&la$n&la%h&la%j&la%l&la%m&la%n&la%q&la%s&la%v&la%w&la%y&la&W&la&^&la&`&la&b&la&d&la&g&la&m&la&s&la&u&la&w&la&y&la&{&la'w&la(T&la(V&la(Y&la(a&la(o&la!^&la&e&lab&la&j&la~O(T-QO~Oh!eX!]!RX!^!RX!g!RX!g!eX!l!eX#`!RX~O!]!eX!^!eX~P#!iO!g-VO#`-UOh(jX!]#hX!^#hX!g(jX!l(jX~O!](jX!^(jX~P##[Oh%VO!g-XO!l%eO!]!aX!^!aX~Os!nO!S!oO(VTO(YUO(e!mO~OP<UOQ<UOSfOd>ROe!iOpkOr<UOskOtkOzkO|<UO!O<UO!SWO!WkO!XkO!_!eO!i<XO!lZO!o<UO!p<UO!q<UO!s<YO!u<]O!x!hO$W!kO$n>PO(VTO(YUO(aVO(o[O~O(T=QO~P#$qO!]-]O!^(iX~O!^-_O~O!g-VO#`-UO!]#hX!^#hX~O!]-`O!^(xX~O!^-bO~O!c-cO!d-cO(U!lO~P#$`O!^-fO~P'_On-iO!_'`O~O!Y-nO~Os!{a!b!{a!c!{a!d!{a#T!{a#U!{a#V!{a#W!{a#X!{a#[!{a#]!{a(U!{a(V!{a(Y!{a(e!{a(o!{a~P!#vO!p-sO#`-qO~PChO!c-uO!d-uO(U!lO~PDWOa%nO#`-qO'z%nO~Oa%nO!g#vO#`-qO'z%nO~Oa%nO!g#vO!p-sO#`-qO'z%nO(r'pO~O(P'xO(Q'xO(R-zO~Ov-{O~O!Y'Wa!]'Wa~P!:tO![.PO!Y'WX!]'WX~P%[O!](VO!Y(ha~O!Y(ha~PHRO!](^O!Y(va~O!S%hO![.TO!_%iO(T%gO!Y'^X!]'^X~O#`.VO!](ta!k(taa(ta'z(ta~O!g#vO~P#,wO!](jO!k(sa~O!S%hO!_%iO#j.ZO(T%gO~Op.`O!S%hO![.]O!_%iO!|]O#i._O#j.]O(T%gO!]'aX!k'aX~OR.dO!l#xO~Oh%VOn.gO!_'`O%i.fO~Oa#ci!]#ci'z#ci'w#ci!Y#ci!k#civ#ci!_#ci%i#ci!g#ci~P!:tOn>]O!Q*OO'y*PO(y$}O(z%PO~O#k#_aa#_a#`#_a'z#_a!]#_a!k#_a!_#_a!Y#_a~P#/sO#k(`XP(`XR(`X[(`Xa(`Xj(`Xr(`X!S(`X!l(`X!p(`X#R(`X#n(`X#o(`X#p(`X#q(`X#r(`X#s(`X#t(`X#u(`X#v(`X#x(`X#z(`X#{(`X'z(`X(a(`X(r(`X!k(`X!Y(`X'w(`Xv(`X!_(`X%i(`X!g(`X~P!6kO!].tO!k(kX~P!:tO!k.wO~O!Y.yO~OP$[OR#zO!Q#yO!S#{O!l#xO!p$[O(aVO[#mia#mij#mir#mi!]#mi#R#mi#o#mi#p#mi#q#mi#r#mi#s#mi#t#mi#u#mi#v#mi#x#mi#z#mi#{#mi'z#mi(r#mi(y#mi(z#mi'w#mi!Y#mi!k#miv#mi!_#mi%i#mi!g#mi~O#n#mi~P#3cO#n$OO~P#3cOP$[OR#zOr$aO!Q#yO!S#{O!l#xO!p$[O#n$OO#o$PO#p$PO#q$PO(aVO[#mia#mij#mi!]#mi#R#mi#s#mi#t#mi#u#mi#v#mi#x#mi#z#mi#{#mi'z#mi(r#mi(y#mi(z#mi'w#mi!Y#mi!k#miv#mi!_#mi%i#mi!g#mi~O#r#mi~P#6QO#r$QO~P#6QOP$[OR#zO[$cOj$ROr$aO!Q#yO!S#{O!l#xO!p$[O#R$RO#n$OO#o$PO#p$PO#q$PO#r$QO#s$RO#t$RO#u$bO(aVOa#mi!]#mi#x#mi#z#mi#{#mi'z#mi(r#mi(y#mi(z#mi'w#mi!Y#mi!k#miv#mi!_#mi%i#mi!g#mi~O#v#mi~P#8oOP$[OR#zO[$cOj$ROr$aO!Q#yO!S#{O!l#xO!p$[O#R$RO#n$OO#o$PO#p$PO#q$PO#r$QO#s$RO#t$RO#u$bO#v$SO(aVO(z#}Oa#mi!]#mi#z#mi#{#mi'z#mi(r#mi(y#mi'w#mi!Y#mi!k#miv#mi!_#mi%i#mi!g#mi~O#x$UO~P#;VO#x#mi~P#;VO#v$SO~P#8oOP$[OR#zO[$cOj$ROr$aO!Q#yO!S#{O!l#xO!p$[O#R$RO#n$OO#o$PO#p$PO#q$PO#r$QO#s$RO#t$RO#u$bO#v$SO#x$UO(aVO(y#|O(z#}Oa#mi!]#mi#{#mi'z#mi(r#mi'w#mi!Y#mi!k#miv#mi!_#mi%i#mi!g#mi~O#z#mi~P#={O#z$WO~P#={OP]XR]X[]Xj]Xr]X!Q]X!S]X!l]X!p]X#R]X#S]X#`]X#kfX#n]X#o]X#p]X#q]X#r]X#s]X#t]X#u]X#v]X#x]X#z]X#{]X$Q]X(a]X(r]X(y]X(z]X!]]X!^]X~O$O]X~P#@jOP$[OR#zO[<mOj<bOr<kO!Q#yO!S#{O!l#xO!p$[O#R<bO#n<_O#o<`O#p<`O#q<`O#r<aO#s<bO#t<bO#u<lO#v<cO#x<eO#z<gO#{<hO(aVO(r$YO(y#|O(z#}O~O$O.{O~P#BwO#S$dO#`<nO$Q<nO$O(gX!^(gX~P! uOa'da!]'da'z'da'w'da!k'da!Y'dav'da!_'da%i'da!g'da~P!:tO[#mia#mij#mir#mi!]#mi#R#mi#r#mi#s#mi#t#mi#u#mi#v#mi#x#mi#z#mi#{#mi'z#mi(r#mi'w#mi!Y#mi!k#miv#mi!_#mi%i#mi!g#mi~OP$[OR#zO!Q#yO!S#{O!l#xO!p$[O#n$OO#o$PO#p$PO#q$PO(aVO(y#mi(z#mi~P#EyOn>]O!Q*OO'y*PO(y$}O(z%POP#miR#mi!S#mi!l#mi!p#mi#n#mi#o#mi#p#mi#q#mi(a#mi~P#EyO!]/POg(pX~P!1WOg/RO~Oa$Pi!]$Pi'z$Pi'w$Pi!Y$Pi!k$Piv$Pi!_$Pi%i$Pi!g$Pi~P!:tO$]/SO$_/SO~O$]/TO$_/TO~O!g)hO#`/UO!_$cX$Z$cX$]$cX$_$cX$f$cX~O![/VO~O!_)kO$Z/XO$])jO$_)jO$f/YO~O!]<iO!^(fX~P#BwO!^/ZO~O!g)hO$f({X~O$f/]O~Ov/^O~P!&zOx)yO(b)zO(c/aO~O!S/dO~O(y$}On%aa!Q%aa'y%aa(z%aa!]%aa#`%aa~Og%aa$O%aa~P#L{O(z%POn%ca!Q%ca'y%ca(y%ca!]%ca#`%ca~Og%ca$O%ca~P#MnO!]fX!gfX!kfX!k$zX(rfX~P!0SOp%WO![/mO!](^O(T/lO!Y(vP!Y)PP~P!1uOr*sO!b*qO!c*kO!d*kO!l*bO#[*rO%`*mO(U!lO(VTO(YUO~Os<}O!S/nO![+[O!^*pO(e<|O!^(xP~P$ [O!k/oO~P#/sO!]/pO!g#vO(r'pO!k)OX~O!k/uO~OnoX!QoX'yoX(yoX(zoX~O!g#vO!koX~P$#OOp/wO!S%hO![*^O!_%iO(T%gO!k)OP~O#k/xO~O!Y$zX!]$zX!g%RX~P!0SO!]/yO!Y)PX~P#/sO!g/{O~O!Y/}O~OpkO(T0OO~P.iOh%VOr0TO!g#vO!l%eO(r'pO~O!g+iO~Oa%nO!]0XO'z%nO~O!^0ZO~P!5iO!c0[O!d0[O(U!lO~P#$`Os!nO!S0]O(VTO(YUO(e!mO~O#[0_O~Og%aa!]%aa#`%aa$O%aa~P!1WOg%ca!]%ca#`%ca$O%ca~P!1WOj%dOk%dOl%dO(T&ZOg'mX!]'mX~O!]*yOg(^a~Og0hO~On0jO#`0iOg(_a!](_a~OR0kO!Q0kO!S0lO#S$dOn}a'y}a(y}a(z}a!]}a#`}a~Og}a$O}a~P$(cO!Q*OO'y*POn$sa(y$sa(z$sa!]$sa#`$sa~Og$sa$O$sa~P$)_O!Q*OO'y*POn$ua(y$ua(z$ua!]$ua#`$ua~Og$ua$O$ua~P$*QO#k0oO~Og%Ta!]%Ta#`%Ta$O%Ta~P!1WO!g#vO~O#k0rO~O!]+^Oa)Ta'z)Ta~OR#zO!Q#yO!S#{O!l#xO(aVOP!ri[!rij!rir!ri!]!ri!p!ri#R!ri#n!ri#o!ri#p!ri#q!ri#r!ri#s!ri#t!ri#u!ri#v!ri#x!ri#z!ri#{!ri(r!ri(y!ri(z!ri~Oa!ri'z!ri'w!ri!Y!ri!k!riv!ri!_!ri%i!ri!g!ri~P$+oOh%VOr%XOs$tOt$tOz%YO|%ZO!O<sO!S${O!_$|O!i>VO!l$xO#j<yO$W%`O$t<uO$v<wO$y%aO(VTO(YUO(a$uO(y$}O(z%PO~Op0{O%]0|O(T0zO~P$.VO!g+iOa(]a!_(]a'z(]a!](]a~O#k1SO~O[]X!]fX!^fX~O!]1TO!^)XX~O!^1VO~O[1WO~Ob1YO(T+qO(VTO(YUO~O!_&PO(T%gO`'uX!]'uX~O!]+vO`)Wa~O!k1]O~P!:tO[1`O~O`1aO~O#`1fO~On1iO!_$|O~O(e(|O!^)UP~Oh%VOn1rO!_1oO%i1qO~O[1|O!]1zO!^)VX~O!^1}O~O`2POa%nO'z%nO~O(T#nO(VTO(YUO~O#S$dO#`$eO$Q$eOP(gXR(gX[(gXr(gX!Q(gX!S(gX!](gX!l(gX!p(gX#R(gX#n(gX#o(gX#p(gX#q(gX#r(gX#s(gX#t(gX#u(gX#v(gX#x(gX#z(gX#{(gX(a(gX(r(gX(y(gX(z(gX~Oj2SO&[2TOa(gX~P$3pOj2SO#`$eO&[2TO~Oa2VO~P%[Oa2XO~O&e2[OP&ciQ&ciS&ciY&cia&cid&cie&cil&cip&cir&cis&cit&ciz&ci|&ci!O&ci!S&ci!W&ci!X&ci!_&ci!i&ci!l&ci!o&ci!p&ci!q&ci!s&ci!u&ci!x&ci!|&ci$W&ci$n&ci%h&ci%j&ci%l&ci%m&ci%n&ci%q&ci%s&ci%v&ci%w&ci%y&ci&W&ci&^&ci&`&ci&b&ci&d&ci&g&ci&m&ci&s&ci&u&ci&w&ci&y&ci&{&ci'w&ci(T&ci(V&ci(Y&ci(a&ci(o&ci!^&cib&ci&j&ci~Ob2bO!^2`O&j2aO~P`O!_XO!l2dO~O&q,{OP&liQ&liS&liY&lia&lid&lie&lil&lip&lir&lis&lit&liz&li|&li!O&li!S&li!W&li!X&li!_&li!i&li!l&li!o&li!p&li!q&li!s&li!u&li!x&li!|&li$W&li$n&li%h&li%j&li%l&li%m&li%n&li%q&li%s&li%v&li%w&li%y&li&W&li&^&li&`&li&b&li&d&li&g&li&m&li&s&li&u&li&w&li&y&li&{&li'w&li(T&li(V&li(Y&li(a&li(o&li!^&li&e&lib&li&j&li~O!Y2jO~O!]!aa!^!aa~P#BwOs!nO!S!oO![2pO(e!mO!]'XX!^'XX~P@nO!]-]O!^(ia~O!]'_X!^'_X~P!9|O!]-`O!^(xa~O!^2wO~P'_Oa%nO#`3QO'z%nO~Oa%nO!g#vO#`3QO'z%nO~Oa%nO!g#vO!p3UO#`3QO'z%nO(r'pO~Oa%nO'z%nO~P!:tO!]$_Ov$qa~O!Y'Wi!]'Wi~P!:tO!](VO!Y(hi~O!](^O!Y(vi~O!Y(wi!](wi~P!:tO!](ti!k(tia(ti'z(ti~P!:tO#`3WO!](ti!k(tia(ti'z(ti~O!](jO!k(si~O!S%hO!_%iO!|]O#i3]O#j3[O(T%gO~O!S%hO!_%iO#j3[O(T%gO~On3dO!_'`O%i3cO~Oh%VOn3dO!_'`O%i3cO~O#k%aaP%aaR%aa[%aaa%aaj%aar%aa!S%aa!l%aa!p%aa#R%aa#n%aa#o%aa#p%aa#q%aa#r%aa#s%aa#t%aa#u%aa#v%aa#x%aa#z%aa#{%aa'z%aa(a%aa(r%aa!k%aa!Y%aa'w%aav%aa!_%aa%i%aa!g%aa~P#L{O#k%caP%caR%ca[%caa%caj%car%ca!S%ca!l%ca!p%ca#R%ca#n%ca#o%ca#p%ca#q%ca#r%ca#s%ca#t%ca#u%ca#v%ca#x%ca#z%ca#{%ca'z%ca(a%ca(r%ca!k%ca!Y%ca'w%cav%ca!_%ca%i%ca!g%ca~P#MnO#k%aaP%aaR%aa[%aaa%aaj%aar%aa!S%aa!]%aa!l%aa!p%aa#R%aa#n%aa#o%aa#p%aa#q%aa#r%aa#s%aa#t%aa#u%aa#v%aa#x%aa#z%aa#{%aa'z%aa(a%aa(r%aa!k%aa!Y%aa'w%aa#`%aav%aa!_%aa%i%aa!g%aa~P#/sO#k%caP%caR%ca[%caa%caj%car%ca!S%ca!]%ca!l%ca!p%ca#R%ca#n%ca#o%ca#p%ca#q%ca#r%ca#s%ca#t%ca#u%ca#v%ca#x%ca#z%ca#{%ca'z%ca(a%ca(r%ca!k%ca!Y%ca'w%ca#`%cav%ca!_%ca%i%ca!g%ca~P#/sO#k}aP}a[}aa}aj}ar}a!l}a!p}a#R}a#n}a#o}a#p}a#q}a#r}a#s}a#t}a#u}a#v}a#x}a#z}a#{}a'z}a(a}a(r}a!k}a!Y}a'w}av}a!_}a%i}a!g}a~P$(cO#k$saP$saR$sa[$saa$saj$sar$sa!S$sa!l$sa!p$sa#R$sa#n$sa#o$sa#p$sa#q$sa#r$sa#s$sa#t$sa#u$sa#v$sa#x$sa#z$sa#{$sa'z$sa(a$sa(r$sa!k$sa!Y$sa'w$sav$sa!_$sa%i$sa!g$sa~P$)_O#k$uaP$uaR$ua[$uaa$uaj$uar$ua!S$ua!l$ua!p$ua#R$ua#n$ua#o$ua#p$ua#q$ua#r$ua#s$ua#t$ua#u$ua#v$ua#x$ua#z$ua#{$ua'z$ua(a$ua(r$ua!k$ua!Y$ua'w$uav$ua!_$ua%i$ua!g$ua~P$*QO#k%TaP%TaR%Ta[%Taa%Taj%Tar%Ta!S%Ta!]%Ta!l%Ta!p%Ta#R%Ta#n%Ta#o%Ta#p%Ta#q%Ta#r%Ta#s%Ta#t%Ta#u%Ta#v%Ta#x%Ta#z%Ta#{%Ta'z%Ta(a%Ta(r%Ta!k%Ta!Y%Ta'w%Ta#`%Tav%Ta!_%Ta%i%Ta!g%Ta~P#/sOa#cq!]#cq'z#cq'w#cq!Y#cq!k#cqv#cq!_#cq%i#cq!g#cq~P!:tO![3lO!]'YX!k'YX~P%[O!].tO!k(ka~O!].tO!k(ka~P!:tO!Y3oO~O$O!na!^!na~PKlO$O!ja!]!ja!^!ja~P#BwO$O!ra!^!ra~P!=[O$O!ta!^!ta~P!?rOg']X!]']X~P!,TO!]/POg(pa~OSfO!_4TO$d4UO~O!^4YO~Ov4ZO~P#/sOa$mq!]$mq'z$mq'w$mq!Y$mq!k$mqv$mq!_$mq%i$mq!g$mq~P!:tO!Y4]O~P!&zO!S4^O~O!Q*OO'y*PO(z%POn'ia(y'ia!]'ia#`'ia~Og'ia$O'ia~P%-fO!Q*OO'y*POn'ka(y'ka(z'ka!]'ka#`'ka~Og'ka$O'ka~P%.XO(r$YO~P#/sO!YfX!Y$zX!]fX!]$zX!g%RX#`fX~P!0SOp%WO(T=WO~P!1uOp4bO!S%hO![4aO!_%iO(T%gO!]'eX!k'eX~O!]/pO!k)Oa~O!]/pO!g#vO!k)Oa~O!]/pO!g#vO(r'pO!k)Oa~Og$|i!]$|i#`$|i$O$|i~P!1WO![4jO!Y'gX!]'gX~P!3tO!]/yO!Y)Pa~O!]/yO!Y)Pa~P#/sOP]XR]X[]Xj]Xr]X!Q]X!S]X!Y]X!]]X!l]X!p]X#R]X#S]X#`]X#kfX#n]X#o]X#p]X#q]X#r]X#s]X#t]X#u]X#v]X#x]X#z]X#{]X$Q]X(a]X(r]X(y]X(z]X~Oj%YX!g%YX~P%2OOj4oO!g#vO~Oh%VO!g#vO!l%eO~Oh%VOr4tO!l%eO(r'pO~Or4yO!g#vO(r'pO~Os!nO!S4zO(VTO(YUO(e!mO~O(y$}On%ai!Q%ai'y%ai(z%ai!]%ai#`%ai~Og%ai$O%ai~P%5oO(z%POn%ci!Q%ci'y%ci(y%ci!]%ci#`%ci~Og%ci$O%ci~P%6bOg(_i!](_i~P!1WO#`5QOg(_i!](_i~P!1WO!k5VO~Oa$oq!]$oq'z$oq'w$oq!Y$oq!k$oqv$oq!_$oq%i$oq!g$oq~P!:tO!Y5ZO~O!]5[O!_)QX~P#/sOa$zX!_$zX%^]X'z$zX!]$zX~P!0SO%^5_OaoX!_oX'zoX!]oX~P$#OOp5`O(T#nO~O%^5_O~Ob5fO%j5gO(T+qO(VTO(YUO!]'tX!^'tX~O!]1TO!^)Xa~O[5kO~O`5lO~O[5pO~Oa%nO'z%nO~P#/sO!]5uO#`5wO!^)UX~O!^5xO~Or6OOs!nO!S*iO!b!yO!c!vO!d!vO!|<VO#T!pO#U!pO#V!pO#W!pO#X!pO#[5}O#]!zO(U!lO(VTO(YUO(e!mO(o!sO~O!^5|O~P%;eOn6TO!_1oO%i6SO~Oh%VOn6TO!_1oO%i6SO~Ob6[O(T#nO(VTO(YUO!]'sX!^'sX~O!]1zO!^)Va~O(VTO(YUO(e6^O~O`6bO~Oj6eO&[6fO~PNXO!k6gO~P%[Oa6iO~Oa6iO~P%[Ob2bO!^6nO&j2aO~P`O!g6pO~O!g6rOh(ji!](ji!^(ji!g(ji!l(jir(ji(r(ji~O!]#hi!^#hi~P#BwO#`6sO!]#hi!^#hi~O!]!ai!^!ai~P#BwOa%nO#`6|O'z%nO~Oa%nO!g#vO#`6|O'z%nO~O!](tq!k(tqa(tq'z(tq~P!:tO!](jO!k(sq~O!S%hO!_%iO#j7TO(T%gO~O!_'`O%i7WO~On7[O!_'`O%i7WO~O#k'iaP'iaR'ia['iaa'iaj'iar'ia!S'ia!l'ia!p'ia#R'ia#n'ia#o'ia#p'ia#q'ia#r'ia#s'ia#t'ia#u'ia#v'ia#x'ia#z'ia#{'ia'z'ia(a'ia(r'ia!k'ia!Y'ia'w'iav'ia!_'ia%i'ia!g'ia~P%-fO#k'kaP'kaR'ka['kaa'kaj'kar'ka!S'ka!l'ka!p'ka#R'ka#n'ka#o'ka#p'ka#q'ka#r'ka#s'ka#t'ka#u'ka#v'ka#x'ka#z'ka#{'ka'z'ka(a'ka(r'ka!k'ka!Y'ka'w'kav'ka!_'ka%i'ka!g'ka~P%.XO#k$|iP$|iR$|i[$|ia$|ij$|ir$|i!S$|i!]$|i!l$|i!p$|i#R$|i#n$|i#o$|i#p$|i#q$|i#r$|i#s$|i#t$|i#u$|i#v$|i#x$|i#z$|i#{$|i'z$|i(a$|i(r$|i!k$|i!Y$|i'w$|i#`$|iv$|i!_$|i%i$|i!g$|i~P#/sO#k%aiP%aiR%ai[%aia%aij%air%ai!S%ai!l%ai!p%ai#R%ai#n%ai#o%ai#p%ai#q%ai#r%ai#s%ai#t%ai#u%ai#v%ai#x%ai#z%ai#{%ai'z%ai(a%ai(r%ai!k%ai!Y%ai'w%aiv%ai!_%ai%i%ai!g%ai~P%5oO#k%ciP%ciR%ci[%cia%cij%cir%ci!S%ci!l%ci!p%ci#R%ci#n%ci#o%ci#p%ci#q%ci#r%ci#s%ci#t%ci#u%ci#v%ci#x%ci#z%ci#{%ci'z%ci(a%ci(r%ci!k%ci!Y%ci'w%civ%ci!_%ci%i%ci!g%ci~P%6bO!]'Ya!k'Ya~P!:tO!].tO!k(ki~O$O#ci!]#ci!^#ci~P#BwOP$[OR#zO!Q#yO!S#{O!l#xO!p$[O(aVO[#mij#mir#mi#R#mi#o#mi#p#mi#q#mi#r#mi#s#mi#t#mi#u#mi#v#mi#x#mi#z#mi#{#mi$O#mi(r#mi(y#mi(z#mi!]#mi!^#mi~O#n#mi~P%NdO#n<_O~P%NdOP$[OR#zOr<kO!Q#yO!S#{O!l#xO!p$[O#n<_O#o<`O#p<`O#q<`O(aVO[#mij#mi#R#mi#s#mi#t#mi#u#mi#v#mi#x#mi#z#mi#{#mi$O#mi(r#mi(y#mi(z#mi!]#mi!^#mi~O#r#mi~P&!lO#r<aO~P&!lOP$[OR#zO[<mOj<bOr<kO!Q#yO!S#{O!l#xO!p$[O#R<bO#n<_O#o<`O#p<`O#q<`O#r<aO#s<bO#t<bO#u<lO(aVO#x#mi#z#mi#{#mi$O#mi(r#mi(y#mi(z#mi!]#mi!^#mi~O#v#mi~P&$tOP$[OR#zO[<mOj<bOr<kO!Q#yO!S#{O!l#xO!p$[O#R<bO#n<_O#o<`O#p<`O#q<`O#r<aO#s<bO#t<bO#u<lO#v<cO(aVO(z#}O#z#mi#{#mi$O#mi(r#mi(y#mi!]#mi!^#mi~O#x<eO~P&&uO#x#mi~P&&uO#v<cO~P&$tOP$[OR#zO[<mOj<bOr<kO!Q#yO!S#{O!l#xO!p$[O#R<bO#n<_O#o<`O#p<`O#q<`O#r<aO#s<bO#t<bO#u<lO#v<cO#x<eO(aVO(y#|O(z#}O#{#mi$O#mi(r#mi!]#mi!^#mi~O#z#mi~P&)UO#z<gO~P&)UOa#|y!]#|y'z#|y'w#|y!Y#|y!k#|yv#|y!_#|y%i#|y!g#|y~P!:tO[#mij#mir#mi#R#mi#r#mi#s#mi#t#mi#u#mi#v#mi#x#mi#z#mi#{#mi$O#mi(r#mi!]#mi!^#mi~OP$[OR#zO!Q#yO!S#{O!l#xO!p$[O#n<_O#o<`O#p<`O#q<`O(aVO(y#mi(z#mi~P&,QOn>^O!Q*OO'y*PO(y$}O(z%POP#miR#mi!S#mi!l#mi!p#mi#n#mi#o#mi#p#mi#q#mi(a#mi~P&,QO#S$dOP(`XR(`X[(`Xj(`Xn(`Xr(`X!Q(`X!S(`X!l(`X!p(`X#R(`X#n(`X#o(`X#p(`X#q(`X#r(`X#s(`X#t(`X#u(`X#v(`X#x(`X#z(`X#{(`X$O(`X'y(`X(a(`X(r(`X(y(`X(z(`X!](`X!^(`X~O$O$Pi!]$Pi!^$Pi~P#BwO$O!ri!^!ri~P$+oOg']a!]']a~P!1WO!^7nO~O!]'da!^'da~P#BwO!Y7oO~P#/sO!g#vO(r'pO!]'ea!k'ea~O!]/pO!k)Oi~O!]/pO!g#vO!k)Oi~Og$|q!]$|q#`$|q$O$|q~P!1WO!Y'ga!]'ga~P#/sO!g7vO~O!]/yO!Y)Pi~P#/sO!]/yO!Y)Pi~O!Y7yO~Oh%VOr8OO!l%eO(r'pO~Oj8QO!g#vO~Or8TO!g#vO(r'pO~O!Q*OO'y*PO(z%POn'ja(y'ja!]'ja#`'ja~Og'ja$O'ja~P&5RO!Q*OO'y*POn'la(y'la(z'la!]'la#`'la~Og'la$O'la~P&5tOg(_q!](_q~P!1WO#`8VOg(_q!](_q~P!1WO!Y8WO~Og%Oq!]%Oq#`%Oq$O%Oq~P!1WOa$oy!]$oy'z$oy'w$oy!Y$oy!k$oyv$oy!_$oy%i$oy!g$oy~P!:tO!g6rO~O!]5[O!_)Qa~O!_'`OP$TaR$Ta[$Taj$Tar$Ta!Q$Ta!S$Ta!]$Ta!l$Ta!p$Ta#R$Ta#n$Ta#o$Ta#p$Ta#q$Ta#r$Ta#s$Ta#t$Ta#u$Ta#v$Ta#x$Ta#z$Ta#{$Ta(a$Ta(r$Ta(y$Ta(z$Ta~O%i7WO~P&8fO%^8[Oa%[i!_%[i'z%[i!]%[i~Oa#cy!]#cy'z#cy'w#cy!Y#cy!k#cyv#cy!_#cy%i#cy!g#cy~P!:tO[8^O~Ob8`O(T+qO(VTO(YUO~O!]1TO!^)Xi~O`8dO~O(e(|O!]'pX!^'pX~O!]5uO!^)Ua~O!^8nO~P%;eO(o!sO~P$&YO#[8oO~O!_1oO~O!_1oO%i8qO~On8tO!_1oO%i8qO~O[8yO!]'sa!^'sa~O!]1zO!^)Vi~O!k8}O~O!k9OO~O!k9RO~O!k9RO~P%[Oa9TO~O!g9UO~O!k9VO~O!](wi!^(wi~P#BwOa%nO#`9_O'z%nO~O!](ty!k(tya(ty'z(ty~P!:tO!](jO!k(sy~O%i9bO~P&8fO!_'`O%i9bO~O#k$|qP$|qR$|q[$|qa$|qj$|qr$|q!S$|q!]$|q!l$|q!p$|q#R$|q#n$|q#o$|q#p$|q#q$|q#r$|q#s$|q#t$|q#u$|q#v$|q#x$|q#z$|q#{$|q'z$|q(a$|q(r$|q!k$|q!Y$|q'w$|q#`$|qv$|q!_$|q%i$|q!g$|q~P#/sO#k'jaP'jaR'ja['jaa'jaj'jar'ja!S'ja!l'ja!p'ja#R'ja#n'ja#o'ja#p'ja#q'ja#r'ja#s'ja#t'ja#u'ja#v'ja#x'ja#z'ja#{'ja'z'ja(a'ja(r'ja!k'ja!Y'ja'w'jav'ja!_'ja%i'ja!g'ja~P&5RO#k'laP'laR'la['laa'laj'lar'la!S'la!l'la!p'la#R'la#n'la#o'la#p'la#q'la#r'la#s'la#t'la#u'la#v'la#x'la#z'la#{'la'z'la(a'la(r'la!k'la!Y'la'w'lav'la!_'la%i'la!g'la~P&5tO#k%OqP%OqR%Oq[%Oqa%Oqj%Oqr%Oq!S%Oq!]%Oq!l%Oq!p%Oq#R%Oq#n%Oq#o%Oq#p%Oq#q%Oq#r%Oq#s%Oq#t%Oq#u%Oq#v%Oq#x%Oq#z%Oq#{%Oq'z%Oq(a%Oq(r%Oq!k%Oq!Y%Oq'w%Oq#`%Oqv%Oq!_%Oq%i%Oq!g%Oq~P#/sO!]'Yi!k'Yi~P!:tO$O#cq!]#cq!^#cq~P#BwO(y$}OP%aaR%aa[%aaj%aar%aa!S%aa!l%aa!p%aa#R%aa#n%aa#o%aa#p%aa#q%aa#r%aa#s%aa#t%aa#u%aa#v%aa#x%aa#z%aa#{%aa$O%aa(a%aa(r%aa!]%aa!^%aa~On%aa!Q%aa'y%aa(z%aa~P&IyO(z%POP%caR%ca[%caj%car%ca!S%ca!l%ca!p%ca#R%ca#n%ca#o%ca#p%ca#q%ca#r%ca#s%ca#t%ca#u%ca#v%ca#x%ca#z%ca#{%ca$O%ca(a%ca(r%ca!]%ca!^%ca~On%ca!Q%ca'y%ca(y%ca~P&LQOn>^O!Q*OO'y*PO(z%PO~P&IyOn>^O!Q*OO'y*PO(y$}O~P&LQOR0kO!Q0kO!S0lO#S$dOP}a[}aj}an}ar}a!l}a!p}a#R}a#n}a#o}a#p}a#q}a#r}a#s}a#t}a#u}a#v}a#x}a#z}a#{}a$O}a'y}a(a}a(r}a(y}a(z}a!]}a!^}a~O!Q*OO'y*POP$saR$sa[$saj$san$sar$sa!S$sa!l$sa!p$sa#R$sa#n$sa#o$sa#p$sa#q$sa#r$sa#s$sa#t$sa#u$sa#v$sa#x$sa#z$sa#{$sa$O$sa(a$sa(r$sa(y$sa(z$sa!]$sa!^$sa~O!Q*OO'y*POP$uaR$ua[$uaj$uan$uar$ua!S$ua!l$ua!p$ua#R$ua#n$ua#o$ua#p$ua#q$ua#r$ua#s$ua#t$ua#u$ua#v$ua#x$ua#z$ua#{$ua$O$ua(a$ua(r$ua(y$ua(z$ua!]$ua!^$ua~On>^O!Q*OO'y*PO(y$}O(z%PO~OP%TaR%Ta[%Taj%Tar%Ta!S%Ta!l%Ta!p%Ta#R%Ta#n%Ta#o%Ta#p%Ta#q%Ta#r%Ta#s%Ta#t%Ta#u%Ta#v%Ta#x%Ta#z%Ta#{%Ta$O%Ta(a%Ta(r%Ta!]%Ta!^%Ta~P''VO$O$mq!]$mq!^$mq~P#BwO$O$oq!]$oq!^$oq~P#BwO!^9oO~O$O9pO~P!1WO!g#vO!]'ei!k'ei~O!g#vO(r'pO!]'ei!k'ei~O!]/pO!k)Oq~O!Y'gi!]'gi~P#/sO!]/yO!Y)Pq~Or9wO!g#vO(r'pO~O[9yO!Y9xO~P#/sO!Y9xO~Oj:PO!g#vO~Og(_y!](_y~P!1WO!]'na!_'na~P#/sOa%[q!_%[q'z%[q!]%[q~P#/sO[:UO~O!]1TO!^)Xq~O`:YO~O#`:ZO!]'pa!^'pa~O!]5uO!^)Ui~P#BwO!S:]O~O!_1oO%i:`O~O(VTO(YUO(e:eO~O!]1zO!^)Vq~O!k:hO~O!k:iO~O!k:jO~O!k:jO~P%[O#`:mO!]#hy!^#hy~O!]#hy!^#hy~P#BwO%i:rO~P&8fO!_'`O%i:rO~O$O#|y!]#|y!^#|y~P#BwOP$|iR$|i[$|ij$|ir$|i!S$|i!l$|i!p$|i#R$|i#n$|i#o$|i#p$|i#q$|i#r$|i#s$|i#t$|i#u$|i#v$|i#x$|i#z$|i#{$|i$O$|i(a$|i(r$|i!]$|i!^$|i~P''VO!Q*OO'y*PO(z%POP'iaR'ia['iaj'ian'iar'ia!S'ia!l'ia!p'ia#R'ia#n'ia#o'ia#p'ia#q'ia#r'ia#s'ia#t'ia#u'ia#v'ia#x'ia#z'ia#{'ia$O'ia(a'ia(r'ia(y'ia!]'ia!^'ia~O!Q*OO'y*POP'kaR'ka['kaj'kan'kar'ka!S'ka!l'ka!p'ka#R'ka#n'ka#o'ka#p'ka#q'ka#r'ka#s'ka#t'ka#u'ka#v'ka#x'ka#z'ka#{'ka$O'ka(a'ka(r'ka(y'ka(z'ka!]'ka!^'ka~O(y$}OP%aiR%ai[%aij%ain%air%ai!Q%ai!S%ai!l%ai!p%ai#R%ai#n%ai#o%ai#p%ai#q%ai#r%ai#s%ai#t%ai#u%ai#v%ai#x%ai#z%ai#{%ai$O%ai'y%ai(a%ai(r%ai(z%ai!]%ai!^%ai~O(z%POP%ciR%ci[%cij%cin%cir%ci!Q%ci!S%ci!l%ci!p%ci#R%ci#n%ci#o%ci#p%ci#q%ci#r%ci#s%ci#t%ci#u%ci#v%ci#x%ci#z%ci#{%ci$O%ci'y%ci(a%ci(r%ci(y%ci!]%ci!^%ci~O$O$oy!]$oy!^$oy~P#BwO$O#cy!]#cy!^#cy~P#BwO!g#vO!]'eq!k'eq~O!]/pO!k)Oy~O!Y'gq!]'gq~P#/sOr:|O!g#vO(r'pO~O[;QO!Y;PO~P#/sO!Y;PO~Og(_!R!](_!R~P!1WOa%[y!_%[y'z%[y!]%[y~P#/sO!]1TO!^)Xy~O!]5uO!^)Uq~O(T;XO~O!_1oO%i;[O~O!k;_O~O%i;dO~P&8fOP$|qR$|q[$|qj$|qr$|q!S$|q!l$|q!p$|q#R$|q#n$|q#o$|q#p$|q#q$|q#r$|q#s$|q#t$|q#u$|q#v$|q#x$|q#z$|q#{$|q$O$|q(a$|q(r$|q!]$|q!^$|q~P''VO!Q*OO'y*PO(z%POP'jaR'ja['jaj'jan'jar'ja!S'ja!l'ja!p'ja#R'ja#n'ja#o'ja#p'ja#q'ja#r'ja#s'ja#t'ja#u'ja#v'ja#x'ja#z'ja#{'ja$O'ja(a'ja(r'ja(y'ja!]'ja!^'ja~O!Q*OO'y*POP'laR'la['laj'lan'lar'la!S'la!l'la!p'la#R'la#n'la#o'la#p'la#q'la#r'la#s'la#t'la#u'la#v'la#x'la#z'la#{'la$O'la(a'la(r'la(y'la(z'la!]'la!^'la~OP%OqR%Oq[%Oqj%Oqr%Oq!S%Oq!l%Oq!p%Oq#R%Oq#n%Oq#o%Oq#p%Oq#q%Oq#r%Oq#s%Oq#t%Oq#u%Oq#v%Oq#x%Oq#z%Oq#{%Oq$O%Oq(a%Oq(r%Oq!]%Oq!^%Oq~P''VOg%e!Z!]%e!Z#`%e!Z$O%e!Z~P!1WO!Y;hO~P#/sOr;iO!g#vO(r'pO~O[;kO!Y;hO~P#/sO!]'pq!^'pq~P#BwO!]#h!Z!^#h!Z~P#BwO#k%e!ZP%e!ZR%e!Z[%e!Za%e!Zj%e!Zr%e!Z!S%e!Z!]%e!Z!l%e!Z!p%e!Z#R%e!Z#n%e!Z#o%e!Z#p%e!Z#q%e!Z#r%e!Z#s%e!Z#t%e!Z#u%e!Z#v%e!Z#x%e!Z#z%e!Z#{%e!Z'z%e!Z(a%e!Z(r%e!Z!k%e!Z!Y%e!Z'w%e!Z#`%e!Zv%e!Z!_%e!Z%i%e!Z!g%e!Z~P#/sOr;tO!g#vO(r'pO~O!Y;uO~P#/sOr;|O!g#vO(r'pO~O!Y;}O~P#/sOP%e!ZR%e!Z[%e!Zj%e!Zr%e!Z!S%e!Z!l%e!Z!p%e!Z#R%e!Z#n%e!Z#o%e!Z#p%e!Z#q%e!Z#r%e!Z#s%e!Z#t%e!Z#u%e!Z#v%e!Z#x%e!Z#z%e!Z#{%e!Z$O%e!Z(a%e!Z(r%e!Z!]%e!Z!^%e!Z~P''VOr<QO!g#vO(r'pO~Ov(fX~P1qO!Q%rO~P!)[O(U!lO~P!)[O!YfX!]fX#`fX~P%2OOP]XR]X[]Xj]Xr]X!Q]X!S]X!]]X!]fX!l]X!p]X#R]X#S]X#`]X#`fX#kfX#n]X#o]X#p]X#q]X#r]X#s]X#t]X#u]X#v]X#x]X#z]X#{]X$Q]X(a]X(r]X(y]X(z]X~O!gfX!k]X!kfX(rfX~P'LTOP<UOQ<UOSfOd>ROe!iOpkOr<UOskOtkOzkO|<UO!O<UO!SWO!WkO!XkO!_XO!i<XO!lZO!o<UO!p<UO!q<UO!s<YO!u<]O!x!hO$W!kO$n>PO(T)]O(VTO(YUO(aVO(o[O~O!]<iO!^$qa~Oh%VOp%WOr%XOs$tOt$tOz%YO|%ZO!O<tO!S${O!_$|O!i>WO!l$xO#j<zO$W%`O$t<vO$v<xO$y%aO(T(vO(VTO(YUO(a$uO(y$}O(z%PO~Ol)dO~P(!yOr!eX(r!eX~P#!iOr(jX(r(jX~P##[O!^]X!^fX~P'LTO!YfX!Y$zX!]fX!]$zX#`fX~P!0SO#k<^O~O!g#vO#k<^O~O#`<nO~Oj<bO~O#`=OO!](wX!^(wX~O#`<nO!](uX!^(uX~O#k=PO~Og=RO~P!1WO#k=XO~O#k=YO~Og=RO(T&ZO~O!g#vO#k=ZO~O!g#vO#k=PO~O$O=[O~P#BwO#k=]O~O#k=^O~O#k=cO~O#k=dO~O#k=eO~O#k=fO~O$O=gO~P!1WO$O=hO~P!1WOl=sO~P7eOk#S#T#U#W#X#[#i#j#u$n$t$v$y%]%^%h%i%j%q%s%v%w%y%{~(OT#o!X'|(U#ps#n#qr!Q'}$]'}(T$_(e~",
+    goto: "$9Y)]PPPPPP)^PP)aP)rP+W/]PPPP6mPP7TPP=QPPP@tPA^PA^PPPA^PCfPA^PA^PA^PCjPCoPD^PIWPPPI[PPPPI[L_PPPLeMVPI[PI[PP! eI[PPPI[PI[P!#lI[P!'S!(X!(bP!)U!)Y!)U!,gPPPPPPP!-W!(XPP!-h!/YP!2iI[I[!2n!5z!:h!:h!>gPPP!>oI[PPPPPPPPP!BOP!C]PPI[!DnPI[PI[I[I[I[I[PI[!FQP!I[P!LbP!Lf!Lp!Lt!LtP!IXP!Lx!LxP#!OP#!SI[PI[#!Y#%_CjA^PA^PA^A^P#&lA^A^#)OA^#+vA^#.SA^A^#.r#1W#1W#1]#1f#1W#1qPP#1WPA^#2ZA^#6YA^A^6mPPP#:_PPP#:x#:xP#:xP#;`#:xPP#;fP#;]P#;]#;y#;]#<e#<k#<n)aP#<q)aP#<z#<z#<zP)aP)aP)aP)aPP)aP#=Q#=TP#=T)aP#=XP#=[P)aP)aP)aP)aP)aP)a)aPP#=b#=h#=s#=y#>P#>V#>]#>k#>q#>{#?R#?]#?c#?s#?y#@k#@}#AT#AZ#Ai#BO#Cs#DR#DY#Et#FS#Gt#HS#HY#H`#Hf#Hp#Hv#H|#IW#Ij#IpPPPPPPPPPPP#IvPPPPPPP#Jk#Mx$ b$ i$ qPPP$']P$'f$*_$0x$0{$1O$1}$2Q$2X$2aP$2g$2jP$3W$3[$4S$5b$5g$5}PP$6S$6Y$6^$6a$6e$6i$7e$7|$8e$8i$8l$8o$8y$8|$9Q$9UR!|RoqOXst!Z#d%m&r&t&u&w,s,x2[2_Y!vQ'`-e1o5{Q%tvQ%|yQ&T|Q&j!VS'W!e-]Q'f!iS'l!r!yU*k$|*Z*oQ+o%}S+|&V&WQ,d&dQ-c'_Q-m'gQ-u'mQ0[*qQ1b,OQ1y,eR<{<Y%SdOPWXYZstuvw!Z!`!g!o#S#W#Z#d#o#u#x#{$O$P$Q$R$S$T$U$V$W$X$_$a$e%m%t&R&k&n&r&t&u&w&{'T'b'r(T(V(](d(x(z)O)}*i+X+],p,s,x-i-q.P.V.t.{/n0]0l0r1S1r2S2T2V2X2[2_2a3Q3W3l4z6T6e6f6i6|8t9T9_S#q]<V!r)_$Z$n'X)s-U-X/V2p4T5w6s:Z:m<U<X<Y<]<^<_<`<a<b<c<d<e<f<g<h<i<k<n<{=O=P=R=Z=[=e=f>SU+P%]<s<tQ+t&PQ,f&gQ,m&oQ0x+gQ0}+iQ1Y+uQ2R,kQ3`.gQ5`0|Q5f1TQ6[1zQ7Y3dQ8`5gR9e7['QkOPWXYZstuvw!Z!`!g!o#S#W#Z#d#o#u#x#{$O$P$Q$R$S$T$U$V$W$X$Z$_$a$e$n%m%t&R&k&n&o&r&t&u&w&{'T'X'b'r(T(V(](d(x(z)O)s)}*i+X+]+g,p,s,x-U-X-i-q.P.V.g.t.{/V/n0]0l0r1S1r2S2T2V2X2[2_2a2p3Q3W3d3l4T4z5w6T6e6f6i6s6|7[8t9T9_:Z:m<U<X<Y<]<^<_<`<a<b<c<d<e<f<g<h<i<k<n<{=O=P=R=Z=[=e=f>S!S!nQ!r!v!y!z$|'W'_'`'l'm'n*k*o*q*r-]-c-e-u0[0_1o5{5}%[$ti#v$b$c$d$x${%O%Q%^%_%c)y*R*T*V*Y*a*g*w*x+f+i,S,V.f/P/d/m/x/y/{0`0b0i0j0o1f1i1q3c4^4_4j4o5Q5[5_6S7W7v8Q8V8[8q9b9p9y:P:`:r;Q;[;d;k<l<m<o<p<q<r<u<v<w<x<y<z=S=T=U=V=X=Y=]=^=_=`=a=b=c=d=g=h>P>X>Y>]>^Q&X|Q'U!eS'[%i-`Q+t&PQ,P&WQ,f&gQ0n+SQ1Y+uQ1_+{Q2Q,jQ2R,kQ5f1TQ5o1aQ6[1zQ6_1|Q6`2PQ8`5gQ8c5lQ8|6bQ:X8dQ:f8yQ;V:YR<}*ZrnOXst!V!Z#d%m&i&r&t&u&w,s,x2[2_R,h&k&z^OPXYstuvwz!Z!`!g!j!o#S#d#o#u#x#{$O$P$Q$R$S$T$U$V$W$X$Z$_$a$e$n%m%t&R&k&n&o&r&t&u&w&{'T'b'r(V(](d(x(z)O)s)}*i+X+]+g,p,s,x-U-X-i-q.P.V.g.t.{/V/n0]0l0r1S1r2S2T2V2X2[2_2a2p3Q3W3d3l4T4z5w6T6e6f6i6s6|7[8t9T9_:Z:m<U<X<Y<]<^<_<`<a<b<c<d<e<f<g<h<i<k<n<{=O=P=R=Z=[=e=f>R>S[#]WZ#W#Z'X(T!b%jm#h#i#l$x%e%h(^(h(i(j*Y*^*b+Z+[+^,o-V.T.Z.[.]._/m/p2d3[3]4a6r7TQ%wxQ%{yW&Q|&V&W,OQ&_!TQ'c!hQ'e!iQ(q#sS+n%|%}Q+r&PQ,_&bQ,c&dS-l'f'gQ.i(rQ1R+oQ1X+uQ1Z+vQ1^+zQ1t,`S1x,d,eQ2|-mQ5e1TQ5i1WQ5n1`Q6Z1yQ8_5gQ8b5kQ8f5pQ:T8^R;T:U!U$zi$d%O%Q%^%_%c*R*T*a*w*x/P/x0`0b0i0j0o4_5Q8V9p>P>X>Y!^%yy!i!u%{%|%}'V'e'f'g'k'u*j+n+o-Y-l-m-t0R0U1R2u2|3T4r4s4v7}9{Q+h%wQ,T&[Q,W&]Q,b&dQ.h(qQ1s,_U1w,c,d,eQ3e.iQ6U1tS6Y1x1yQ8x6Z#f>T#v$b$c$x${)y*V*Y*g+f+i,S,V.f/d/m/y/{1f1i1q3c4^4j4o5[5_6S7W7v8Q8[8q9b9y:P:`:r;Q;[;d;k<o<q<u<w<y=S=U=X=]=_=a=c=g>]>^o>U<l<m<p<r<v<x<z=T=V=Y=^=`=b=d=hW%Ti%V*y>PS&[!Q&iQ&]!RQ&^!SU*}%[%d=sR,R&Y%]%Si#v$b$c$d$x${%O%Q%^%_%c)y*R*T*V*Y*a*g*w*x+f+i,S,V.f/P/d/m/x/y/{0`0b0i0j0o1f1i1q3c4^4_4j4o5Q5[5_6S7W7v8Q8V8[8q9b9p9y:P:`:r;Q;[;d;k<l<m<o<p<q<r<u<v<w<x<y<z=S=T=U=V=X=Y=]=^=_=`=a=b=c=d=g=h>P>X>Y>]>^T)z$u){V+P%]<s<tW'[!e%i*Z-`S(}#y#zQ+c%rQ+y&SS.b(m(nQ1j,XQ5T0kR8i5u'QkOPWXYZstuvw!Z!`!g!o#S#W#Z#d#o#u#x#{$O$P$Q$R$S$T$U$V$W$X$Z$_$a$e$n%m%t&R&k&n&o&r&t&u&w&{'T'X'b'r(T(V(](d(x(z)O)s)}*i+X+]+g,p,s,x-U-X-i-q.P.V.g.t.{/V/n0]0l0r1S1r2S2T2V2X2[2_2a2p3Q3W3d3l4T4z5w6T6e6f6i6s6|7[8t9T9_:Z:m<U<X<Y<]<^<_<`<a<b<c<d<e<f<g<h<i<k<n<{=O=P=R=Z=[=e=f>S$i$^c#Y#e%q%s%u(S(Y(t(y)R)S)T)U)V)W)X)Y)Z)[)^)`)b)g)q+d+x-Z-x-}.S.U.s.v.z.|.}/O/b0p2k2n3O3V3k3p3q3r3s3t3u3v3w3x3y3z3{3|4P4Q4X5X5c6u6{7Q7a7b7k7l8k9X9]9g9m9n:o;W;`<W=vT#TV#U'RkOPWXYZstuvw!Z!`!g!o#S#W#Z#d#o#u#x#{$O$P$Q$R$S$T$U$V$W$X$Z$_$a$e$n%m%t&R&k&n&o&r&t&u&w&{'T'X'b'r(T(V(](d(x(z)O)s)}*i+X+]+g,p,s,x-U-X-i-q.P.V.g.t.{/V/n0]0l0r1S1r2S2T2V2X2[2_2a2p3Q3W3d3l4T4z5w6T6e6f6i6s6|7[8t9T9_:Z:m<U<X<Y<]<^<_<`<a<b<c<d<e<f<g<h<i<k<n<{=O=P=R=Z=[=e=f>SQ'Y!eR2q-]!W!nQ!e!r!v!y!z$|'W'_'`'l'm'n*Z*k*o*q*r-]-c-e-u0[0_1o5{5}R1l,ZnqOXst!Z#d%m&r&t&u&w,s,x2[2_Q&y!^Q'v!xS(s#u<^Q+l%zQ,]&_Q,^&aQ-j'dQ-w'oS.r(x=PS0q+X=ZQ1P+mQ1n,[Q2c,zQ2e,{Q2m-WQ2z-kQ2}-oS5Y0r=eQ5a1QS5d1S=fQ6t2oQ6x2{Q6}3SQ8]5bQ9Y6vQ9Z6yQ9^7OR:l9V$d$]c#Y#e%s%u(S(Y(t(y)R)S)T)U)V)W)X)Y)Z)[)^)`)b)g)q+d+x-Z-x-}.S.U.s.v.z.}/O/b0p2k2n3O3V3k3p3q3r3s3t3u3v3w3x3y3z3{3|4P4Q4X5X5c6u6{7Q7a7b7k7l8k9X9]9g9m9n:o;W;`<W=vS(o#p'iQ)P#zS+b%q.|S.c(n(pR3^.d'QkOPWXYZstuvw!Z!`!g!o#S#W#Z#d#o#u#x#{$O$P$Q$R$S$T$U$V$W$X$Z$_$a$e$n%m%t&R&k&n&o&r&t&u&w&{'T'X'b'r(T(V(](d(x(z)O)s)}*i+X+]+g,p,s,x-U-X-i-q.P.V.g.t.{/V/n0]0l0r1S1r2S2T2V2X2[2_2a2p3Q3W3d3l4T4z5w6T6e6f6i6s6|7[8t9T9_:Z:m<U<X<Y<]<^<_<`<a<b<c<d<e<f<g<h<i<k<n<{=O=P=R=Z=[=e=f>SS#q]<VQ&t!XQ&u!YQ&w![Q&x!]R2Z,vQ'a!hQ+e%wQ-h'cS.e(q+hQ2x-gW3b.h.i0w0yQ6w2yW7U3_3a3e5^U9a7V7X7ZU:q9c9d9fS;b:p:sQ;p;cR;x;qU!wQ'`-eT5y1o5{!Q_OXZ`st!V!Z#d#h%e%m&i&k&r&t&u&w(j,s,x.[2[2_]!pQ!r'`-e1o5{T#q]<V%^{OPWXYZstuvw!Z!`!g!o#S#W#Z#d#o#u#x#{$O$P$Q$R$S$T$U$V$W$X$_$a$e%m%t&R&k&n&o&r&t&u&w&{'T'b'r(T(V(](d(x(z)O)}*i+X+]+g,p,s,x-i-q.P.V.g.t.{/n0]0l0r1S1r2S2T2V2X2[2_2a3Q3W3d3l4z6T6e6f6i6|7[8t9T9_S(}#y#zS.b(m(n!s=l$Z$n'X)s-U-X/V2p4T5w6s:Z:m<U<X<Y<]<^<_<`<a<b<c<d<e<f<g<h<i<k<n<{=O=P=R=Z=[=e=f>SU$fd)_,mS(p#p'iU*v%R(w4OU0m+O.n7gQ5^0xQ7V3`Q9d7YR:s9em!tQ!r!v!y!z'`'l'm'n-e-u1o5{5}Q't!uS(f#g2US-s'k'wQ/s*]Q0R*jQ3U-vQ4f/tQ4r0TQ4s0UQ4x0^Q7r4`S7}4t4vS8R4y4{Q9r7sQ9v7yQ9{8OQ:Q8TS:{9w9xS;g:|;PS;s;h;iS;{;t;uS<P;|;}R<S<QQ#wbQ's!uS(e#g2US(g#m+WQ+Y%fQ+j%xQ+p&OU-r'k't'wQ.W(fU/r*]*`/wQ0S*jQ0V*lQ1O+kQ1u,aS3R-s-vQ3Z.`S4e/s/tQ4n0PS4q0R0^Q4u0WQ6W1vQ7P3US7q4`4bQ7u4fU7|4r4x4{Q8P4wQ8v6XS9q7r7sQ9u7yQ9}8RQ:O8SQ:c8wQ:y9rS:z9v9xQ;S:QQ;^:dS;f:{;PS;r;g;hS;z;s;uS<O;{;}Q<R<PQ<T<SQ=o=jQ={=tR=|=uV!wQ'`-e%^aOPWXYZstuvw!Z!`!g!o#S#W#Z#d#o#u#x#{$O$P$Q$R$S$T$U$V$W$X$_$a$e%m%t&R&k&n&o&r&t&u&w&{'T'b'r(T(V(](d(x(z)O)}*i+X+]+g,p,s,x-i-q.P.V.g.t.{/n0]0l0r1S1r2S2T2V2X2[2_2a3Q3W3d3l4z6T6e6f6i6|7[8t9T9_S#wz!j!r=i$Z$n'X)s-U-X/V2p4T5w6s:Z:m<U<X<Y<]<^<_<`<a<b<c<d<e<f<g<h<i<k<n<{=O=P=R=Z=[=e=f>SR=o>R%^bOPWXYZstuvw!Z!`!g!o#S#W#Z#d#o#u#x#{$O$P$Q$R$S$T$U$V$W$X$_$a$e%m%t&R&k&n&o&r&t&u&w&{'T'b'r(T(V(](d(x(z)O)}*i+X+]+g,p,s,x-i-q.P.V.g.t.{/n0]0l0r1S1r2S2T2V2X2[2_2a3Q3W3d3l4z6T6e6f6i6|7[8t9T9_Q%fj!^%xy!i!u%{%|%}'V'e'f'g'k'u*j+n+o-Y-l-m-t0R0U1R2u2|3T4r4s4v7}9{S&Oz!jQ+k%yQ,a&dW1v,b,c,d,eU6X1w1x1yS8w6Y6ZQ:d8x!r=j$Z$n'X)s-U-X/V2p4T5w6s:Z:m<U<X<Y<]<^<_<`<a<b<c<d<e<f<g<h<i<k<n<{=O=P=R=Z=[=e=f>SQ=t>QR=u>R%QeOPXYstuvw!Z!`!g!o#S#d#o#u#x#{$O$P$Q$R$S$T$U$V$W$X$_$a$e%m%t&R&k&n&r&t&u&w&{'T'b'r(V(](d(x(z)O)}*i+X+]+g,p,s,x-i-q.P.V.g.t.{/n0]0l0r1S1r2S2T2V2X2[2_2a3Q3W3d3l4z6T6e6f6i6|7[8t9T9_Y#bWZ#W#Z(T!b%jm#h#i#l$x%e%h(^(h(i(j*Y*^*b+Z+[+^,o-V.T.Z.[.]._/m/p2d3[3]4a6r7TQ,n&o!p=k$Z$n)s-U-X/V2p4T5w6s:Z:m<U<X<Y<]<^<_<`<a<b<c<d<e<f<g<h<i<k<n<{=O=P=R=Z=[=e=f>SR=n'XU']!e%i*ZR2s-`%SdOPWXYZstuvw!Z!`!g!o#S#W#Z#d#o#u#x#{$O$P$Q$R$S$T$U$V$W$X$_$a$e%m%t&R&k&n&r&t&u&w&{'T'b'r(T(V(](d(x(z)O)}*i+X+],p,s,x-i-q.P.V.t.{/n0]0l0r1S1r2S2T2V2X2[2_2a3Q3W3l4z6T6e6f6i6|8t9T9_!r)_$Z$n'X)s-U-X/V2p4T5w6s:Z:m<U<X<Y<]<^<_<`<a<b<c<d<e<f<g<h<i<k<n<{=O=P=R=Z=[=e=f>SQ,m&oQ0x+gQ3`.gQ7Y3dR9e7[!b$Tc#Y%q(S(Y(t(y)Z)[)`)g+x-x-}.S.U.s.v/b0p3O3V3k3{5X5c6{7Q7a9]:o<W!P<d)^)q-Z.|2k2n3p3y3z4P4X6u7b7k7l8k9X9g9m9n;W;`=v!f$Vc#Y%q(S(Y(t(y)W)X)Z)[)`)g+x-x-}.S.U.s.v/b0p3O3V3k3{5X5c6{7Q7a9]:o<W!T<f)^)q-Z.|2k2n3p3v3w3y3z4P4X6u7b7k7l8k9X9g9m9n;W;`=v!^$Zc#Y%q(S(Y(t(y)`)g+x-x-}.S.U.s.v/b0p3O3V3k3{5X5c6{7Q7a9]:o<WQ4_/kz>S)^)q-Z.|2k2n3p4P4X6u7b7k7l8k9X9g9m9n;W;`=vQ>X>ZR>Y>['QkOPWXYZstuvw!Z!`!g!o#S#W#Z#d#o#u#x#{$O$P$Q$R$S$T$U$V$W$X$Z$_$a$e$n%m%t&R&k&n&o&r&t&u&w&{'T'X'b'r(T(V(](d(x(z)O)s)}*i+X+]+g,p,s,x-U-X-i-q.P.V.g.t.{/V/n0]0l0r1S1r2S2T2V2X2[2_2a2p3Q3W3d3l4T4z5w6T6e6f6i6s6|7[8t9T9_:Z:m<U<X<Y<]<^<_<`<a<b<c<d<e<f<g<h<i<k<n<{=O=P=R=Z=[=e=f>SS$oh$pR4U/U'XgOPWXYZhstuvw!Z!`!g!o#S#W#Z#d#o#u#x#{$O$P$Q$R$S$T$U$V$W$X$Z$_$a$e$n$p%m%t&R&k&n&o&r&t&u&w&{'T'X'b'r(T(V(](d(x(z)O)s)}*i+X+]+g,p,s,x-U-X-i-q.P.V.g.t.{/U/V/n0]0l0r1S1r2S2T2V2X2[2_2a2p3Q3W3d3l4T4z5w6T6e6f6i6s6|7[8t9T9_:Z:m<U<X<Y<]<^<_<`<a<b<c<d<e<f<g<h<i<k<n<{=O=P=R=Z=[=e=f>ST$kf$qQ$ifS)j$l)nR)v$qT$jf$qT)l$l)n'XhOPWXYZhstuvw!Z!`!g!o#S#W#Z#d#o#u#x#{$O$P$Q$R$S$T$U$V$W$X$Z$_$a$e$n$p%m%t&R&k&n&o&r&t&u&w&{'T'X'b'r(T(V(](d(x(z)O)s)}*i+X+]+g,p,s,x-U-X-i-q.P.V.g.t.{/U/V/n0]0l0r1S1r2S2T2V2X2[2_2a2p3Q3W3d3l4T4z5w6T6e6f6i6s6|7[8t9T9_:Z:m<U<X<Y<]<^<_<`<a<b<c<d<e<f<g<h<i<k<n<{=O=P=R=Z=[=e=f>ST$oh$pQ$rhR)u$p%^jOPWXYZstuvw!Z!`!g!o#S#W#Z#d#o#u#x#{$O$P$Q$R$S$T$U$V$W$X$_$a$e%m%t&R&k&n&o&r&t&u&w&{'T'b'r(T(V(](d(x(z)O)}*i+X+]+g,p,s,x-i-q.P.V.g.t.{/n0]0l0r1S1r2S2T2V2X2[2_2a3Q3W3d3l4z6T6e6f6i6|7[8t9T9_!s>Q$Z$n'X)s-U-X/V2p4T5w6s:Z:m<U<X<Y<]<^<_<`<a<b<c<d<e<f<g<h<i<k<n<{=O=P=R=Z=[=e=f>S#glOPXZst!Z!`!o#S#d#o#{$n%m&k&n&o&r&t&u&w&{'T'b)O)s*i+]+g,p,s,x-i.g/V/n0]0l1r2S2T2V2X2[2_2a3d4T4z6T6e6f6i7[8t9T!U%Ri$d%O%Q%^%_%c*R*T*a*w*x/P/x0`0b0i0j0o4_5Q8V9p>P>X>Y#f(w#v$b$c$x${)y*V*Y*g+f+i,S,V.f/d/m/y/{1f1i1q3c4^4j4o5[5_6S7W7v8Q8[8q9b9y:P:`:r;Q;[;d;k<o<q<u<w<y=S=U=X=]=_=a=c=g>]>^Q+T%aQ/c*Oo4O<l<m<p<r<v<x<z=T=V=Y=^=`=b=d=h!U$yi$d%O%Q%^%_%c*R*T*a*w*x/P/x0`0b0i0j0o4_5Q8V9p>P>X>YQ*c$zU*l$|*Z*oQ+U%bQ0W*m#f=q#v$b$c$x${)y*V*Y*g+f+i,S,V.f/d/m/y/{1f1i1q3c4^4j4o5[5_6S7W7v8Q8[8q9b9y:P:`:r;Q;[;d;k<o<q<u<w<y=S=U=X=]=_=a=c=g>]>^n=r<l<m<p<r<v<x<z=T=V=Y=^=`=b=d=hQ=w>TQ=x>UQ=y>VR=z>W!U%Ri$d%O%Q%^%_%c*R*T*a*w*x/P/x0`0b0i0j0o4_5Q8V9p>P>X>Y#f(w#v$b$c$x${)y*V*Y*g+f+i,S,V.f/d/m/y/{1f1i1q3c4^4j4o5[5_6S7W7v8Q8[8q9b9y:P:`:r;Q;[;d;k<o<q<u<w<y=S=U=X=]=_=a=c=g>]>^o4O<l<m<p<r<v<x<z=T=V=Y=^=`=b=d=hnoOXst!Z#d%m&r&t&u&w,s,x2[2_S*f${*YQ-R'OQ-S'QR4i/y%[%Si#v$b$c$d$x${%O%Q%^%_%c)y*R*T*V*Y*a*g*w*x+f+i,S,V.f/P/d/m/x/y/{0`0b0i0j0o1f1i1q3c4^4_4j4o5Q5[5_6S7W7v8Q8V8[8q9b9p9y:P:`:r;Q;[;d;k<l<m<o<p<q<r<u<v<w<x<y<z=S=T=U=V=X=Y=]=^=_=`=a=b=c=d=g=h>P>X>Y>]>^Q,U&]Q1h,WQ5s1gR8h5tV*n$|*Z*oU*n$|*Z*oT5z1o5{S0P*i/nQ4w0]T8S4z:]Q+j%xQ0V*lQ1O+kQ1u,aQ6W1vQ8v6XQ:c8wR;^:d!U%Oi$d%O%Q%^%_%c*R*T*a*w*x/P/x0`0b0i0j0o4_5Q8V9p>P>X>Yx*R$v)e*S*u+V/v0d0e4R4g5R5S5W7p8U:R:x=p=}>OS0`*t0a#f<o#v$b$c$x${)y*V*Y*g+f+i,S,V.f/d/m/y/{1f1i1q3c4^4j4o5[5_6S7W7v8Q8[8q9b9y:P:`:r;Q;[;d;k<o<q<u<w<y=S=U=X=]=_=a=c=g>]>^n<p<l<m<p<r<v<x<z=T=V=Y=^=`=b=d=h!d=S(u)c*[*e.j.m.q/_/k/|0v1e3h4[4h4l5r7]7`7w7z8X8Z9t9|:S:};R;e;j;v>Z>[`=T3}7c7f7j9h:t:w;yS=_.l3iT=`7e9k!U%Qi$d%O%Q%^%_%c*R*T*a*w*x/P/x0`0b0i0j0o4_5Q8V9p>P>X>Y|*T$v)e*U*t+V/g/v0d0e4R4g4|5R5S5W7p8U:R:x=p=}>OS0b*u0c#f<q#v$b$c$x${)y*V*Y*g+f+i,S,V.f/d/m/y/{1f1i1q3c4^4j4o5[5_6S7W7v8Q8[8q9b9y:P:`:r;Q;[;d;k<o<q<u<w<y=S=U=X=]=_=a=c=g>]>^n<r<l<m<p<r<v<x<z=T=V=Y=^=`=b=d=h!h=U(u)c*[*e.k.l.q/_/k/|0v1e3f3h4[4h4l5r7]7^7`7w7z8X8Z9t9|:S:};R;e;j;v>Z>[d=V3}7d7e7j9h9i:t:u:w;yS=a.m3jT=b7f9lrnOXst!V!Z#d%m&i&r&t&u&w,s,x2[2_Q&f!UR,p&ornOXst!V!Z#d%m&i&r&t&u&w,s,x2[2_R&f!UQ,Y&^R1d,RsnOXst!V!Z#d%m&i&r&t&u&w,s,x2[2_Q1p,_S6R1s1tU8p6P6Q6US:_8r8sS;Y:^:aQ;m;ZR;w;nQ&m!VR,i&iR6_1|R:f8yW&Q|&V&W,OR1Z+vQ&r!WR,s&sR,y&xT2],x2_R,}&yQ,|&yR2f,}Q'y!{R-y'ySsOtQ#dXT%ps#dQ#OTR'{#OQ#RUR'}#RQ){$uR/`){Q#UVR(Q#UQ#XWU(W#X(X.QQ(X#YR.Q(YQ-^'YR2r-^Q.u(yS3m.u3nR3n.vQ-e'`R2v-eY!rQ'`-e1o5{R'j!rQ/Q)eR4S/QU#_W%h*YU(_#_(`.RQ(`#`R.R(ZQ-a']R2t-at`OXst!V!Z#d%m&i&k&r&t&u&w,s,x2[2_S#hZ%eU#r`#h.[R.[(jQ(k#jQ.X(gW.a(k.X3X7RQ3X.YR7R3YQ)n$lR/W)nQ$phR)t$pQ$`cU)a$`-|<jQ-|<WR<j)qQ/q*]W4c/q4d7t9sU4d/r/s/tS7t4e4fR9s7u$e*Q$v(u)c)e*[*e*t*u+Q+R+V.l.m.o.p.q/_/g/i/k/v/|0d0e0v1e3f3g3h3}4R4[4g4h4l4|5O5R5S5W5r7]7^7_7`7e7f7h7i7j7p7w7z8U8X8Z9h9i9j9t9|:R:S:t:u:v:w:x:};R;e;j;v;y=p=}>O>Z>[Q/z*eU4k/z4m7xQ4m/|R7x4lS*o$|*ZR0Y*ox*S$v)e*t*u+V/v0d0e4R4g5R5S5W7p8U:R:x=p=}>O!d.j(u)c*[*e.l.m.q/_/k/|0v1e3h4[4h4l5r7]7`7w7z8X8Z9t9|:S:};R;e;j;v>Z>[U/h*S.j7ca7c3}7e7f7j9h:t:w;yQ0a*tQ3i.lU4}0a3i9kR9k7e|*U$v)e*t*u+V/g/v0d0e4R4g4|5R5S5W7p8U:R:x=p=}>O!h.k(u)c*[*e.l.m.q/_/k/|0v1e3f3h4[4h4l5r7]7^7`7w7z8X8Z9t9|:S:};R;e;j;v>Z>[U/j*U.k7de7d3}7e7f7j9h9i:t:u:w;yQ0c*uQ3j.mU5P0c3j9lR9l7fQ*z%UR0g*zQ5]0vR8Y5]Q+_%kR0u+_Q5v1jS8j5v:[R:[8kQ,[&_R1m,[Q5{1oR8m5{Q1{,fS6]1{8zR8z6_Q1U+rW5h1U5j8a:VQ5j1XQ8a5iR:V8bQ+w&QR1[+wQ2_,xR6m2_YrOXst#dQ&v!ZQ+a%mQ,r&rQ,t&tQ,u&uQ,w&wQ2Y,sS2],x2_R6l2[Q%opQ&z!_Q&}!aQ'P!bQ'R!cQ'q!uQ+`%lQ+l%zQ,Q&XQ,h&mQ-P&|W-p'k's't'wQ-w'oQ0X*nQ1P+mQ1c,PS2O,i,lQ2g-OQ2h-RQ2i-SQ2}-oW3P-r-s-v-xQ5a1QQ5m1_Q5q1eQ6V1uQ6a2QQ6k2ZU6z3O3R3UQ6}3SQ8]5bQ8e5oQ8g5rQ8l5zQ8u6WQ8{6`S9[6{7PQ9^7OQ:W8cQ:b8vQ:g8|Q:n9]Q;U:XQ;]:cQ;a:oQ;l;VR;o;^Q%zyQ'd!iQ'o!uU+m%{%|%}Q-W'VU-k'e'f'gS-o'k'uQ0Q*jS1Q+n+oQ2o-YS2{-l-mQ3S-tS4p0R0UQ5b1RQ6v2uQ6y2|Q7O3TU7{4r4s4vQ9z7}R;O9{S$wi>PR*{%VU%Ui%V>PR0f*yQ$viS(u#v+iS)c$b$cQ)e$dQ*[$xS*e${*YQ*t%OQ*u%QQ+Q%^Q+R%_Q+V%cQ.l<oQ.m<qQ.o<uQ.p<wQ.q<yQ/_)yQ/g*RQ/i*TQ/k*VQ/v*aS/|*g/mQ0d*wQ0e*xl0v+f,V.f1i1q3c6S7W8q9b:`:r;[;dQ1e,SQ3f=SQ3g=UQ3h=XS3}<l<mQ4R/PS4[/d4^Q4g/xQ4h/yQ4l/{Q4|0`Q5O0bQ5R0iQ5S0jQ5W0oQ5r1fQ7]=]Q7^=_Q7_=aQ7`=cQ7e<pQ7f<rQ7h<vQ7i<xQ7j<zQ7p4_Q7w4jQ7z4oQ8U5QQ8X5[Q8Z5_Q9h=YQ9i=TQ9j=VQ9t7vQ9|8QQ:R8VQ:S8[Q:t=^Q:u=`Q:v=bQ:w=dQ:x9pQ:}9yQ;R:PQ;e=gQ;j;QQ;v;kQ;y=hQ=p>PQ=}>XQ>O>YQ>Z>]R>[>^Q+O%]Q.n<sR7g<tnpOXst!Z#d%m&r&t&u&w,s,x2[2_Q!fPS#fZ#oQ&|!`W'h!o*i0]4zQ(P#SQ)Q#{Q)r$nS,l&k&nQ,q&oQ-O&{S-T'T/nQ-g'bQ.x)OQ/[)sQ0s+]Q0y+gQ2W,pQ2y-iQ3a.gQ4W/VQ5U0lQ6Q1rQ6c2SQ6d2TQ6h2VQ6j2XQ6o2aQ7Z3dQ7m4TQ8s6TQ9P6eQ9Q6fQ9S6iQ9f7[Q:a8tR:k9T#[cOPXZst!Z!`!o#d#o#{%m&k&n&o&r&t&u&w&{'T'b)O*i+]+g,p,s,x-i.g/n0]0l1r2S2T2V2X2[2_2a3d4z6T6e6f6i7[8t9TQ#YWQ#eYQ%quQ%svS%uw!gS(S#W(VQ(Y#ZQ(t#uQ(y#xQ)R$OQ)S$PQ)T$QQ)U$RQ)V$SQ)W$TQ)X$UQ)Y$VQ)Z$WQ)[$XQ)^$ZQ)`$_Q)b$aQ)g$eW)q$n)s/V4TQ+d%tQ+x&RS-Z'X2pQ-x'rS-}(T.PQ.S(]Q.U(dQ.s(xQ.v(zQ.z<UQ.|<XQ.}<YQ/O<]Q/b)}Q0p+XQ2k-UQ2n-XQ3O-qQ3V.VQ3k.tQ3p<^Q3q<_Q3r<`Q3s<aQ3t<bQ3u<cQ3v<dQ3w<eQ3x<fQ3y<gQ3z<hQ3{.{Q3|<kQ4P<nQ4Q<{Q4X<iQ5X0rQ5c1SQ6u=OQ6{3QQ7Q3WQ7a3lQ7b=PQ7k=RQ7l=ZQ8k5wQ9X6sQ9]6|Q9g=[Q9m=eQ9n=fQ:o9_Q;W:ZQ;`:mQ<W#SR=v>SR#[WR'Z!el!tQ!r!v!y!z'`'l'm'n-e-u1o5{5}S'V!e-]U*j$|*Z*oS-Y'W'_S0U*k*qQ0^*rQ2u-cQ4v0[R4{0_R({#xQ!fQT-d'`-e]!qQ!r'`-e1o5{Q#p]R'i<VR)f$dY!uQ'`-e1o5{Q'k!rS'u!v!yS'w!z5}S-t'l'mQ-v'nR3T-uT#kZ%eS#jZ%eS%km,oU(g#h#i#lS.Y(h(iQ.^(jQ0t+^Q3Y.ZU3Z.[.]._S7S3[3]R9`7Td#^W#W#Z%h(T(^*Y+Z.T/mr#gZm#h#i#l%e(h(i(j+^.Z.[.]._3[3]7TS*]$x*bQ/t*^Q2U,oQ2l-VQ4`/pQ6q2dQ7s4aQ9W6rT=m'X+[V#aW%h*YU#`W%h*YS(U#W(^U(Z#Z+Z/mS-['X+[T.O(T.TV'^!e%i*ZQ$lfR)x$qT)m$l)nR4V/UT*_$x*bT*h${*YQ0w+fQ1g,VQ3_.fQ5t1iQ6P1qQ7X3cQ8r6SQ9c7WQ:^8qQ:p9bQ;Z:`Q;c:rQ;n;[R;q;dnqOXst!Z#d%m&r&t&u&w,s,x2[2_Q&l!VR,h&itmOXst!U!V!Z#d%m&i&r&t&u&w,s,x2[2_R,o&oT%lm,oR1k,XR,g&gQ&U|S+}&V&WR1^,OR+s&PT&p!W&sT&q!W&sT2^,x2_",
+    nodeNames: "\u26A0 ArithOp ArithOp ?. JSXStartTag LineComment BlockComment Script Hashbang ExportDeclaration export Star as VariableName String Escape from ; default FunctionDeclaration async function VariableDefinition > < TypeParamList in out const TypeDefinition extends ThisType this LiteralType ArithOp Number BooleanLiteral TemplateType InterpolationEnd Interpolation InterpolationStart NullType null VoidType void TypeofType typeof MemberExpression . PropertyName [ TemplateString Escape Interpolation super RegExp ] ArrayExpression Spread , } { ObjectExpression Property async get set PropertyDefinition Block : NewTarget new NewExpression ) ( ArgList UnaryExpression delete LogicOp BitOp YieldExpression yield AwaitExpression await ParenthesizedExpression ClassExpression class ClassBody MethodDeclaration Decorator @ MemberExpression PrivatePropertyName CallExpression TypeArgList CompareOp < declare Privacy static abstract override PrivatePropertyDefinition PropertyDeclaration readonly accessor Optional TypeAnnotation Equals StaticBlock FunctionExpression ArrowFunction ParamList ParamList ArrayPattern ObjectPattern PatternProperty Privacy readonly Arrow MemberExpression BinaryExpression ArithOp ArithOp ArithOp ArithOp BitOp CompareOp instanceof satisfies CompareOp BitOp BitOp BitOp LogicOp LogicOp ConditionalExpression LogicOp LogicOp AssignmentExpression UpdateOp PostfixExpression CallExpression InstantiationExpression TaggedTemplateExpression DynamicImport import ImportMeta JSXElement JSXSelfCloseEndTag JSXSelfClosingTag JSXIdentifier JSXBuiltin JSXIdentifier JSXNamespacedName JSXMemberExpression JSXSpreadAttribute JSXAttribute JSXAttributeValue JSXEscape JSXEndTag JSXOpenTag JSXFragmentTag JSXText JSXEscape JSXStartCloseTag JSXCloseTag PrefixCast < ArrowFunction TypeParamList SequenceExpression InstantiationExpression KeyofType keyof UniqueType unique ImportType InferredType infer TypeName ParenthesizedType FunctionSignature ParamList NewSignature IndexedType TupleType Label ArrayType ReadonlyType ObjectType MethodType PropertyType IndexSignature PropertyDefinition CallSignature TypePredicate asserts is NewSignature new UnionType LogicOp IntersectionType LogicOp ConditionalType ParameterizedType ClassDeclaration abstract implements type VariableDeclaration let var using TypeAliasDeclaration InterfaceDeclaration interface EnumDeclaration enum EnumBody NamespaceDeclaration namespace module AmbientDeclaration declare GlobalDeclaration global ClassDeclaration ClassBody AmbientFunctionDeclaration ExportGroup VariableName VariableName ImportDeclaration defer ImportGroup ForStatement for ForSpec ForInSpec ForOfSpec of WhileStatement while WithStatement with DoStatement do IfStatement if else SwitchStatement switch SwitchBody CaseLabel case DefaultLabel TryStatement try CatchClause catch FinallyClause finally ReturnStatement return ThrowStatement throw BreakStatement break ContinueStatement continue DebuggerStatement debugger LabeledStatement ExpressionStatement SingleExpression SingleClassItem",
+    maxTerm: 380,
+    context: trackNewline,
+    nodeProps: [
+        [
+            "isolate",
+            -8,
+            5,
+            6,
+            14,
+            37,
+            39,
+            51,
+            53,
+            55,
+            ""
+        ],
+        [
+            "group",
+            -26,
+            9,
+            17,
+            19,
+            68,
+            207,
+            211,
+            215,
+            216,
+            218,
+            221,
+            224,
+            234,
+            237,
+            243,
+            245,
+            247,
+            249,
+            252,
+            258,
+            264,
+            266,
+            268,
+            270,
+            272,
+            274,
+            275,
+            "Statement",
+            -34,
+            13,
+            14,
+            32,
+            35,
+            36,
+            42,
+            51,
+            54,
+            55,
+            57,
+            62,
+            70,
+            72,
+            76,
+            80,
+            82,
+            84,
+            85,
+            110,
+            111,
+            120,
+            121,
+            136,
+            139,
+            141,
+            142,
+            143,
+            144,
+            145,
+            147,
+            148,
+            167,
+            169,
+            171,
+            "Expression",
+            -23,
+            31,
+            33,
+            37,
+            41,
+            43,
+            45,
+            173,
+            175,
+            177,
+            178,
+            180,
+            181,
+            182,
+            184,
+            185,
+            186,
+            188,
+            189,
+            190,
+            201,
+            203,
+            205,
+            206,
+            "Type",
+            -3,
+            88,
+            103,
+            109,
+            "ClassItem"
+        ],
+        [
+            "openedBy",
+            23,
+            "<",
+            38,
+            "InterpolationStart",
+            56,
+            "[",
+            60,
+            "{",
+            73,
+            "(",
+            160,
+            "JSXStartCloseTag"
+        ],
+        [
+            "closedBy",
+            -2,
+            24,
+            168,
+            ">",
+            40,
+            "InterpolationEnd",
+            50,
+            "]",
+            61,
+            "}",
+            74,
+            ")",
+            165,
+            "JSXEndTag"
+        ]
+    ],
+    propSources: [
+        jsHighlight
+    ],
+    skippedNodes: [
+        0,
+        5,
+        6,
+        278
+    ],
+    repeatNodeCount: 37,
+    tokenData: "$Fq07[R!bOX%ZXY+gYZ-yZ[+g[]%Z]^.c^p%Zpq+gqr/mrs3cst:_tuEruvJSvwLkwx! Yxy!'iyz!(sz{!)}{|!,q|}!.O}!O!,q!O!P!/Y!P!Q!9j!Q!R#:O!R![#<_![!]#I_!]!^#Jk!^!_#Ku!_!`$![!`!a$$v!a!b$*T!b!c$,r!c!}Er!}#O$-|#O#P$/W#P#Q$4o#Q#R$5y#R#SEr#S#T$7W#T#o$8b#o#p$<r#p#q$=h#q#r$>x#r#s$@U#s$f%Z$f$g+g$g#BYEr#BY#BZ$A`#BZ$ISEr$IS$I_$A`$I_$I|Er$I|$I}$Dk$I}$JO$Dk$JO$JTEr$JT$JU$A`$JU$KVEr$KV$KW$A`$KW&FUEr&FU&FV$A`&FV;'SEr;'S;=`I|<%l?HTEr?HT?HU$A`?HUOEr(n%d_$i&j(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z&j&hT$i&jO!^&c!_#o&c#p;'S&c;'S;=`&w<%lO&c&j&zP;=`<%l&c'|'U]$i&j(Z!bOY&}YZ&cZw&}wx&cx!^&}!^!_'}!_#O&}#O#P&c#P#o&}#o#p'}#p;'S&};'S;=`(l<%lO&}!b(SU(Z!bOY'}Zw'}x#O'}#P;'S'};'S;=`(f<%lO'}!b(iP;=`<%l'}'|(oP;=`<%l&}'[(y]$i&j(WpOY(rYZ&cZr(rrs&cs!^(r!^!_)r!_#O(r#O#P&c#P#o(r#o#p)r#p;'S(r;'S;=`*a<%lO(rp)wU(WpOY)rZr)rs#O)r#P;'S)r;'S;=`*Z<%lO)rp*^P;=`<%l)r'[*dP;=`<%l(r#S*nX(Wp(Z!bOY*gZr*grs'}sw*gwx)rx#O*g#P;'S*g;'S;=`+Z<%lO*g#S+^P;=`<%l*g(n+dP;=`<%l%Z07[+rq$i&j(Wp(Z!b'|0/lOX%ZXY+gYZ&cZ[+g[p%Zpq+gqr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p$f%Z$f$g+g$g#BY%Z#BY#BZ+g#BZ$IS%Z$IS$I_+g$I_$JT%Z$JT$JU+g$JU$KV%Z$KV$KW+g$KW&FU%Z&FU&FV+g&FV;'S%Z;'S;=`+a<%l?HT%Z?HT?HU+g?HUO%Z07[.ST(X#S$i&j'}0/lO!^&c!_#o&c#p;'S&c;'S;=`&w<%lO&c07[.n_$i&j(Wp(Z!b'}0/lOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z)3p/x`$i&j!p),Q(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_!`0z!`#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z(KW1V`#v(Ch$i&j(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_!`2X!`#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z(KW2d_#v(Ch$i&j(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z'At3l_(V':f$i&j(Z!bOY4kYZ5qZr4krs7nsw4kwx5qx!^4k!^!_8p!_#O4k#O#P5q#P#o4k#o#p8p#p;'S4k;'S;=`:X<%lO4k(^4r_$i&j(Z!bOY4kYZ5qZr4krs7nsw4kwx5qx!^4k!^!_8p!_#O4k#O#P5q#P#o4k#o#p8p#p;'S4k;'S;=`:X<%lO4k&z5vX$i&jOr5qrs6cs!^5q!^!_6y!_#o5q#o#p6y#p;'S5q;'S;=`7h<%lO5q&z6jT$d`$i&jO!^&c!_#o&c#p;'S&c;'S;=`&w<%lO&c`6|TOr6yrs7]s;'S6y;'S;=`7b<%lO6y`7bO$d``7eP;=`<%l6y&z7kP;=`<%l5q(^7w]$d`$i&j(Z!bOY&}YZ&cZw&}wx&cx!^&}!^!_'}!_#O&}#O#P&c#P#o&}#o#p'}#p;'S&};'S;=`(l<%lO&}!r8uZ(Z!bOY8pYZ6yZr8prs9hsw8pwx6yx#O8p#O#P6y#P;'S8p;'S;=`:R<%lO8p!r9oU$d`(Z!bOY'}Zw'}x#O'}#P;'S'};'S;=`(f<%lO'}!r:UP;=`<%l8p(^:[P;=`<%l4k%9[:hh$i&j(Wp(Z!bOY%ZYZ&cZq%Zqr<Srs&}st%ZtuCruw%Zwx(rx!^%Z!^!_*g!_!c%Z!c!}Cr!}#O%Z#O#P&c#P#R%Z#R#SCr#S#T%Z#T#oCr#o#p*g#p$g%Z$g;'SCr;'S;=`El<%lOCr(r<__WS$i&j(Wp(Z!bOY<SYZ&cZr<Srs=^sw<Swx@nx!^<S!^!_Bm!_#O<S#O#P>`#P#o<S#o#pBm#p;'S<S;'S;=`Cl<%lO<S(Q=g]WS$i&j(Z!bOY=^YZ&cZw=^wx>`x!^=^!^!_?q!_#O=^#O#P>`#P#o=^#o#p?q#p;'S=^;'S;=`@h<%lO=^&n>gXWS$i&jOY>`YZ&cZ!^>`!^!_?S!_#o>`#o#p?S#p;'S>`;'S;=`?k<%lO>`S?XSWSOY?SZ;'S?S;'S;=`?e<%lO?SS?hP;=`<%l?S&n?nP;=`<%l>`!f?xWWS(Z!bOY?qZw?qwx?Sx#O?q#O#P?S#P;'S?q;'S;=`@b<%lO?q!f@eP;=`<%l?q(Q@kP;=`<%l=^'`@w]WS$i&j(WpOY@nYZ&cZr@nrs>`s!^@n!^!_Ap!_#O@n#O#P>`#P#o@n#o#pAp#p;'S@n;'S;=`Bg<%lO@ntAwWWS(WpOYApZrAprs?Ss#OAp#O#P?S#P;'SAp;'S;=`Ba<%lOAptBdP;=`<%lAp'`BjP;=`<%l@n#WBvYWS(Wp(Z!bOYBmZrBmrs?qswBmwxApx#OBm#O#P?S#P;'SBm;'S;=`Cf<%lOBm#WCiP;=`<%lBm(rCoP;=`<%l<S%9[C}i$i&j(o%1l(Wp(Z!bOY%ZYZ&cZr%Zrs&}st%ZtuCruw%Zwx(rx!Q%Z!Q![Cr![!^%Z!^!_*g!_!c%Z!c!}Cr!}#O%Z#O#P&c#P#R%Z#R#SCr#S#T%Z#T#oCr#o#p*g#p$g%Z$g;'SCr;'S;=`El<%lOCr%9[EoP;=`<%lCr07[FRk$i&j(Wp(Z!b$]#t(T,2j(e$I[OY%ZYZ&cZr%Zrs&}st%ZtuEruw%Zwx(rx}%Z}!OGv!O!Q%Z!Q![Er![!^%Z!^!_*g!_!c%Z!c!}Er!}#O%Z#O#P&c#P#R%Z#R#SEr#S#T%Z#T#oEr#o#p*g#p$g%Z$g;'SEr;'S;=`I|<%lOEr+dHRk$i&j(Wp(Z!b$]#tOY%ZYZ&cZr%Zrs&}st%ZtuGvuw%Zwx(rx}%Z}!OGv!O!Q%Z!Q![Gv![!^%Z!^!_*g!_!c%Z!c!}Gv!}#O%Z#O#P&c#P#R%Z#R#SGv#S#T%Z#T#oGv#o#p*g#p$g%Z$g;'SGv;'S;=`Iv<%lOGv+dIyP;=`<%lGv07[JPP;=`<%lEr(KWJ_`$i&j(Wp(Z!b#p(ChOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_!`Ka!`#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z(KWKl_$i&j$Q(Ch(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z,#xLva(z+JY$i&j(Wp(Z!bOY%ZYZ&cZr%Zrs&}sv%ZvwM{wx(rx!^%Z!^!_*g!_!`Ka!`#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z(KWNW`$i&j#z(Ch(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_!`Ka!`#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z'At! c_(Y';W$i&j(WpOY!!bYZ!#hZr!!brs!#hsw!!bwx!$xx!^!!b!^!_!%z!_#O!!b#O#P!#h#P#o!!b#o#p!%z#p;'S!!b;'S;=`!'c<%lO!!b'l!!i_$i&j(WpOY!!bYZ!#hZr!!brs!#hsw!!bwx!$xx!^!!b!^!_!%z!_#O!!b#O#P!#h#P#o!!b#o#p!%z#p;'S!!b;'S;=`!'c<%lO!!b&z!#mX$i&jOw!#hwx6cx!^!#h!^!_!$Y!_#o!#h#o#p!$Y#p;'S!#h;'S;=`!$r<%lO!#h`!$]TOw!$Ywx7]x;'S!$Y;'S;=`!$l<%lO!$Y`!$oP;=`<%l!$Y&z!$uP;=`<%l!#h'l!%R]$d`$i&j(WpOY(rYZ&cZr(rrs&cs!^(r!^!_)r!_#O(r#O#P&c#P#o(r#o#p)r#p;'S(r;'S;=`*a<%lO(r!Q!&PZ(WpOY!%zYZ!$YZr!%zrs!$Ysw!%zwx!&rx#O!%z#O#P!$Y#P;'S!%z;'S;=`!']<%lO!%z!Q!&yU$d`(WpOY)rZr)rs#O)r#P;'S)r;'S;=`*Z<%lO)r!Q!'`P;=`<%l!%z'l!'fP;=`<%l!!b/5|!'t_!l/.^$i&j(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z#&U!)O_!k!Lf$i&j(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z-!n!*[b$i&j(Wp(Z!b(U%&f#q(ChOY%ZYZ&cZr%Zrs&}sw%Zwx(rxz%Zz{!+d{!^%Z!^!_*g!_!`Ka!`#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z(KW!+o`$i&j(Wp(Z!b#n(ChOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_!`Ka!`#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z+;x!,|`$i&j(Wp(Z!br+4YOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_!`Ka!`#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z,$U!.Z_!]+Jf$i&j(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z07[!/ec$i&j(Wp(Z!b!Q.2^OY%ZYZ&cZr%Zrs&}sw%Zwx(rx!O%Z!O!P!0p!P!Q%Z!Q![!3Y![!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z#%|!0ya$i&j(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!O%Z!O!P!2O!P!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z#%|!2Z_![!L^$i&j(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z'Ad!3eg$i&j(Wp(Z!bs'9tOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!Q%Z!Q![!3Y![!^%Z!^!_*g!_!g%Z!g!h!4|!h#O%Z#O#P&c#P#R%Z#R#S!3Y#S#X%Z#X#Y!4|#Y#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z'Ad!5Vg$i&j(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx{%Z{|!6n|}%Z}!O!6n!O!Q%Z!Q![!8S![!^%Z!^!_*g!_#O%Z#O#P&c#P#R%Z#R#S!8S#S#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z'Ad!6wc$i&j(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!Q%Z!Q![!8S![!^%Z!^!_*g!_#O%Z#O#P&c#P#R%Z#R#S!8S#S#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z'Ad!8_c$i&j(Wp(Z!bs'9tOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!Q%Z!Q![!8S![!^%Z!^!_*g!_#O%Z#O#P&c#P#R%Z#R#S!8S#S#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z07[!9uf$i&j(Wp(Z!b#o(ChOY!;ZYZ&cZr!;Zrs!<nsw!;Zwx!Lcxz!;Zz{#-}{!P!;Z!P!Q#/d!Q!^!;Z!^!_#(i!_!`#7S!`!a#8i!a!}!;Z!}#O#,f#O#P!Dy#P#o!;Z#o#p#(i#p;'S!;Z;'S;=`#-w<%lO!;Z?O!;fb$i&j(Wp(Z!b!X7`OY!;ZYZ&cZr!;Zrs!<nsw!;Zwx!Lcx!P!;Z!P!Q#&`!Q!^!;Z!^!_#(i!_!}!;Z!}#O#,f#O#P!Dy#P#o!;Z#o#p#(i#p;'S!;Z;'S;=`#-w<%lO!;Z>^!<w`$i&j(Z!b!X7`OY!<nYZ&cZw!<nwx!=yx!P!<n!P!Q!Eq!Q!^!<n!^!_!Gr!_!}!<n!}#O!KS#O#P!Dy#P#o!<n#o#p!Gr#p;'S!<n;'S;=`!L]<%lO!<n<z!>Q^$i&j!X7`OY!=yYZ&cZ!P!=y!P!Q!>|!Q!^!=y!^!_!@c!_!}!=y!}#O!CW#O#P!Dy#P#o!=y#o#p!@c#p;'S!=y;'S;=`!Ek<%lO!=y<z!?Td$i&j!X7`O!^&c!_#W&c#W#X!>|#X#Z&c#Z#[!>|#[#]&c#]#^!>|#^#a&c#a#b!>|#b#g&c#g#h!>|#h#i&c#i#j!>|#j#k!>|#k#m&c#m#n!>|#n#o&c#p;'S&c;'S;=`&w<%lO&c7`!@hX!X7`OY!@cZ!P!@c!P!Q!AT!Q!}!@c!}#O!Ar#O#P!Bq#P;'S!@c;'S;=`!CQ<%lO!@c7`!AYW!X7`#W#X!AT#Z#[!AT#]#^!AT#a#b!AT#g#h!AT#i#j!AT#j#k!AT#m#n!AT7`!AuVOY!ArZ#O!Ar#O#P!B[#P#Q!@c#Q;'S!Ar;'S;=`!Bk<%lO!Ar7`!B_SOY!ArZ;'S!Ar;'S;=`!Bk<%lO!Ar7`!BnP;=`<%l!Ar7`!BtSOY!@cZ;'S!@c;'S;=`!CQ<%lO!@c7`!CTP;=`<%l!@c<z!C][$i&jOY!CWYZ&cZ!^!CW!^!_!Ar!_#O!CW#O#P!DR#P#Q!=y#Q#o!CW#o#p!Ar#p;'S!CW;'S;=`!Ds<%lO!CW<z!DWX$i&jOY!CWYZ&cZ!^!CW!^!_!Ar!_#o!CW#o#p!Ar#p;'S!CW;'S;=`!Ds<%lO!CW<z!DvP;=`<%l!CW<z!EOX$i&jOY!=yYZ&cZ!^!=y!^!_!@c!_#o!=y#o#p!@c#p;'S!=y;'S;=`!Ek<%lO!=y<z!EnP;=`<%l!=y>^!Ezl$i&j(Z!b!X7`OY&}YZ&cZw&}wx&cx!^&}!^!_'}!_#O&}#O#P&c#P#W&}#W#X!Eq#X#Z&}#Z#[!Eq#[#]&}#]#^!Eq#^#a&}#a#b!Eq#b#g&}#g#h!Eq#h#i&}#i#j!Eq#j#k!Eq#k#m&}#m#n!Eq#n#o&}#o#p'}#p;'S&};'S;=`(l<%lO&}8r!GyZ(Z!b!X7`OY!GrZw!Grwx!@cx!P!Gr!P!Q!Hl!Q!}!Gr!}#O!JU#O#P!Bq#P;'S!Gr;'S;=`!J|<%lO!Gr8r!Hse(Z!b!X7`OY'}Zw'}x#O'}#P#W'}#W#X!Hl#X#Z'}#Z#[!Hl#[#]'}#]#^!Hl#^#a'}#a#b!Hl#b#g'}#g#h!Hl#h#i'}#i#j!Hl#j#k!Hl#k#m'}#m#n!Hl#n;'S'};'S;=`(f<%lO'}8r!JZX(Z!bOY!JUZw!JUwx!Arx#O!JU#O#P!B[#P#Q!Gr#Q;'S!JU;'S;=`!Jv<%lO!JU8r!JyP;=`<%l!JU8r!KPP;=`<%l!Gr>^!KZ^$i&j(Z!bOY!KSYZ&cZw!KSwx!CWx!^!KS!^!_!JU!_#O!KS#O#P!DR#P#Q!<n#Q#o!KS#o#p!JU#p;'S!KS;'S;=`!LV<%lO!KS>^!LYP;=`<%l!KS>^!L`P;=`<%l!<n=l!Ll`$i&j(Wp!X7`OY!LcYZ&cZr!Lcrs!=ys!P!Lc!P!Q!Mn!Q!^!Lc!^!_# o!_!}!Lc!}#O#%P#O#P!Dy#P#o!Lc#o#p# o#p;'S!Lc;'S;=`#&Y<%lO!Lc=l!Mwl$i&j(Wp!X7`OY(rYZ&cZr(rrs&cs!^(r!^!_)r!_#O(r#O#P&c#P#W(r#W#X!Mn#X#Z(r#Z#[!Mn#[#](r#]#^!Mn#^#a(r#a#b!Mn#b#g(r#g#h!Mn#h#i(r#i#j!Mn#j#k!Mn#k#m(r#m#n!Mn#n#o(r#o#p)r#p;'S(r;'S;=`*a<%lO(r8Q# vZ(Wp!X7`OY# oZr# ors!@cs!P# o!P!Q#!i!Q!}# o!}#O#$R#O#P!Bq#P;'S# o;'S;=`#$y<%lO# o8Q#!pe(Wp!X7`OY)rZr)rs#O)r#P#W)r#W#X#!i#X#Z)r#Z#[#!i#[#])r#]#^#!i#^#a)r#a#b#!i#b#g)r#g#h#!i#h#i)r#i#j#!i#j#k#!i#k#m)r#m#n#!i#n;'S)r;'S;=`*Z<%lO)r8Q#$WX(WpOY#$RZr#$Rrs!Ars#O#$R#O#P!B[#P#Q# o#Q;'S#$R;'S;=`#$s<%lO#$R8Q#$vP;=`<%l#$R8Q#$|P;=`<%l# o=l#%W^$i&j(WpOY#%PYZ&cZr#%Prs!CWs!^#%P!^!_#$R!_#O#%P#O#P!DR#P#Q!Lc#Q#o#%P#o#p#$R#p;'S#%P;'S;=`#&S<%lO#%P=l#&VP;=`<%l#%P=l#&]P;=`<%l!Lc?O#&kn$i&j(Wp(Z!b!X7`OY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#W%Z#W#X#&`#X#Z%Z#Z#[#&`#[#]%Z#]#^#&`#^#a%Z#a#b#&`#b#g%Z#g#h#&`#h#i%Z#i#j#&`#j#k#&`#k#m%Z#m#n#&`#n#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z9d#(r](Wp(Z!b!X7`OY#(iZr#(irs!Grsw#(iwx# ox!P#(i!P!Q#)k!Q!}#(i!}#O#+`#O#P!Bq#P;'S#(i;'S;=`#,`<%lO#(i9d#)th(Wp(Z!b!X7`OY*gZr*grs'}sw*gwx)rx#O*g#P#W*g#W#X#)k#X#Z*g#Z#[#)k#[#]*g#]#^#)k#^#a*g#a#b#)k#b#g*g#g#h#)k#h#i*g#i#j#)k#j#k#)k#k#m*g#m#n#)k#n;'S*g;'S;=`+Z<%lO*g9d#+gZ(Wp(Z!bOY#+`Zr#+`rs!JUsw#+`wx#$Rx#O#+`#O#P!B[#P#Q#(i#Q;'S#+`;'S;=`#,Y<%lO#+`9d#,]P;=`<%l#+`9d#,cP;=`<%l#(i?O#,o`$i&j(Wp(Z!bOY#,fYZ&cZr#,frs!KSsw#,fwx#%Px!^#,f!^!_#+`!_#O#,f#O#P!DR#P#Q!;Z#Q#o#,f#o#p#+`#p;'S#,f;'S;=`#-q<%lO#,f?O#-tP;=`<%l#,f?O#-zP;=`<%l!;Z07[#.[b$i&j(Wp(Z!b(O0/l!X7`OY!;ZYZ&cZr!;Zrs!<nsw!;Zwx!Lcx!P!;Z!P!Q#&`!Q!^!;Z!^!_#(i!_!}!;Z!}#O#,f#O#P!Dy#P#o!;Z#o#p#(i#p;'S!;Z;'S;=`#-w<%lO!;Z07[#/o_$i&j(Wp(Z!bT0/lOY#/dYZ&cZr#/drs#0nsw#/dwx#4Ox!^#/d!^!_#5}!_#O#/d#O#P#1p#P#o#/d#o#p#5}#p;'S#/d;'S;=`#6|<%lO#/d06j#0w]$i&j(Z!bT0/lOY#0nYZ&cZw#0nwx#1px!^#0n!^!_#3R!_#O#0n#O#P#1p#P#o#0n#o#p#3R#p;'S#0n;'S;=`#3x<%lO#0n05W#1wX$i&jT0/lOY#1pYZ&cZ!^#1p!^!_#2d!_#o#1p#o#p#2d#p;'S#1p;'S;=`#2{<%lO#1p0/l#2iST0/lOY#2dZ;'S#2d;'S;=`#2u<%lO#2d0/l#2xP;=`<%l#2d05W#3OP;=`<%l#1p01O#3YW(Z!bT0/lOY#3RZw#3Rwx#2dx#O#3R#O#P#2d#P;'S#3R;'S;=`#3r<%lO#3R01O#3uP;=`<%l#3R06j#3{P;=`<%l#0n05x#4X]$i&j(WpT0/lOY#4OYZ&cZr#4Ors#1ps!^#4O!^!_#5Q!_#O#4O#O#P#1p#P#o#4O#o#p#5Q#p;'S#4O;'S;=`#5w<%lO#4O00^#5XW(WpT0/lOY#5QZr#5Qrs#2ds#O#5Q#O#P#2d#P;'S#5Q;'S;=`#5q<%lO#5Q00^#5tP;=`<%l#5Q05x#5zP;=`<%l#4O01p#6WY(Wp(Z!bT0/lOY#5}Zr#5}rs#3Rsw#5}wx#5Qx#O#5}#O#P#2d#P;'S#5};'S;=`#6v<%lO#5}01p#6yP;=`<%l#5}07[#7PP;=`<%l#/d)3h#7ab$i&j$Q(Ch(Wp(Z!b!X7`OY!;ZYZ&cZr!;Zrs!<nsw!;Zwx!Lcx!P!;Z!P!Q#&`!Q!^!;Z!^!_#(i!_!}!;Z!}#O#,f#O#P!Dy#P#o!;Z#o#p#(i#p;'S!;Z;'S;=`#-w<%lO!;ZAt#8vb$Z#t$i&j(Wp(Z!b!X7`OY!;ZYZ&cZr!;Zrs!<nsw!;Zwx!Lcx!P!;Z!P!Q#&`!Q!^!;Z!^!_#(i!_!}!;Z!}#O#,f#O#P!Dy#P#o!;Z#o#p#(i#p;'S!;Z;'S;=`#-w<%lO!;Z'Ad#:Zp$i&j(Wp(Z!bs'9tOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!O%Z!O!P!3Y!P!Q%Z!Q![#<_![!^%Z!^!_*g!_!g%Z!g!h!4|!h#O%Z#O#P&c#P#R%Z#R#S#<_#S#U%Z#U#V#?i#V#X%Z#X#Y!4|#Y#b%Z#b#c#>_#c#d#Bq#d#l%Z#l#m#Es#m#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z'Ad#<jk$i&j(Wp(Z!bs'9tOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!O%Z!O!P!3Y!P!Q%Z!Q![#<_![!^%Z!^!_*g!_!g%Z!g!h!4|!h#O%Z#O#P&c#P#R%Z#R#S#<_#S#X%Z#X#Y!4|#Y#b%Z#b#c#>_#c#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z'Ad#>j_$i&j(Wp(Z!bs'9tOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z'Ad#?rd$i&j(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!Q%Z!Q!R#AQ!R!S#AQ!S!^%Z!^!_*g!_#O%Z#O#P&c#P#R%Z#R#S#AQ#S#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z'Ad#A]f$i&j(Wp(Z!bs'9tOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!Q%Z!Q!R#AQ!R!S#AQ!S!^%Z!^!_*g!_#O%Z#O#P&c#P#R%Z#R#S#AQ#S#b%Z#b#c#>_#c#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z'Ad#Bzc$i&j(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!Q%Z!Q!Y#DV!Y!^%Z!^!_*g!_#O%Z#O#P&c#P#R%Z#R#S#DV#S#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z'Ad#Dbe$i&j(Wp(Z!bs'9tOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!Q%Z!Q!Y#DV!Y!^%Z!^!_*g!_#O%Z#O#P&c#P#R%Z#R#S#DV#S#b%Z#b#c#>_#c#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z'Ad#E|g$i&j(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!Q%Z!Q![#Ge![!^%Z!^!_*g!_!c%Z!c!i#Ge!i#O%Z#O#P&c#P#R%Z#R#S#Ge#S#T%Z#T#Z#Ge#Z#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z'Ad#Gpi$i&j(Wp(Z!bs'9tOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!Q%Z!Q![#Ge![!^%Z!^!_*g!_!c%Z!c!i#Ge!i#O%Z#O#P&c#P#R%Z#R#S#Ge#S#T%Z#T#Z#Ge#Z#b%Z#b#c#>_#c#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z*)x#Il_!g$b$i&j$O)Lv(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z)[#Jv_al$i&j(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z04f#LS^h#)`#R-<U(Wp(Z!b$n7`OY*gZr*grs'}sw*gwx)rx!P*g!P!Q#MO!Q!^*g!^!_#Mt!_!`$ f!`#O*g#P;'S*g;'S;=`+Z<%lO*g(n#MXX$k&j(Wp(Z!bOY*gZr*grs'}sw*gwx)rx#O*g#P;'S*g;'S;=`+Z<%lO*g(El#M}Z#r(Ch(Wp(Z!bOY*gZr*grs'}sw*gwx)rx!_*g!_!`#Np!`#O*g#P;'S*g;'S;=`+Z<%lO*g(El#NyX$Q(Ch(Wp(Z!bOY*gZr*grs'}sw*gwx)rx#O*g#P;'S*g;'S;=`+Z<%lO*g(El$ oX#s(Ch(Wp(Z!bOY*gZr*grs'}sw*gwx)rx#O*g#P;'S*g;'S;=`+Z<%lO*g*)x$!ga#`*!Y$i&j(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_!`0z!`!a$#l!a#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z(K[$#w_#k(Cl$i&j(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z*)x$%Vag!*r#s(Ch$f#|$i&j(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_!`$&[!`!a$'f!a#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z(KW$&g_#s(Ch$i&j(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z(KW$'qa#r(Ch$i&j(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_!`Ka!`!a$(v!a#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z(KW$)R`#r(Ch$i&j(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_!`Ka!`#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z(Kd$*`a(r(Ct$i&j(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_!a%Z!a!b$+e!b#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z(KW$+p`$i&j#{(Ch(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_!`Ka!`#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z%#`$,}_!|$Ip$i&j(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z04f$.X_!S0,v$i&j(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z(n$/]Z$i&jO!^$0O!^!_$0f!_#i$0O#i#j$0k#j#l$0O#l#m$2^#m#o$0O#o#p$0f#p;'S$0O;'S;=`$4i<%lO$0O(n$0VT_#S$i&jO!^&c!_#o&c#p;'S&c;'S;=`&w<%lO&c#S$0kO_#S(n$0p[$i&jO!Q&c!Q![$1f![!^&c!_!c&c!c!i$1f!i#T&c#T#Z$1f#Z#o&c#o#p$3|#p;'S&c;'S;=`&w<%lO&c(n$1kZ$i&jO!Q&c!Q![$2^![!^&c!_!c&c!c!i$2^!i#T&c#T#Z$2^#Z#o&c#p;'S&c;'S;=`&w<%lO&c(n$2cZ$i&jO!Q&c!Q![$3U![!^&c!_!c&c!c!i$3U!i#T&c#T#Z$3U#Z#o&c#p;'S&c;'S;=`&w<%lO&c(n$3ZZ$i&jO!Q&c!Q![$0O![!^&c!_!c&c!c!i$0O!i#T&c#T#Z$0O#Z#o&c#p;'S&c;'S;=`&w<%lO&c#S$4PR!Q![$4Y!c!i$4Y#T#Z$4Y#S$4]S!Q![$4Y!c!i$4Y#T#Z$4Y#q#r$0f(n$4lP;=`<%l$0O#1[$4z_!Y#)l$i&j(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z(KW$6U`#x(Ch$i&j(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_!`Ka!`#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z+;p$7c_$i&j(Wp(Z!b(a+4QOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z07[$8qk$i&j(Wp(Z!b(T,2j$_#t(e$I[OY%ZYZ&cZr%Zrs&}st%Ztu$8buw%Zwx(rx}%Z}!O$:f!O!Q%Z!Q![$8b![!^%Z!^!_*g!_!c%Z!c!}$8b!}#O%Z#O#P&c#P#R%Z#R#S$8b#S#T%Z#T#o$8b#o#p*g#p$g%Z$g;'S$8b;'S;=`$<l<%lO$8b+d$:qk$i&j(Wp(Z!b$_#tOY%ZYZ&cZr%Zrs&}st%Ztu$:fuw%Zwx(rx}%Z}!O$:f!O!Q%Z!Q![$:f![!^%Z!^!_*g!_!c%Z!c!}$:f!}#O%Z#O#P&c#P#R%Z#R#S$:f#S#T%Z#T#o$:f#o#p*g#p$g%Z$g;'S$:f;'S;=`$<f<%lO$:f+d$<iP;=`<%l$:f07[$<oP;=`<%l$8b#Jf$<{X!_#Hb(Wp(Z!bOY*gZr*grs'}sw*gwx)rx#O*g#P;'S*g;'S;=`+Z<%lO*g,#x$=sa(y+JY$i&j(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_!`Ka!`#O%Z#O#P&c#P#o%Z#o#p*g#p#q$+e#q;'S%Z;'S;=`+a<%lO%Z)>v$?V_!^(CdvBr$i&j(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z?O$@a_!q7`$i&j(Wp(Z!bOY%ZYZ&cZr%Zrs&}sw%Zwx(rx!^%Z!^!_*g!_#O%Z#O#P&c#P#o%Z#o#p*g#p;'S%Z;'S;=`+a<%lO%Z07[$Aq|$i&j(Wp(Z!b'|0/l$]#t(T,2j(e$I[OX%ZXY+gYZ&cZ[+g[p%Zpq+gqr%Zrs&}st%ZtuEruw%Zwx(rx}%Z}!OGv!O!Q%Z!Q![Er![!^%Z!^!_*g!_!c%Z!c!}Er!}#O%Z#O#P&c#P#R%Z#R#SEr#S#T%Z#T#oEr#o#p*g#p$f%Z$f$g+g$g#BYEr#BY#BZ$A`#BZ$ISEr$IS$I_$A`$I_$JTEr$JT$JU$A`$JU$KVEr$KV$KW$A`$KW&FUEr&FU&FV$A`&FV;'SEr;'S;=`I|<%l?HTEr?HT?HU$A`?HUOEr07[$D|k$i&j(Wp(Z!b'}0/l$]#t(T,2j(e$I[OY%ZYZ&cZr%Zrs&}st%ZtuEruw%Zwx(rx}%Z}!OGv!O!Q%Z!Q![Er![!^%Z!^!_*g!_!c%Z!c!}Er!}#O%Z#O#P&c#P#R%Z#R#SEr#S#T%Z#T#oEr#o#p*g#p$g%Z$g;'SEr;'S;=`I|<%lOEr",
+    tokenizers: [
+        noSemicolon,
+        noSemicolonType,
+        operatorToken,
+        jsx,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        insertSemicolon,
+        new (0, _lr.LocalTokenGroup)("$S~RRtu[#O#Pg#S#T#|~_P#o#pb~gOx~~jVO#i!P#i#j!U#j#l!P#l#m!q#m;'S!P;'S;=`#v<%lO!P~!UO!U~~!XS!Q![!e!c!i!e#T#Z!e#o#p#Z~!hR!Q![!q!c!i!q#T#Z!q~!tR!Q![!}!c!i!}#T#Z!}~#QR!Q![!P!c!i!P#T#Z!P~#^R!Q![#g!c!i#g#T#Z#g~#jS!Q![#g!c!i#g#T#Z#g#q#r!P~#yP;=`<%l!P~$RO(c~~", 141, 340),
+        new (0, _lr.LocalTokenGroup)("j~RQYZXz{^~^O(Q~~aP!P!Qd~iO(R~~", 25, 323)
+    ],
+    topRules: {
+        "Script": [
+            0,
+            7
+        ],
+        "SingleExpression": [
+            1,
+            276
+        ],
+        "SingleClassItem": [
+            2,
+            277
+        ]
+    },
+    dialects: {
+        jsx: 0,
+        ts: 15175
+    },
+    dynamicPrecedences: {
+        "80": 1,
+        "82": 1,
+        "94": 1,
+        "169": 1,
+        "199": 1
+    },
+    specialized: [
+        {
+            term: 327,
+            get: (value)=>spec_identifier[value] || -1
+        },
+        {
+            term: 343,
+            get: (value)=>spec_word[value] || -1
+        },
+        {
+            term: 95,
+            get: (value)=>spec_LessThan[value] || -1
+        }
+    ],
+    tokenPrec: 15201
+});
+
+},{"@lezer/lr":"hqnf3","@lezer/highlight":"5AwBv","@parcel/transformer-js/src/esmodule-helpers.js":"jnFvT"}],"lusFz":[function(require,module,exports,__globalThis) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "css", ()=>css);
+parcelHelpers.export(exports, "cssCompletionSource", ()=>cssCompletionSource);
+parcelHelpers.export(exports, "cssLanguage", ()=>cssLanguage);
+parcelHelpers.export(exports, "defineCSSCompletionSource", ()=>defineCSSCompletionSource);
+var _css = require("@lezer/css");
+var _language = require("@codemirror/language");
+var _common = require("@lezer/common");
+let _properties = null;
+function properties() {
+    if (!_properties && typeof document == "object" && document.body) {
+        let { style } = document.body, names = [], seen = new Set;
+        for(let prop in style)if (prop != "cssText" && prop != "cssFloat") {
+            if (typeof style[prop] == "string") {
+                if (/[A-Z]/.test(prop)) prop = prop.replace(/[A-Z]/g, (ch)=>"-" + ch.toLowerCase());
+                if (!seen.has(prop)) {
+                    names.push(prop);
+                    seen.add(prop);
+                }
+            }
+        }
+        _properties = names.sort().map((name)=>({
+                type: "property",
+                label: name,
+                apply: name + ": "
+            }));
+    }
+    return _properties || [];
+}
+const pseudoClasses = /*@__PURE__*/ [
+    "active",
+    "after",
+    "any-link",
+    "autofill",
+    "backdrop",
+    "before",
+    "checked",
+    "cue",
+    "default",
+    "defined",
+    "disabled",
+    "empty",
+    "enabled",
+    "file-selector-button",
+    "first",
+    "first-child",
+    "first-letter",
+    "first-line",
+    "first-of-type",
+    "focus",
+    "focus-visible",
+    "focus-within",
+    "fullscreen",
+    "has",
+    "host",
+    "host-context",
+    "hover",
+    "in-range",
+    "indeterminate",
+    "invalid",
+    "is",
+    "lang",
+    "last-child",
+    "last-of-type",
+    "left",
+    "link",
+    "marker",
+    "modal",
+    "not",
+    "nth-child",
+    "nth-last-child",
+    "nth-last-of-type",
+    "nth-of-type",
+    "only-child",
+    "only-of-type",
+    "optional",
+    "out-of-range",
+    "part",
+    "placeholder",
+    "placeholder-shown",
+    "read-only",
+    "read-write",
+    "required",
+    "right",
+    "root",
+    "scope",
+    "selection",
+    "slotted",
+    "target",
+    "target-text",
+    "valid",
+    "visited",
+    "where"
+].map((name)=>({
+        type: "class",
+        label: name
+    }));
+const values = /*@__PURE__*/ [
+    "above",
+    "absolute",
+    "activeborder",
+    "additive",
+    "activecaption",
+    "after-white-space",
+    "ahead",
+    "alias",
+    "all",
+    "all-scroll",
+    "alphabetic",
+    "alternate",
+    "always",
+    "antialiased",
+    "appworkspace",
+    "asterisks",
+    "attr",
+    "auto",
+    "auto-flow",
+    "avoid",
+    "avoid-column",
+    "avoid-page",
+    "avoid-region",
+    "axis-pan",
+    "background",
+    "backwards",
+    "baseline",
+    "below",
+    "bidi-override",
+    "blink",
+    "block",
+    "block-axis",
+    "bold",
+    "bolder",
+    "border",
+    "border-box",
+    "both",
+    "bottom",
+    "break",
+    "break-all",
+    "break-word",
+    "bullets",
+    "button",
+    "button-bevel",
+    "buttonface",
+    "buttonhighlight",
+    "buttonshadow",
+    "buttontext",
+    "calc",
+    "capitalize",
+    "caps-lock-indicator",
+    "caption",
+    "captiontext",
+    "caret",
+    "cell",
+    "center",
+    "checkbox",
+    "circle",
+    "cjk-decimal",
+    "clear",
+    "clip",
+    "close-quote",
+    "col-resize",
+    "collapse",
+    "color",
+    "color-burn",
+    "color-dodge",
+    "column",
+    "column-reverse",
+    "compact",
+    "condensed",
+    "contain",
+    "content",
+    "contents",
+    "content-box",
+    "context-menu",
+    "continuous",
+    "copy",
+    "counter",
+    "counters",
+    "cover",
+    "crop",
+    "cross",
+    "crosshair",
+    "currentcolor",
+    "cursive",
+    "cyclic",
+    "darken",
+    "dashed",
+    "decimal",
+    "decimal-leading-zero",
+    "default",
+    "default-button",
+    "dense",
+    "destination-atop",
+    "destination-in",
+    "destination-out",
+    "destination-over",
+    "difference",
+    "disc",
+    "discard",
+    "disclosure-closed",
+    "disclosure-open",
+    "document",
+    "dot-dash",
+    "dot-dot-dash",
+    "dotted",
+    "double",
+    "down",
+    "e-resize",
+    "ease",
+    "ease-in",
+    "ease-in-out",
+    "ease-out",
+    "element",
+    "ellipse",
+    "ellipsis",
+    "embed",
+    "end",
+    "ethiopic-abegede-gez",
+    "ethiopic-halehame-aa-er",
+    "ethiopic-halehame-gez",
+    "ew-resize",
+    "exclusion",
+    "expanded",
+    "extends",
+    "extra-condensed",
+    "extra-expanded",
+    "fantasy",
+    "fast",
+    "fill",
+    "fill-box",
+    "fixed",
+    "flat",
+    "flex",
+    "flex-end",
+    "flex-start",
+    "footnotes",
+    "forwards",
+    "from",
+    "geometricPrecision",
+    "graytext",
+    "grid",
+    "groove",
+    "hand",
+    "hard-light",
+    "help",
+    "hidden",
+    "hide",
+    "higher",
+    "highlight",
+    "highlighttext",
+    "horizontal",
+    "hsl",
+    "hsla",
+    "hue",
+    "icon",
+    "ignore",
+    "inactiveborder",
+    "inactivecaption",
+    "inactivecaptiontext",
+    "infinite",
+    "infobackground",
+    "infotext",
+    "inherit",
+    "initial",
+    "inline",
+    "inline-axis",
+    "inline-block",
+    "inline-flex",
+    "inline-grid",
+    "inline-table",
+    "inset",
+    "inside",
+    "intrinsic",
+    "invert",
+    "italic",
+    "justify",
+    "keep-all",
+    "landscape",
+    "large",
+    "larger",
+    "left",
+    "level",
+    "lighter",
+    "lighten",
+    "line-through",
+    "linear",
+    "linear-gradient",
+    "lines",
+    "list-item",
+    "listbox",
+    "listitem",
+    "local",
+    "logical",
+    "loud",
+    "lower",
+    "lower-hexadecimal",
+    "lower-latin",
+    "lower-norwegian",
+    "lowercase",
+    "ltr",
+    "luminosity",
+    "manipulation",
+    "match",
+    "matrix",
+    "matrix3d",
+    "medium",
+    "menu",
+    "menutext",
+    "message-box",
+    "middle",
+    "min-intrinsic",
+    "mix",
+    "monospace",
+    "move",
+    "multiple",
+    "multiple_mask_images",
+    "multiply",
+    "n-resize",
+    "narrower",
+    "ne-resize",
+    "nesw-resize",
+    "no-close-quote",
+    "no-drop",
+    "no-open-quote",
+    "no-repeat",
+    "none",
+    "normal",
+    "not-allowed",
+    "nowrap",
+    "ns-resize",
+    "numbers",
+    "numeric",
+    "nw-resize",
+    "nwse-resize",
+    "oblique",
+    "opacity",
+    "open-quote",
+    "optimizeLegibility",
+    "optimizeSpeed",
+    "outset",
+    "outside",
+    "outside-shape",
+    "overlay",
+    "overline",
+    "padding",
+    "padding-box",
+    "painted",
+    "page",
+    "paused",
+    "perspective",
+    "pinch-zoom",
+    "plus-darker",
+    "plus-lighter",
+    "pointer",
+    "polygon",
+    "portrait",
+    "pre",
+    "pre-line",
+    "pre-wrap",
+    "preserve-3d",
+    "progress",
+    "push-button",
+    "radial-gradient",
+    "radio",
+    "read-only",
+    "read-write",
+    "read-write-plaintext-only",
+    "rectangle",
+    "region",
+    "relative",
+    "repeat",
+    "repeating-linear-gradient",
+    "repeating-radial-gradient",
+    "repeat-x",
+    "repeat-y",
+    "reset",
+    "reverse",
+    "rgb",
+    "rgba",
+    "ridge",
+    "right",
+    "rotate",
+    "rotate3d",
+    "rotateX",
+    "rotateY",
+    "rotateZ",
+    "round",
+    "row",
+    "row-resize",
+    "row-reverse",
+    "rtl",
+    "run-in",
+    "running",
+    "s-resize",
+    "sans-serif",
+    "saturation",
+    "scale",
+    "scale3d",
+    "scaleX",
+    "scaleY",
+    "scaleZ",
+    "screen",
+    "scroll",
+    "scrollbar",
+    "scroll-position",
+    "se-resize",
+    "self-start",
+    "self-end",
+    "semi-condensed",
+    "semi-expanded",
+    "separate",
+    "serif",
+    "show",
+    "single",
+    "skew",
+    "skewX",
+    "skewY",
+    "skip-white-space",
+    "slide",
+    "slider-horizontal",
+    "slider-vertical",
+    "sliderthumb-horizontal",
+    "sliderthumb-vertical",
+    "slow",
+    "small",
+    "small-caps",
+    "small-caption",
+    "smaller",
+    "soft-light",
+    "solid",
+    "source-atop",
+    "source-in",
+    "source-out",
+    "source-over",
+    "space",
+    "space-around",
+    "space-between",
+    "space-evenly",
+    "spell-out",
+    "square",
+    "start",
+    "static",
+    "status-bar",
+    "stretch",
+    "stroke",
+    "stroke-box",
+    "sub",
+    "subpixel-antialiased",
+    "svg_masks",
+    "super",
+    "sw-resize",
+    "symbolic",
+    "symbols",
+    "system-ui",
+    "table",
+    "table-caption",
+    "table-cell",
+    "table-column",
+    "table-column-group",
+    "table-footer-group",
+    "table-header-group",
+    "table-row",
+    "table-row-group",
+    "text",
+    "text-bottom",
+    "text-top",
+    "textarea",
+    "textfield",
+    "thick",
+    "thin",
+    "threeddarkshadow",
+    "threedface",
+    "threedhighlight",
+    "threedlightshadow",
+    "threedshadow",
+    "to",
+    "top",
+    "transform",
+    "translate",
+    "translate3d",
+    "translateX",
+    "translateY",
+    "translateZ",
+    "transparent",
+    "ultra-condensed",
+    "ultra-expanded",
+    "underline",
+    "unidirectional-pan",
+    "unset",
+    "up",
+    "upper-latin",
+    "uppercase",
+    "url",
+    "var",
+    "vertical",
+    "vertical-text",
+    "view-box",
+    "visible",
+    "visibleFill",
+    "visiblePainted",
+    "visibleStroke",
+    "visual",
+    "w-resize",
+    "wait",
+    "wave",
+    "wider",
+    "window",
+    "windowframe",
+    "windowtext",
+    "words",
+    "wrap",
+    "wrap-reverse",
+    "x-large",
+    "x-small",
+    "xor",
+    "xx-large",
+    "xx-small"
+].map((name)=>({
+        type: "keyword",
+        label: name
+    })).concat(/*@__PURE__*/ [
+    "aliceblue",
+    "antiquewhite",
+    "aqua",
+    "aquamarine",
+    "azure",
+    "beige",
+    "bisque",
+    "black",
+    "blanchedalmond",
+    "blue",
+    "blueviolet",
+    "brown",
+    "burlywood",
+    "cadetblue",
+    "chartreuse",
+    "chocolate",
+    "coral",
+    "cornflowerblue",
+    "cornsilk",
+    "crimson",
+    "cyan",
+    "darkblue",
+    "darkcyan",
+    "darkgoldenrod",
+    "darkgray",
+    "darkgreen",
+    "darkkhaki",
+    "darkmagenta",
+    "darkolivegreen",
+    "darkorange",
+    "darkorchid",
+    "darkred",
+    "darksalmon",
+    "darkseagreen",
+    "darkslateblue",
+    "darkslategray",
+    "darkturquoise",
+    "darkviolet",
+    "deeppink",
+    "deepskyblue",
+    "dimgray",
+    "dodgerblue",
+    "firebrick",
+    "floralwhite",
+    "forestgreen",
+    "fuchsia",
+    "gainsboro",
+    "ghostwhite",
+    "gold",
+    "goldenrod",
+    "gray",
+    "grey",
+    "green",
+    "greenyellow",
+    "honeydew",
+    "hotpink",
+    "indianred",
+    "indigo",
+    "ivory",
+    "khaki",
+    "lavender",
+    "lavenderblush",
+    "lawngreen",
+    "lemonchiffon",
+    "lightblue",
+    "lightcoral",
+    "lightcyan",
+    "lightgoldenrodyellow",
+    "lightgray",
+    "lightgreen",
+    "lightpink",
+    "lightsalmon",
+    "lightseagreen",
+    "lightskyblue",
+    "lightslategray",
+    "lightsteelblue",
+    "lightyellow",
+    "lime",
+    "limegreen",
+    "linen",
+    "magenta",
+    "maroon",
+    "mediumaquamarine",
+    "mediumblue",
+    "mediumorchid",
+    "mediumpurple",
+    "mediumseagreen",
+    "mediumslateblue",
+    "mediumspringgreen",
+    "mediumturquoise",
+    "mediumvioletred",
+    "midnightblue",
+    "mintcream",
+    "mistyrose",
+    "moccasin",
+    "navajowhite",
+    "navy",
+    "oldlace",
+    "olive",
+    "olivedrab",
+    "orange",
+    "orangered",
+    "orchid",
+    "palegoldenrod",
+    "palegreen",
+    "paleturquoise",
+    "palevioletred",
+    "papayawhip",
+    "peachpuff",
+    "peru",
+    "pink",
+    "plum",
+    "powderblue",
+    "purple",
+    "rebeccapurple",
+    "red",
+    "rosybrown",
+    "royalblue",
+    "saddlebrown",
+    "salmon",
+    "sandybrown",
+    "seagreen",
+    "seashell",
+    "sienna",
+    "silver",
+    "skyblue",
+    "slateblue",
+    "slategray",
+    "snow",
+    "springgreen",
+    "steelblue",
+    "tan",
+    "teal",
+    "thistle",
+    "tomato",
+    "turquoise",
+    "violet",
+    "wheat",
+    "white",
+    "whitesmoke",
+    "yellow",
+    "yellowgreen"
+].map((name)=>({
+        type: "constant",
+        label: name
+    })));
+const tags = /*@__PURE__*/ [
+    "a",
+    "abbr",
+    "address",
+    "article",
+    "aside",
+    "b",
+    "bdi",
+    "bdo",
+    "blockquote",
+    "body",
+    "br",
+    "button",
+    "canvas",
+    "caption",
+    "cite",
+    "code",
+    "col",
+    "colgroup",
+    "dd",
+    "del",
+    "details",
+    "dfn",
+    "dialog",
+    "div",
+    "dl",
+    "dt",
+    "em",
+    "figcaption",
+    "figure",
+    "footer",
+    "form",
+    "header",
+    "hgroup",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    "hr",
+    "html",
+    "i",
+    "iframe",
+    "img",
+    "input",
+    "ins",
+    "kbd",
+    "label",
+    "legend",
+    "li",
+    "main",
+    "meter",
+    "nav",
+    "ol",
+    "output",
+    "p",
+    "pre",
+    "ruby",
+    "section",
+    "select",
+    "small",
+    "source",
+    "span",
+    "strong",
+    "sub",
+    "summary",
+    "sup",
+    "table",
+    "tbody",
+    "td",
+    "template",
+    "textarea",
+    "tfoot",
+    "th",
+    "thead",
+    "tr",
+    "u",
+    "ul"
+].map((name)=>({
+        type: "type",
+        label: name
+    }));
+const atRules = /*@__PURE__*/ [
+    "@charset",
+    "@color-profile",
+    "@container",
+    "@counter-style",
+    "@font-face",
+    "@font-feature-values",
+    "@font-palette-values",
+    "@import",
+    "@keyframes",
+    "@layer",
+    "@media",
+    "@namespace",
+    "@page",
+    "@position-try",
+    "@property",
+    "@scope",
+    "@starting-style",
+    "@supports",
+    "@view-transition"
+].map((label)=>({
+        type: "keyword",
+        label
+    }));
+const identifier = /^(\w[\w-]*|-\w[\w-]*|)$/, variable = /^-(-[\w-]*)?$/;
+function isVarArg(node, doc) {
+    var _a;
+    if (node.name == "(" || node.type.isError) node = node.parent || node;
+    if (node.name != "ArgList") return false;
+    let callee = (_a = node.parent) === null || _a === void 0 ? void 0 : _a.firstChild;
+    if ((callee === null || callee === void 0 ? void 0 : callee.name) != "Callee") return false;
+    return doc.sliceString(callee.from, callee.to) == "var";
+}
+const VariablesByNode = /*@__PURE__*/ new (0, _common.NodeWeakMap)();
+const declSelector = [
+    "Declaration"
+];
+function astTop(node) {
+    for(let cur = node;;){
+        if (cur.type.isTop) return cur;
+        if (!(cur = cur.parent)) return node;
+    }
+}
+function variableNames(doc, node, isVariable) {
+    if (node.to - node.from > 4096) {
+        let known = VariablesByNode.get(node);
+        if (known) return known;
+        let result = [], seen = new Set, cursor = node.cursor((0, _common.IterMode).IncludeAnonymous);
+        if (cursor.firstChild()) do {
+            for (let option of variableNames(doc, cursor.node, isVariable))if (!seen.has(option.label)) {
+                seen.add(option.label);
+                result.push(option);
+            }
+        }while (cursor.nextSibling());
+        VariablesByNode.set(node, result);
+        return result;
+    } else {
+        let result = [], seen = new Set;
+        node.cursor().iterate((node)=>{
+            var _a;
+            if (isVariable(node) && node.matchContext(declSelector) && ((_a = node.node.nextSibling) === null || _a === void 0 ? void 0 : _a.name) == ":") {
+                let name = doc.sliceString(node.from, node.to);
+                if (!seen.has(name)) {
+                    seen.add(name);
+                    result.push({
+                        label: name,
+                        type: "variable"
+                    });
+                }
+            }
+        });
+        return result;
+    }
+}
+/**
+Create a completion source for a CSS dialect, providing a
+predicate for determining what kind of syntax node can act as a
+completable variable. This is used by language modes like Sass and
+Less to reuse this package's completion logic.
+*/ const defineCSSCompletionSource = (isVariable)=>(context)=>{
+        let { state, pos } = context, node = (0, _language.syntaxTree)(state).resolveInner(pos, -1);
+        let isDash = node.type.isError && node.from == node.to - 1 && state.doc.sliceString(node.from, node.to) == "-";
+        if (node.name == "PropertyName" || (isDash || node.name == "TagName") && /^(Block|Styles)$/.test(node.resolve(node.to).name)) return {
+            from: node.from,
+            options: properties(),
+            validFor: identifier
+        };
+        if (node.name == "ValueName") return {
+            from: node.from,
+            options: values,
+            validFor: identifier
+        };
+        if (node.name == "PseudoClassName") return {
+            from: node.from,
+            options: pseudoClasses,
+            validFor: identifier
+        };
+        if (isVariable(node) || (context.explicit || isDash) && isVarArg(node, state.doc)) return {
+            from: isVariable(node) || isDash ? node.from : pos,
+            options: variableNames(state.doc, astTop(node), isVariable),
+            validFor: variable
+        };
+        if (node.name == "TagName") {
+            for(let { parent } = node; parent; parent = parent.parent)if (parent.name == "Block") return {
+                from: node.from,
+                options: properties(),
+                validFor: identifier
+            };
+            return {
+                from: node.from,
+                options: tags,
+                validFor: identifier
+            };
+        }
+        if (node.name == "AtKeyword") return {
+            from: node.from,
+            options: atRules,
+            validFor: identifier
+        };
+        if (!context.explicit) return null;
+        let above = node.resolve(pos), before = above.childBefore(pos);
+        if (before && before.name == ":" && above.name == "PseudoClassSelector") return {
+            from: pos,
+            options: pseudoClasses,
+            validFor: identifier
+        };
+        if (before && before.name == ":" && above.name == "Declaration" || above.name == "ArgList") return {
+            from: pos,
+            options: values,
+            validFor: identifier
+        };
+        if (above.name == "Block" || above.name == "Styles") return {
+            from: pos,
+            options: properties(),
+            validFor: identifier
+        };
+        return null;
+    };
+/**
+CSS property, variable, and value keyword completion source.
+*/ const cssCompletionSource = /*@__PURE__*/ defineCSSCompletionSource((n)=>n.name == "VariableName");
+/**
+A language provider based on the [Lezer CSS
+parser](https://github.com/lezer-parser/css), extended with
+highlighting and indentation information.
+*/ const cssLanguage = /*@__PURE__*/ (0, _language.LRLanguage).define({
+    name: "css",
+    parser: /*@__PURE__*/ (0, _css.parser).configure({
+        props: [
+            /*@__PURE__*/ (0, _language.indentNodeProp).add({
+                Declaration: /*@__PURE__*/ (0, _language.continuedIndent)()
+            }),
+            /*@__PURE__*/ (0, _language.foldNodeProp).add({
+                "Block KeyframeList": (0, _language.foldInside)
+            })
+        ]
+    }),
+    languageData: {
+        commentTokens: {
+            block: {
+                open: "/*",
+                close: "*/"
+            }
+        },
+        indentOnInput: /^\s*\}$/,
+        wordChars: "-"
+    }
+});
+/**
+Language support for CSS.
+*/ function css() {
+    return new (0, _language.LanguageSupport)(cssLanguage, cssLanguage.data.of({
+        autocomplete: cssCompletionSource
+    }));
+}
+
+},{"@lezer/css":"hwvTx","@codemirror/language":"dx7XI","@lezer/common":"6f22T","@parcel/transformer-js/src/esmodule-helpers.js":"jnFvT"}],"hwvTx":[function(require,module,exports,__globalThis) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "parser", ()=>parser);
+var _lr = require("@lezer/lr");
+var _highlight = require("@lezer/highlight");
+// This file was generated by lezer-generator. You probably shouldn't edit it.
+const descendantOp = 122, Unit = 1, identifier = 123, callee = 124, VariableName = 2, queryIdentifier = 125, queryVariableName = 3, QueryCallee = 4;
+/* Hand-written tokenizers for CSS tokens that can't be
+   expressed by Lezer's built-in tokenizer. */ const space = [
+    9,
+    10,
+    11,
+    12,
+    13,
+    32,
+    133,
+    160,
+    5760,
+    8192,
+    8193,
+    8194,
+    8195,
+    8196,
+    8197,
+    8198,
+    8199,
+    8200,
+    8201,
+    8202,
+    8232,
+    8233,
+    8239,
+    8287,
+    12288
+];
+const colon = 58, parenL = 40, underscore = 95, bracketL = 91, dash = 45, period = 46, hash = 35, percent = 37, ampersand = 38, backslash = 92, newline = 10, asterisk = 42;
+function isAlpha(ch) {
+    return ch >= 65 && ch <= 90 || ch >= 97 && ch <= 122 || ch >= 161;
+}
+function isDigit(ch) {
+    return ch >= 48 && ch <= 57;
+}
+function isHex(ch) {
+    return isDigit(ch) || ch >= 97 && ch <= 102 || ch >= 65 && ch <= 70;
+}
+const identifierTokens = (id, varName, callee)=>(input, stack)=>{
+        for(let inside = false, dashes = 0, i = 0;; i++){
+            let { next } = input;
+            if (isAlpha(next) || next == dash || next == underscore || inside && isDigit(next)) {
+                if (!inside && (next != dash || i > 0)) inside = true;
+                if (dashes === i && next == dash) dashes++;
+                input.advance();
+            } else if (next == backslash && input.peek(1) != newline) {
+                input.advance();
+                if (isHex(input.next)) {
+                    do input.advance();
+                    while (isHex(input.next));
+                    if (input.next == 32) input.advance();
+                } else if (input.next > -1) input.advance();
+                inside = true;
+            } else {
+                if (inside) input.acceptToken(dashes == 2 && stack.canShift(VariableName) ? varName : next == parenL ? callee : id);
+                break;
+            }
+        }
+    };
+const identifiers = new (0, _lr.ExternalTokenizer)(identifierTokens(identifier, VariableName, callee));
+const queryIdentifiers = new (0, _lr.ExternalTokenizer)(identifierTokens(queryIdentifier, queryVariableName, QueryCallee));
+const descendant = new (0, _lr.ExternalTokenizer)((input)=>{
+    if (space.includes(input.peek(-1))) {
+        let { next } = input;
+        if (isAlpha(next) || next == underscore || next == hash || next == period || next == asterisk || next == bracketL || next == colon && isAlpha(input.peek(1)) || next == dash || next == ampersand) input.acceptToken(descendantOp);
+    }
+});
+const unitToken = new (0, _lr.ExternalTokenizer)((input)=>{
+    if (!space.includes(input.peek(-1))) {
+        let { next } = input;
+        if (next == percent) {
+            input.advance();
+            input.acceptToken(Unit);
+        }
+        if (isAlpha(next)) {
+            do input.advance();
+            while (isAlpha(input.next) || isDigit(input.next));
+            input.acceptToken(Unit);
+        }
+    }
+});
+const cssHighlighting = (0, _highlight.styleTags)({
+    "AtKeyword import charset namespace keyframes media supports": (0, _highlight.tags).definitionKeyword,
+    "from to selector": (0, _highlight.tags).keyword,
+    NamespaceName: (0, _highlight.tags).namespace,
+    KeyframeName: (0, _highlight.tags).labelName,
+    KeyframeRangeName: (0, _highlight.tags).operatorKeyword,
+    TagName: (0, _highlight.tags).tagName,
+    ClassName: (0, _highlight.tags).className,
+    PseudoClassName: (0, _highlight.tags).constant((0, _highlight.tags).className),
+    IdName: (0, _highlight.tags).labelName,
+    "FeatureName PropertyName": (0, _highlight.tags).propertyName,
+    AttributeName: (0, _highlight.tags).attributeName,
+    NumberLiteral: (0, _highlight.tags).number,
+    KeywordQuery: (0, _highlight.tags).keyword,
+    UnaryQueryOp: (0, _highlight.tags).operatorKeyword,
+    "CallTag ValueName": (0, _highlight.tags).atom,
+    VariableName: (0, _highlight.tags).variableName,
+    Callee: (0, _highlight.tags).operatorKeyword,
+    Unit: (0, _highlight.tags).unit,
+    "UniversalSelector NestingSelector": (0, _highlight.tags).definitionOperator,
+    "MatchOp CompareOp": (0, _highlight.tags).compareOperator,
+    "ChildOp SiblingOp, LogicOp": (0, _highlight.tags).logicOperator,
+    BinOp: (0, _highlight.tags).arithmeticOperator,
+    Important: (0, _highlight.tags).modifier,
+    Comment: (0, _highlight.tags).blockComment,
+    ColorLiteral: (0, _highlight.tags).color,
+    "ParenthesizedContent StringLiteral": (0, _highlight.tags).string,
+    ":": (0, _highlight.tags).punctuation,
+    "PseudoOp #": (0, _highlight.tags).derefOperator,
+    "; ,": (0, _highlight.tags).separator,
+    "( )": (0, _highlight.tags).paren,
+    "[ ]": (0, _highlight.tags).squareBracket,
+    "{ }": (0, _highlight.tags).brace
+});
+// This file was generated by lezer-generator. You probably shouldn't edit it.
+const spec_callee = {
+    __proto__: null,
+    lang: 38,
+    "nth-child": 38,
+    "nth-last-child": 38,
+    "nth-of-type": 38,
+    "nth-last-of-type": 38,
+    dir: 38,
+    "host-context": 38,
+    if: 84,
+    url: 124,
+    "url-prefix": 124,
+    domain: 124,
+    regexp: 124
+};
+const spec_queryIdentifier = {
+    __proto__: null,
+    or: 98,
+    and: 98,
+    not: 106,
+    only: 106,
+    layer: 170
+};
+const spec_QueryCallee = {
+    __proto__: null,
+    selector: 112,
+    layer: 166
+};
+const spec_AtKeyword = {
+    __proto__: null,
+    "@import": 162,
+    "@media": 174,
+    "@charset": 178,
+    "@namespace": 182,
+    "@keyframes": 188,
+    "@supports": 200,
+    "@scope": 204
+};
+const spec_identifier = {
+    __proto__: null,
+    to: 207
+};
+const parser = (0, _lr.LRParser).deserialize({
+    version: 14,
+    states: "EbQYQdOOO#qQdOOP#xO`OOOOQP'#Cf'#CfOOQP'#Ce'#CeO#}QdO'#ChO$nQaO'#CcO$xQdO'#CkO%TQdO'#DpO%YQdO'#DrO%_QdO'#DuO%_QdO'#DxOOQP'#FV'#FVO&eQhO'#EhOOQS'#FU'#FUOOQS'#Ek'#EkQYQdOOO&lQdO'#EOO&PQhO'#EUO&lQdO'#EWO'aQdO'#EYO'lQdO'#E]O'tQhO'#EcO(VQdO'#EeO(bQaO'#CfO)VQ`O'#D{O)[Q`O'#F`O)gQdO'#F`QOQ`OOP)qO&jO'#CaPOOO)C@t)C@tOOQP'#Cj'#CjOOQP,59S,59SO#}QdO,59SO)|QdO,59VO%TQdO,5:[O%YQdO,5:^O%_QdO,5:aO%_QdO,5:cO%_QdO,5:dO%_QdO'#ErO*XQ`O,58}O*aQdO'#DzOOQS,58},58}OOQP'#Cn'#CnOOQO'#Dn'#DnOOQP,59V,59VO*hQ`O,59VO*mQ`O,59VOOQP'#Dq'#DqOOQP,5:[,5:[OOQO'#Ds'#DsO*rQpO,5:^O+]QaO,5:aO+sQaO,5:dOOQW'#DZ'#DZO,ZQhO'#DdO,xQhO'#FaO'tQhO'#DbO-WQ`O'#DhOOQW'#F['#F[O-]Q`O,5;SO-eQ`O'#DeOOQS-E8i-E8iOOQ['#Cs'#CsO-jQdO'#CtO.QQdO'#CzO.hQdO'#C}O/OQ!pO'#DPO1RQ!jO,5:jOOQO'#DU'#DUO*mQ`O'#DTO1cQ!nO'#FXO3`Q`O'#DVO3eQ`O'#DkOOQ['#FX'#FXO-`Q`O,5:pO3jQ!bO,5:rOOQS'#E['#E[O3rQ`O,5:tO3wQdO,5:tOOQO'#E_'#E_O4PQ`O,5:wO4UQhO,5:}O%_QdO'#DgOOQS,5;P,5;PO-eQ`O,5;PO4^QdO,5;PO4fQdO,5:gO4vQdO'#EtO5TQ`O,5;zO5TQ`O,5;zPOOO'#Ej'#EjP5`O&jO,58{POOO,58{,58{OOQP1G.n1G.nOOQP1G.q1G.qO*hQ`O1G.qO*mQ`O1G.qOOQP1G/v1G/vO5kQpO1G/xO5sQaO1G/{O6ZQaO1G/}O6qQaO1G0OO7XQaO,5;^OOQO-E8p-E8pOOQS1G.i1G.iO7cQ`O,5:fO7hQdO'#DoO7oQdO'#CrOOQP1G/x1G/xO&lQdO1G/xO7vQ!jO'#DZO8UQ!bO,59vO8^QhO,5:OOOQO'#F]'#F]O8XQ!bO,59zO'tQhO,59xO8fQhO'#EvO8sQ`O,5;{O9OQhO,59|O9uQhO'#DiOOQW,5:S,5:SOOQS1G0n1G0nOOQW,5:P,5:PO9|Q!fO'#FYOOQS'#FY'#FYOOQS'#Em'#EmO;^QdO,59`OOQ[,59`,59`O;tQdO,59fOOQ[,59f,59fO<[QdO,59iOOQ[,59i,59iOOQ[,59k,59kO&lQdO,59mO<rQhO'#EQOOQW'#EQ'#EQO=WQ`O1G0UO1[QhO1G0UOOQ[,59o,59oO'tQhO'#DXOOQ[,59q,59qO=]Q#tO,5:VOOQS1G0[1G0[OOQS1G0^1G0^OOQS1G0`1G0`O=hQ`O1G0`O=mQdO'#E`OOQS1G0c1G0cOOQS1G0i1G0iO=xQaO,5:RO-`Q`O1G0kOOQS1G0k1G0kO-eQ`O1G0kO>PQ!fO1G0ROOQO1G0R1G0ROOQO,5;`,5;`O>gQdO,5;`OOQO-E8r-E8rO>tQ`O1G1fPOOO-E8h-E8hPOOO1G.g1G.gOOQP7+$]7+$]OOQP7+%d7+%dO&lQdO7+%dOOQS1G0Q1G0QO?PQaO'#F_O?ZQ`O,5:ZO?`Q!fO'#ElO@^QdO'#FWO@hQ`O,59^O@mQ!bO7+%dO&lQdO1G/bO@uQhO1G/fOOQW1G/j1G/jOOQW1G/d1G/dOAWQhO,5;bOOQO-E8t-E8tOAfQhO'#DZOAtQhO'#F^OBPQ`O'#F^OBUQ`O,5:TOOQS-E8k-E8kOOQ[1G.z1G.zOOQ[1G/Q1G/QOOQ[1G/T1G/TOOQ[1G/X1G/XOBZQdO,5:lOOQS7+%p7+%pOB`Q`O7+%pOBeQhO'#DYOBmQ`O,59sO'tQhO,59sOOQ[1G/q1G/qOBuQ`O1G/qOOQS7+%z7+%zOBzQbO'#DPOOQO'#Eb'#EbOCYQ`O'#EaOOQO'#Ea'#EaOCeQ`O'#EwOCmQdO,5:zOOQS,5:z,5:zOOQ[1G/m1G/mOOQS7+&V7+&VO-`Q`O7+&VOCxQ!fO'#EsO&lQdO'#EsOEPQdO7+%mOOQO7+%m7+%mOOQO1G0z1G0zOEdQ!bO<<IOOElQdO'#EqOEvQ`O,5;yOOQP1G/u1G/uOOQS-E8j-E8jOFOQdO'#EpOFYQ`O,5;rOOQ]1G.x1G.xOOQP<<IO<<IOOFbQdO7+$|OOQO'#D]'#D]OFiQ!bO7+%QOFqQhO'#EoOF{Q`O,5;xO&lQdO,5;xOOQW1G/o1G/oOOQO'#ES'#ESOGTQ`O1G0WOOQS<<I[<<I[O&lQdO,59tOGnQhO1G/_OOQ[1G/_1G/_OGuQ`O1G/_OOQW-E8l-E8lOOQ[7+%]7+%]OOQO,5:{,5:{O=pQdO'#ExOCeQ`O,5;cOOQS,5;c,5;cOOQS-E8u-E8uOOQS1G0f1G0fOOQS<<Iq<<IqOG}Q!fO,5;_OOQS-E8q-E8qOOQO<<IX<<IXOOQPAN>jAN>jOIUQaO,5;]OOQO-E8o-E8oOI`QdO,5;[OOQO-E8n-E8nOOQW<<Hh<<HhOOQW<<Hl<<HlOIjQhO<<HlOI{QhO,5;ZOJWQ`O,5;ZOOQO-E8m-E8mOJ]QdO1G1dOBZQdO'#EuOJgQ`O7+%rOOQW7+%r7+%rOJoQ!bO1G/`OOQ[7+$y7+$yOJzQhO7+$yPKRQ`O'#EnOOQO,5;d,5;dOOQO-E8v-E8vOOQS1G0}1G0}OKWQ`OAN>WO&lQdO1G0uOK]Q`O7+'OOOQO,5;a,5;aOOQO-E8s-E8sOOQW<<I^<<I^OOQ[<<He<<HePOQW,5;Y,5;YOOQWG23rG23rOKeQdO7+&a",
+    stateData: "Kx~O#sOS#tQQ~OW[OZ[O]TO`VOaVOi]OjWOmXO!jYO!mZO!saO!ybO!{cO!}dO#QeO#WfO#YgO#oRO~OQiOW[OZ[O]TO`VOaVOi]OjWOmXO!jYO!mZO!saO!ybO!{cO!}dO#QeO#WfO#YgO#ohO~O#m$SP~P!dO#tmO~O#ooO~O]qO`rOarOjsOmtO!juO!mwO#nvO~OpzO!^xO~P$SOc!QO#o|O#p}O~O#o!RO~O#o!TO~OW[OZ[O]TO`VOaVOjWOmXO!jYO!mZO#oRO~OS!]Oe!YO!V![O!Y!`O#q!XOp$TP~Ok$TP~P&POQ!jOe!cOm!dOp!eOr!mOt!mOz!kO!`!lO#o!bO#p!hO#}!fO~Ot!qO!`!lO#o!pO~Ot!sO#o!sO~OS!]Oe!YO!V![O!Y!`O#q!XO~Oe!vOpzO#Z!xO~O]YX`YX`!pXaYXjYXmYXpYX!^YX!jYX!mYX#nYX~O`!zO~Ok!{O#m$SXo$SX~O#m$SXo$SX~P!dO#u#OO#v#OO#w#QO~Oc#UO#o|O#p}O~OpzO!^xO~Oo$SP~P!dOe#`O~Oe#aO~Ol#bO!h#cO~O]qO`rOarOjsOmtO~Op!ia!^!ia!j!ia!m!ia#n!iad!ia~P*zOp!la!^!la!j!la!m!la#n!lad!la~P*zOR#gOS!]Oe!YOr#gOt#gO!V![O!Y!`O#q#dO#}!fO~O!R#iO!^#jOk$TXp$TX~Oe#mO~Ok#oOpzO~Oe!vO~O]#rO`#rOd#uOi#rOj#rOk#rO~P&lO]#rO`#rOi#rOj#rOk#rOl#wO~P&lO]#rO`#rOi#rOj#rOk#rOo#yO~P&lOP#zOSsXesXksXvsX!VsX!YsX!usX!wsX#qsX!TsXQsX]sX`sXdsXisXjsXmsXpsXrsXtsXzsX!`sX#osX#psX#}sXlsXosX!^sX!qsX#msX~Ov#{O!u#|O!w#}Ok$TP~P'tOe#aOS#{Xk#{Xv#{X!V#{X!Y#{X!u#{X!w#{X#q#{XQ#{X]#{X`#{Xd#{Xi#{Xj#{Xm#{Xp#{Xr#{Xt#{Xz#{X!`#{X#o#{X#p#{X#}#{Xl#{Xo#{X!^#{X!q#{X#m#{X~Oe$RO~Oe$TO~Ok$VOv#{O~Ok$WO~Ot$XO!`!lO~Op$YO~OpzO!R#iO~OpzO#Z$`O~O!q$bOk!oa#m!oao!oa~P&lOk#hX#m#hXo#hX~P!dOk!{O#m$Sao$Sa~O#u#OO#v#OO#w$hO~Ol$jO!h$kO~Op!ii!^!ii!j!ii!m!ii#n!iid!ii~P*zOp!ki!^!ki!j!ki!m!ki#n!kid!ki~P*zOp!li!^!li!j!li!m!li#n!lid!li~P*zOp#fa!^#fa~P$SOo$lO~Od$RP~P%_Od#zP~P&lO`!PXd}X!R}X!T!PX~O`$sO!T$tO~Od$uO!R#iO~Ok#jXp#jX!^#jX~P'tO!^#jOk$Tap$Ta~O!R#iOk!Uap!Ua!^!Uad!Ua`!Ua~OS!]Oe!YO!V![O!Y!`O#q$yO~Od$QP~P9dOv#{OQ#|X]#|X`#|Xd#|Xe#|Xi#|Xj#|Xk#|Xm#|Xp#|Xr#|Xt#|Xz#|X!`#|X#o#|X#p#|X#}#|Xl#|Xo#|X~O]#rO`#rOd%OOi#rOj#rOk#rO~P&lO]#rO`#rOi#rOj#rOk#rOl%PO~P&lO]#rO`#rOi#rOj#rOk#rOo%QO~P&lOe%SOS!tXk!tX!V!tX!Y!tX#q!tX~Ok%TO~Od%YOt%ZO!a%ZO~Ok%[O~Oo%cO#o%^O#}%]O~Od%dO~P$SOv#{O!^%hO!q%jOk!oi#m!oio!oi~P&lOk#ha#m#hao#ha~P!dOk!{O#m$Sio$Si~O!^%mOd$RX~P$SOd%oO~Ov#{OQ#`Xd#`Xe#`Xm#`Xp#`Xr#`Xt#`Xz#`X!^#`X!`#`X#o#`X#p#`X#}#`X~O!^%qOd#zX~P&lOd%sO~Ol%tOv#{O~OR#gOr#gOt#gO#q%vO#}!fO~O!R#iOk#jap#ja!^#ja~O`!PXd}X!R}X!^}X~O!R#iO!^%xOd$QX~O`%zO~Od%{O~O#o%|O~Ok&OO~O`&PO!R#iO~Od&ROk&QO~Od&UO~OP#zOpsX!^sXdsX~O#}%]Op#TX!^#TX~OpzO!^&WO~Oo&[O#o%^O#}%]O~Ov#{OQ#gXe#gXk#gXm#gXp#gXr#gXt#gXz#gX!^#gX!`#gX!q#gX#m#gX#o#gX#p#gX#}#gXo#gX~O!^%hO!q&`Ok!oq#m!oqo!oq~P&lOl&aOv#{O~Od#eX!^#eX~P%_O!^%mOd$Ra~Od#dX!^#dX~P&lO!^%qOd#za~Od&fO~P&lOd&gO!T&hO~Od#cX!^#cX~P9dO!^%xOd$Qa~O]&mOd&oO~OS#bae#ba!V#ba!Y#ba#q#ba~Od&qO~PG]Od&qOk&rO~Ov#{OQ#gae#gak#gam#gap#gar#gat#gaz#ga!^#ga!`#ga!q#ga#m#ga#o#ga#p#ga#}#gao#ga~Od#ea!^#ea~P$SOd#da!^#da~P&lOR#gOr#gOt#gO#q%vO#}%]O~O!R#iOd#ca!^#ca~O`&xO~O!^%xOd$Qi~P&lO]&mOd&|O~Ov#{Od|ik|i~Od&}O~PG]Ok'OO~Od'PO~O!^%xOd$Qq~Od#cq!^#cq~P&lO#s!a#t#}]#}v!m~",
+    goto: "2h$UPPPPP$VP$YP$c$uP$cP%X$cPP%_PPP%e%o%oPPPPP%oPP%oP&]P%oP%o'W%oP't'w'}'}(^'}P'}P'}P'}'}P(m'}(yP(|PP)p)v$c)|$c*SP$cP$c$cP*Y*{+YP$YP+aP+dP$YP$YP$YP+j$YP+m+p+s+z$YP$YPP$YP,P,V,f,|-[-b-l-r-x.O.U.`.f.l.rPPPPPPPPPPP.x/R/w/z0|P1U1u2O2R2U2[RnQ_^OP`kz!{$dq[OPYZ`kuvwxz!v!{#`$d%mqSOPYZ`kuvwxz!v!{#`$d%mQpTR#RqQ!OVR#SrQ#S!QS$Q!i!jR$i#U!V!mac!c!d!e!z#a#c#t#v#x#{$a$k$p$s%h%i%q%u%z&P&d&l&x'Q!U!mac!c!d!e!z#a#c#t#v#x#{$a$k$p$s%h%i%q%u%z&P&d&l&x'QU#g!Y$t&hU%`$Y%b&WR&V%_!V!iac!c!d!e!z#a#c#t#v#x#{$a$k$p$s%h%i%q%u%z&P&d&l&x'QR$S!kQ%W$RR&S%Xk!^]bf!Y![!g#i#j#m$P$R%X%xQ#e!YQ${#mQ%w$tQ&j%xR&w&hQ!ygQ#p!`Q$^!xR%f$`R#n!]!U!mac!c!d!e!z#a#c#t#v#x#{$a$k$p$s%h%i%q%u%z&P&d&l&x'QQ!qdR$X!rQ!PVR#TrQ#S!PR$i#TQ!SWR#VsQ!UXR#WtQ{UQ!wgQ#^yQ#o!_Q$U!nQ$[!uQ$_!yQ%e$^Q&Y%aQ&]%fR&v&XSjPzQ!}kQ$c!{R%k$dZiPkz!{$dR$P!gQ%}%SR&z&mR!rdR!teR$Z!tS%a$Y%bR&t&WV%_$Y%b&WQ#PmR$g#PQ`OSkPzU!a`k$dR$d!{Q$p#aY%p$p%u&d&l'QQ%u$sQ&d%qQ&l%zR'Q&xQ#t!cQ#v!dQ#x!eV$}#t#v#xQ%X$RR&T%XQ%y$zS&k%y&yR&y&lQ%r$pR&e%rQ%n$mR&c%nQyUR#]yQ%i$aR&_%iQ!|jS$e!|$fR$f!}Q&n%}R&{&nQ#k!ZR$x#kQ%b$YR&Z%bQ&X%aR&u&X__OP`kz!{$d^UOP`kz!{$dQ!VYQ!WZQ#XuQ#YvQ#ZwQ#[xQ$]!vQ$m#`R&b%mR$q#aQ!gaQ!oc[#q!c!d!e#t#v#xQ$a!zd$o#a$p$s%q%u%z&d&l&x'QQ$r#cQ%R#{S%g$a%iQ%l$kQ&^%hR&p&P]#s!c!d!e#t#v#xW!Z]b!g$PQ!ufQ#f!YQ#l![Q$v#iQ$w#jQ$z#mS%V$R%XR&i%xQ#h!YQ%w$tR&w&hR$|#mR$n#`QlPR#_zQ!_]Q!nbQ$O!gR%U$P",
+    nodeNames: "\u26A0 Unit VariableName VariableName QueryCallee Comment StyleSheet RuleSet UniversalSelector TagSelector TagName NestingSelector ClassSelector . ClassName PseudoClassSelector : :: PseudoClassName PseudoClassName ) ( ArgList ValueName ParenthesizedValue AtKeyword # ; ] [ BracketedValue } { BracedValue ColorLiteral NumberLiteral StringLiteral BinaryExpression BinOp CallExpression Callee IfExpression if ArgList IfBranch KeywordQuery FeatureQuery FeatureName BinaryQuery LogicOp ComparisonQuery CompareOp UnaryQuery UnaryQueryOp ParenthesizedQuery SelectorQuery selector ParenthesizedSelector CallQuery ArgList , CallLiteral CallTag ParenthesizedContent PseudoClassName ArgList IdSelector IdName AttributeSelector AttributeName MatchOp ChildSelector ChildOp DescendantSelector SiblingSelector SiblingOp Block Declaration PropertyName Important ImportStatement import Layer layer LayerName layer MediaStatement media CharsetStatement charset NamespaceStatement namespace NamespaceName KeyframesStatement keyframes KeyframeName KeyframeList KeyframeSelector KeyframeRangeName SupportsStatement supports ScopeStatement scope to AtRule Styles",
+    maxTerm: 143,
+    nodeProps: [
+        [
+            "isolate",
+            -2,
+            5,
+            36,
+            ""
+        ],
+        [
+            "openedBy",
+            20,
+            "(",
+            28,
+            "[",
+            31,
+            "{"
+        ],
+        [
+            "closedBy",
+            21,
+            ")",
+            29,
+            "]",
+            32,
+            "}"
+        ]
+    ],
+    propSources: [
+        cssHighlighting
+    ],
+    skippedNodes: [
+        0,
+        5,
+        106
+    ],
+    repeatNodeCount: 15,
+    tokenData: "JQ~R!YOX$qX^%i^p$qpq%iqr({rs-ust/itu6Wuv$qvw7Qwx7cxy9Qyz9cz{9h{|:R|}>t}!O?V!O!P?t!P!Q@]!Q![AU![!]BP!]!^B{!^!_C^!_!`DY!`!aDm!a!b$q!b!cEn!c!}$q!}#OG{#O#P$q#P#QH^#Q#R6W#R#o$q#o#pHo#p#q6W#q#rIQ#r#sIc#s#y$q#y#z%i#z$f$q$f$g%i$g#BY$q#BY#BZ%i#BZ$IS$q$IS$I_%i$I_$I|$q$I|$JO%i$JO$JT$q$JT$JU%i$JU$KV$q$KV$KW%i$KW&FU$q&FU&FV%i&FV;'S$q;'S;=`Iz<%lO$q`$tSOy%Qz;'S%Q;'S;=`%c<%lO%Q`%VS!a`Oy%Qz;'S%Q;'S;=`%c<%lO%Q`%fP;=`<%l%Q~%nh#s~OX%QX^'Y^p%Qpq'Yqy%Qz#y%Q#y#z'Y#z$f%Q$f$g'Y$g#BY%Q#BY#BZ'Y#BZ$IS%Q$IS$I_'Y$I_$I|%Q$I|$JO'Y$JO$JT%Q$JT$JU'Y$JU$KV%Q$KV$KW'Y$KW&FU%Q&FU&FV'Y&FV;'S%Q;'S;=`%c<%lO%Q~'ah#s~!a`OX%QX^'Y^p%Qpq'Yqy%Qz#y%Q#y#z'Y#z$f%Q$f$g'Y$g#BY%Q#BY#BZ'Y#BZ$IS%Q$IS$I_'Y$I_$I|%Q$I|$JO'Y$JO$JT%Q$JT$JU'Y$JU$KV%Q$KV$KW'Y$KW&FU%Q&FU&FV'Y&FV;'S%Q;'S;=`%c<%lO%Qj)OUOy%Qz#]%Q#]#^)b#^;'S%Q;'S;=`%c<%lO%Qj)gU!a`Oy%Qz#a%Q#a#b)y#b;'S%Q;'S;=`%c<%lO%Qj*OU!a`Oy%Qz#d%Q#d#e*b#e;'S%Q;'S;=`%c<%lO%Qj*gU!a`Oy%Qz#c%Q#c#d*y#d;'S%Q;'S;=`%c<%lO%Qj+OU!a`Oy%Qz#f%Q#f#g+b#g;'S%Q;'S;=`%c<%lO%Qj+gU!a`Oy%Qz#h%Q#h#i+y#i;'S%Q;'S;=`%c<%lO%Qj,OU!a`Oy%Qz#T%Q#T#U,b#U;'S%Q;'S;=`%c<%lO%Qj,gU!a`Oy%Qz#b%Q#b#c,y#c;'S%Q;'S;=`%c<%lO%Qj-OU!a`Oy%Qz#h%Q#h#i-b#i;'S%Q;'S;=`%c<%lO%Qj-iS!qY!a`Oy%Qz;'S%Q;'S;=`%c<%lO%Q~-xWOY-uZr-urs.bs#O-u#O#P.g#P;'S-u;'S;=`/c<%lO-u~.gOt~~.jRO;'S-u;'S;=`.s;=`O-u~.vXOY-uZr-urs.bs#O-u#O#P.g#P;'S-u;'S;=`/c;=`<%l-u<%lO-u~/fP;=`<%l-uj/nYjYOy%Qz!Q%Q!Q![0^![!c%Q!c!i0^!i#T%Q#T#Z0^#Z;'S%Q;'S;=`%c<%lO%Qj0cY!a`Oy%Qz!Q%Q!Q![1R![!c%Q!c!i1R!i#T%Q#T#Z1R#Z;'S%Q;'S;=`%c<%lO%Qj1WY!a`Oy%Qz!Q%Q!Q![1v![!c%Q!c!i1v!i#T%Q#T#Z1v#Z;'S%Q;'S;=`%c<%lO%Qj1}YrY!a`Oy%Qz!Q%Q!Q![2m![!c%Q!c!i2m!i#T%Q#T#Z2m#Z;'S%Q;'S;=`%c<%lO%Qj2tYrY!a`Oy%Qz!Q%Q!Q![3d![!c%Q!c!i3d!i#T%Q#T#Z3d#Z;'S%Q;'S;=`%c<%lO%Qj3iY!a`Oy%Qz!Q%Q!Q![4X![!c%Q!c!i4X!i#T%Q#T#Z4X#Z;'S%Q;'S;=`%c<%lO%Qj4`YrY!a`Oy%Qz!Q%Q!Q![5O![!c%Q!c!i5O!i#T%Q#T#Z5O#Z;'S%Q;'S;=`%c<%lO%Qj5TY!a`Oy%Qz!Q%Q!Q![5s![!c%Q!c!i5s!i#T%Q#T#Z5s#Z;'S%Q;'S;=`%c<%lO%Qj5zSrY!a`Oy%Qz;'S%Q;'S;=`%c<%lO%Qd6ZUOy%Qz!_%Q!_!`6m!`;'S%Q;'S;=`%c<%lO%Qd6tS!hS!a`Oy%Qz;'S%Q;'S;=`%c<%lO%Qb7VSZQOy%Qz;'S%Q;'S;=`%c<%lO%Q~7fWOY7cZw7cwx.bx#O7c#O#P8O#P;'S7c;'S;=`8z<%lO7c~8RRO;'S7c;'S;=`8[;=`O7c~8_XOY7cZw7cwx.bx#O7c#O#P8O#P;'S7c;'S;=`8z;=`<%l7c<%lO7c~8}P;=`<%l7cj9VSeYOy%Qz;'S%Q;'S;=`%c<%lO%Q~9hOd~n9oUWQvWOy%Qz!_%Q!_!`6m!`;'S%Q;'S;=`%c<%lO%Qj:YWvW!mQOy%Qz!O%Q!O!P:r!P!Q%Q!Q![=w![;'S%Q;'S;=`%c<%lO%Qj:wU!a`Oy%Qz!Q%Q!Q![;Z![;'S%Q;'S;=`%c<%lO%Qj;bY!a`#}YOy%Qz!Q%Q!Q![;Z![!g%Q!g!h<Q!h#X%Q#X#Y<Q#Y;'S%Q;'S;=`%c<%lO%Qj<VY!a`Oy%Qz{%Q{|<u|}%Q}!O<u!O!Q%Q!Q![=^![;'S%Q;'S;=`%c<%lO%Qj<zU!a`Oy%Qz!Q%Q!Q![=^![;'S%Q;'S;=`%c<%lO%Qj=eU!a`#}YOy%Qz!Q%Q!Q![=^![;'S%Q;'S;=`%c<%lO%Qj>O[!a`#}YOy%Qz!O%Q!O!P;Z!P!Q%Q!Q![=w![!g%Q!g!h<Q!h#X%Q#X#Y<Q#Y;'S%Q;'S;=`%c<%lO%Qj>yS!^YOy%Qz;'S%Q;'S;=`%c<%lO%Qj?[WvWOy%Qz!O%Q!O!P:r!P!Q%Q!Q![=w![;'S%Q;'S;=`%c<%lO%Qj?yU]YOy%Qz!Q%Q!Q![;Z![;'S%Q;'S;=`%c<%lO%Q~@bTvWOy%Qz{@q{;'S%Q;'S;=`%c<%lO%Q~@xS!a`#t~Oy%Qz;'S%Q;'S;=`%c<%lO%QjAZ[#}YOy%Qz!O%Q!O!P;Z!P!Q%Q!Q![=w![!g%Q!g!h<Q!h#X%Q#X#Y<Q#Y;'S%Q;'S;=`%c<%lO%QjBUU`YOy%Qz![%Q![!]Bh!];'S%Q;'S;=`%c<%lO%QbBoSaQ!a`Oy%Qz;'S%Q;'S;=`%c<%lO%QjCQSkYOy%Qz;'S%Q;'S;=`%c<%lO%QhCcU!TWOy%Qz!_%Q!_!`Cu!`;'S%Q;'S;=`%c<%lO%QhC|S!TW!a`Oy%Qz;'S%Q;'S;=`%c<%lO%QlDaS!TW!hSOy%Qz;'S%Q;'S;=`%c<%lO%QjDtV!jQ!TWOy%Qz!_%Q!_!`Cu!`!aEZ!a;'S%Q;'S;=`%c<%lO%QbEbS!jQ!a`Oy%Qz;'S%Q;'S;=`%c<%lO%QjEqYOy%Qz}%Q}!OFa!O!c%Q!c!}GO!}#T%Q#T#oGO#o;'S%Q;'S;=`%c<%lO%QjFfW!a`Oy%Qz!c%Q!c!}GO!}#T%Q#T#oGO#o;'S%Q;'S;=`%c<%lO%QjGV[iY!a`Oy%Qz}%Q}!OGO!O!Q%Q!Q![GO![!c%Q!c!}GO!}#T%Q#T#oGO#o;'S%Q;'S;=`%c<%lO%QjHQSmYOy%Qz;'S%Q;'S;=`%c<%lO%QnHcSl^Oy%Qz;'S%Q;'S;=`%c<%lO%QjHtSpYOy%Qz;'S%Q;'S;=`%c<%lO%QjIVSoYOy%Qz;'S%Q;'S;=`%c<%lO%QfIhU!mQOy%Qz!_%Q!_!`6m!`;'S%Q;'S;=`%c<%lO%Q`I}P;=`<%l$q",
+    tokenizers: [
+        descendant,
+        unitToken,
+        identifiers,
+        queryIdentifiers,
+        1,
+        2,
+        3,
+        4,
+        new (0, _lr.LocalTokenGroup)("m~RRYZ[z{a~~g~aO#v~~dP!P!Qg~lO#w~~", 28, 129)
+    ],
+    topRules: {
+        "StyleSheet": [
+            0,
+            6
+        ],
+        "Styles": [
+            1,
+            105
+        ]
+    },
+    specialized: [
+        {
+            term: 124,
+            get: (value)=>spec_callee[value] || -1
+        },
+        {
+            term: 125,
+            get: (value)=>spec_queryIdentifier[value] || -1
+        },
+        {
+            term: 4,
+            get: (value)=>spec_QueryCallee[value] || -1
+        },
+        {
+            term: 25,
+            get: (value)=>spec_AtKeyword[value] || -1
+        },
+        {
+            term: 123,
+            get: (value)=>spec_identifier[value] || -1
+        }
+    ],
+    tokenPrec: 1963
+});
+
 },{"@lezer/lr":"hqnf3","@lezer/highlight":"5AwBv","@parcel/transformer-js/src/esmodule-helpers.js":"jnFvT"}],"6OGAW":[function(require,module,exports,__globalThis) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
@@ -31165,20 +33712,353 @@ the highlight style).
     /*@__PURE__*/ (0, _language.syntaxHighlighting)(oneDarkHighlightStyle)
 ];
 
-},{"@codemirror/view":"c2noD","@codemirror/language":"dx7XI","@lezer/highlight":"5AwBv","@parcel/transformer-js/src/esmodule-helpers.js":"jnFvT"}],"3Zc1l":[function(require,module,exports,__globalThis) {
+},{"@codemirror/view":"c2noD","@codemirror/language":"dx7XI","@lezer/highlight":"5AwBv","@parcel/transformer-js/src/esmodule-helpers.js":"jnFvT"}],"e6KiP":[function(require,module,exports,__globalThis) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "defaultSettingsGithubLight", ()=>defaultSettingsGithubLight);
+parcelHelpers.export(exports, "githubLightStyle", ()=>githubLightStyle);
+parcelHelpers.export(exports, "githubLightInit", ()=>githubLightInit);
+parcelHelpers.export(exports, "githubLight", ()=>githubLight);
+parcelHelpers.export(exports, "defaultSettingsGithubDark", ()=>defaultSettingsGithubDark);
+parcelHelpers.export(exports, "githubDarkStyle", ()=>githubDarkStyle);
+parcelHelpers.export(exports, "githubDarkInit", ()=>githubDarkInit);
+parcelHelpers.export(exports, "githubDark", ()=>githubDark);
+var _extends = require("@babel/runtime/helpers/extends");
+var _extendsDefault = parcelHelpers.interopDefault(_extends);
+/**
+ * @name github
+ */ var _highlight = require("@lezer/highlight");
+var _codemirrorThemes = require("@uiw/codemirror-themes");
+var defaultSettingsGithubLight = {
+    background: '#fff',
+    foreground: '#24292e',
+    selection: '#BBDFFF',
+    selectionMatch: '#BBDFFF',
+    gutterBackground: '#fff',
+    gutterForeground: '#6e7781'
+};
+var githubLightStyle = [
+    {
+        tag: [
+            (0, _highlight.tags).standard((0, _highlight.tags).tagName),
+            (0, _highlight.tags).tagName
+        ],
+        color: '#116329'
+    },
+    {
+        tag: [
+            (0, _highlight.tags).comment,
+            (0, _highlight.tags).bracket
+        ],
+        color: '#6a737d'
+    },
+    {
+        tag: [
+            (0, _highlight.tags).className,
+            (0, _highlight.tags).propertyName
+        ],
+        color: '#6f42c1'
+    },
+    {
+        tag: [
+            (0, _highlight.tags).variableName,
+            (0, _highlight.tags).attributeName,
+            (0, _highlight.tags).number,
+            (0, _highlight.tags).operator
+        ],
+        color: '#005cc5'
+    },
+    {
+        tag: [
+            (0, _highlight.tags).keyword,
+            (0, _highlight.tags).typeName,
+            (0, _highlight.tags).typeOperator,
+            (0, _highlight.tags).typeName
+        ],
+        color: '#d73a49'
+    },
+    {
+        tag: [
+            (0, _highlight.tags).string,
+            (0, _highlight.tags).meta,
+            (0, _highlight.tags).regexp
+        ],
+        color: '#032f62'
+    },
+    {
+        tag: [
+            (0, _highlight.tags).name,
+            (0, _highlight.tags).quote
+        ],
+        color: '#22863a'
+    },
+    {
+        tag: [
+            (0, _highlight.tags).heading,
+            (0, _highlight.tags).strong
+        ],
+        color: '#24292e',
+        fontWeight: 'bold'
+    },
+    {
+        tag: [
+            (0, _highlight.tags).emphasis
+        ],
+        color: '#24292e',
+        fontStyle: 'italic'
+    },
+    {
+        tag: [
+            (0, _highlight.tags).deleted
+        ],
+        color: '#b31d28',
+        backgroundColor: 'ffeef0'
+    },
+    {
+        tag: [
+            (0, _highlight.tags).atom,
+            (0, _highlight.tags).bool,
+            (0, _highlight.tags).special((0, _highlight.tags).variableName)
+        ],
+        color: '#e36209'
+    },
+    {
+        tag: [
+            (0, _highlight.tags).url,
+            (0, _highlight.tags).escape,
+            (0, _highlight.tags).regexp,
+            (0, _highlight.tags).link
+        ],
+        color: '#032f62'
+    },
+    {
+        tag: (0, _highlight.tags).link,
+        textDecoration: 'underline'
+    },
+    {
+        tag: (0, _highlight.tags).strikethrough,
+        textDecoration: 'line-through'
+    },
+    {
+        tag: (0, _highlight.tags).invalid,
+        color: '#cb2431'
+    }
+];
+var githubLightInit = (options)=>{
+    var { theme = 'light', settings = {}, styles = [] } = options || {};
+    return (0, _codemirrorThemes.createTheme)({
+        theme: theme,
+        settings: (0, _extendsDefault.default)({}, defaultSettingsGithubLight, settings),
+        styles: [
+            ...githubLightStyle,
+            ...styles
+        ]
+    });
+};
+var githubLight = githubLightInit();
+var defaultSettingsGithubDark = {
+    background: '#0d1117',
+    foreground: '#c9d1d9',
+    caret: '#c9d1d9',
+    selection: '#003d73',
+    selectionMatch: '#003d73',
+    lineHighlight: '#36334280'
+};
+var githubDarkStyle = [
+    {
+        tag: [
+            (0, _highlight.tags).standard((0, _highlight.tags).tagName),
+            (0, _highlight.tags).tagName
+        ],
+        color: '#7ee787'
+    },
+    {
+        tag: [
+            (0, _highlight.tags).comment,
+            (0, _highlight.tags).bracket
+        ],
+        color: '#8b949e'
+    },
+    {
+        tag: [
+            (0, _highlight.tags).className,
+            (0, _highlight.tags).propertyName
+        ],
+        color: '#d2a8ff'
+    },
+    {
+        tag: [
+            (0, _highlight.tags).variableName,
+            (0, _highlight.tags).attributeName,
+            (0, _highlight.tags).number,
+            (0, _highlight.tags).operator
+        ],
+        color: '#79c0ff'
+    },
+    {
+        tag: [
+            (0, _highlight.tags).keyword,
+            (0, _highlight.tags).typeName,
+            (0, _highlight.tags).typeOperator,
+            (0, _highlight.tags).typeName
+        ],
+        color: '#ff7b72'
+    },
+    {
+        tag: [
+            (0, _highlight.tags).string,
+            (0, _highlight.tags).meta,
+            (0, _highlight.tags).regexp
+        ],
+        color: '#a5d6ff'
+    },
+    {
+        tag: [
+            (0, _highlight.tags).name,
+            (0, _highlight.tags).quote
+        ],
+        color: '#7ee787'
+    },
+    {
+        tag: [
+            (0, _highlight.tags).heading,
+            (0, _highlight.tags).strong
+        ],
+        color: '#d2a8ff',
+        fontWeight: 'bold'
+    },
+    {
+        tag: [
+            (0, _highlight.tags).emphasis
+        ],
+        color: '#d2a8ff',
+        fontStyle: 'italic'
+    },
+    {
+        tag: [
+            (0, _highlight.tags).deleted
+        ],
+        color: '#ffdcd7',
+        backgroundColor: 'ffeef0'
+    },
+    {
+        tag: [
+            (0, _highlight.tags).atom,
+            (0, _highlight.tags).bool,
+            (0, _highlight.tags).special((0, _highlight.tags).variableName)
+        ],
+        color: '#ffab70'
+    },
+    {
+        tag: (0, _highlight.tags).link,
+        textDecoration: 'underline'
+    },
+    {
+        tag: (0, _highlight.tags).strikethrough,
+        textDecoration: 'line-through'
+    },
+    {
+        tag: (0, _highlight.tags).invalid,
+        color: '#f97583'
+    }
+];
+var githubDarkInit = (options)=>{
+    var { theme = 'dark', settings = {}, styles = [] } = options || {};
+    return (0, _codemirrorThemes.createTheme)({
+        theme: theme,
+        settings: (0, _extendsDefault.default)({}, defaultSettingsGithubDark, settings),
+        styles: [
+            ...githubDarkStyle,
+            ...styles
+        ]
+    });
+};
+var githubDark = githubDarkInit();
+
+},{"@babel/runtime/helpers/extends":"lKa0J","@lezer/highlight":"5AwBv","@uiw/codemirror-themes":"bnJaE","@parcel/transformer-js/src/esmodule-helpers.js":"jnFvT"}],"lKa0J":[function(require,module,exports,__globalThis) {
+function _extends() {
+    return module.exports = _extends = Object.assign ? Object.assign.bind() : function(n) {
+        for(var e = 1; e < arguments.length; e++){
+            var t = arguments[e];
+            for(var r in t)({}).hasOwnProperty.call(t, r) && (n[r] = t[r]);
+        }
+        return n;
+    }, module.exports.__esModule = true, module.exports["default"] = module.exports, _extends.apply(null, arguments);
+}
+module.exports = _extends, module.exports.__esModule = true, module.exports["default"] = module.exports;
+
+},{}],"bnJaE":[function(require,module,exports,__globalThis) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+parcelHelpers.export(exports, "createTheme", ()=>createTheme);
+var _view = require("@codemirror/view");
+var _language = require("@codemirror/language");
+var createTheme = (_ref)=>{
+    var { theme, settings = {}, styles = [] } = _ref;
+    var themeOptions = {
+        '.cm-gutters': {}
+    };
+    var baseStyle = {};
+    if (settings.background) baseStyle.backgroundColor = settings.background;
+    if (settings.backgroundImage) baseStyle.backgroundImage = settings.backgroundImage;
+    if (settings.foreground) baseStyle.color = settings.foreground;
+    if (settings.fontSize) baseStyle.fontSize = settings.fontSize;
+    if (settings.background || settings.foreground) themeOptions['&'] = baseStyle;
+    if (settings.fontFamily) themeOptions['&.cm-editor .cm-scroller'] = {
+        fontFamily: settings.fontFamily
+    };
+    if (settings.gutterBackground) themeOptions['.cm-gutters'].backgroundColor = settings.gutterBackground;
+    if (settings.gutterForeground) themeOptions['.cm-gutters'].color = settings.gutterForeground;
+    if (settings.gutterBorder) themeOptions['.cm-gutters'].borderRightColor = settings.gutterBorder;
+    if (settings.caret) {
+        themeOptions['.cm-content'] = {
+            caretColor: settings.caret
+        };
+        themeOptions['.cm-cursor, .cm-dropCursor'] = {
+            borderLeftColor: settings.caret
+        };
+    }
+    var activeLineGutterStyle = {};
+    if (settings.gutterActiveForeground) activeLineGutterStyle.color = settings.gutterActiveForeground;
+    if (settings.lineHighlight) {
+        themeOptions['.cm-activeLine'] = {
+            backgroundColor: settings.lineHighlight
+        };
+        activeLineGutterStyle.backgroundColor = settings.lineHighlight;
+    }
+    themeOptions['.cm-activeLineGutter'] = activeLineGutterStyle;
+    if (settings.selection) themeOptions['&.cm-focused .cm-selectionBackground, & .cm-line::selection, & .cm-selectionLayer .cm-selectionBackground, .cm-content ::selection'] = {
+        background: settings.selection + ' !important'
+    };
+    if (settings.selectionMatch) themeOptions['& .cm-selectionMatch'] = {
+        backgroundColor: settings.selectionMatch
+    };
+    var themeExtension = (0, _view.EditorView).theme(themeOptions, {
+        dark: theme === 'dark'
+    });
+    var highlightStyle = (0, _language.HighlightStyle).define(styles);
+    var extension = [
+        themeExtension,
+        (0, _language.syntaxHighlighting)(highlightStyle)
+    ];
+    return extension;
+};
+exports.default = createTheme;
+
+},{"@codemirror/view":"c2noD","@codemirror/language":"dx7XI","@parcel/transformer-js/src/esmodule-helpers.js":"jnFvT"}],"3Zc1l":[function(require,module,exports,__globalThis) {
 // functions.js
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
+// Insert text at current cursor or replace selection
+parcelHelpers.export(exports, "insertText", ()=>insertText);
+// editor selection - get selected text or current line
+parcelHelpers.export(exports, "getInputOrLine", ()=>getInputOrLine);
+parcelHelpers.export(exports, "setCursorAfterLine", ()=>setCursorAfterLine);
 // ==============================
 // 🧩 TEXT FORMATTING & WRAPPING
 // ==============================
 parcelHelpers.export(exports, "wrapSelection", ()=>wrapSelection);
 parcelHelpers.export(exports, "toTitleCase", ()=>toTitleCase);
-// =============================
-// 📩 BASIC INSERT HELPERS
-// =============================
-parcelHelpers.export(exports, "insertText", ()=>insertText);
-parcelHelpers.export(exports, "getInputOrLine", ()=>getInputOrLine);
 // ==============================
 // 📦 CONTROL TAG INSERTIONS
 // ==============================
@@ -31209,6 +34089,7 @@ parcelHelpers.export(exports, "brbr", ()=>brbr);
 parcelHelpers.export(exports, "addOpen", ()=>addOpen);
 parcelHelpers.export(exports, "addExclusive", ()=>addExclusive);
 parcelHelpers.export(exports, "addAggregate", ()=>addAggregate);
+parcelHelpers.export(exports, "addRandomize0", ()=>addRandomize0);
 parcelHelpers.export(exports, "addOptional", ()=>addOptional);
 parcelHelpers.export(exports, "addShuffleRows", ()=>addShuffleRows);
 parcelHelpers.export(exports, "addShuffleCols", ()=>addShuffleCols);
@@ -31220,6 +34101,7 @@ parcelHelpers.export(exports, "addRowClassNames", ()=>addRowClassNames);
 parcelHelpers.export(exports, "addColClassNames", ()=>addColClassNames);
 parcelHelpers.export(exports, "addChoiceClassNames", ()=>addChoiceClassNames);
 parcelHelpers.export(exports, "addRatingDirection", ()=>addRatingDirection);
+parcelHelpers.export(exports, "addAltlabel", ()=>addAltlabel);
 parcelHelpers.export(exports, "addPreText", ()=>addPreText);
 parcelHelpers.export(exports, "addPostText", ()=>addPostText);
 parcelHelpers.export(exports, "makePreTextResInternal", ()=>makePreTextResInternal);
@@ -31251,31 +34133,81 @@ parcelHelpers.export(exports, "makeCondition", ()=>makeCondition);
 // ==============================
 // 🔁 LOOP & VIRTUAL BLOCKS
 // ==============================
-parcelHelpers.export(exports, "makeLooprows", ()=>makeLooprows) // You can expand this further with `addLoopBlock(view)` and others later
- // ==============================
- // 🧠 EXPORT DEFAULT (optional)
- // ==============================
- // Optional: export all functions together
- // export default {
- //   wrapSelection,
- //   makeRes,
- //   addTerm,
- //   addQuota,
- //   makeRows,
- //   makeCols,
- //   makeChoices,
- //   swapRowCol,
- //   makeOl,
- //   makeUl,
- //   makeHref,
- //   makeCase,
- //   makeCondition,
- //   ...
- // };
-;
+// block tag
+parcelHelpers.export(exports, "wrapInBlock", ()=>wrapInBlock);
+// block tag randomizeChildren
+parcelHelpers.export(exports, "wrapInBlockRandomize", ()=>wrapInBlockRandomize);
+// ==============================
+// make looprows
+parcelHelpers.export(exports, "makeLooprows", ()=>makeLooprows);
+// make markers
+parcelHelpers.export(exports, "makeMarker", ()=>makeMarker);
+// FUNCTIONS FOR ROWS, COLS and CHOICES
+parcelHelpers.export(exports, "extractNumberAndText", ()=>extractNumberAndText);
+parcelHelpers.export(exports, "buildXmlTag", ()=>buildXmlTag);
+//add class names
+parcelHelpers.export(exports, "addSurveyClassNames", ()=>addSurveyClassNames);
+//add Add colWidth
+parcelHelpers.export(exports, "addColWidth", ()=>addColWidth);
+//add Add legendColWidth
+parcelHelpers.export(exports, "addLegendColWidth", ()=>addLegendColWidth);
+// add elShuffle
+parcelHelpers.export(exports, "elShuffle", ()=>elShuffle);
+parcelHelpers.export(exports, "makeLi", ()=>makeLi);
+parcelHelpers.export(exports, "addPreTextRes", ()=>addPreTextRes);
+parcelHelpers.export(exports, "addPreTextInternal", ()=>addPreTextInternal);
+parcelHelpers.export(exports, "addPostTextRes", ()=>addPostTextRes);
+parcelHelpers.export(exports, "addPostTextExternal", ()=>addPostTextExternal);
+parcelHelpers.export(exports, "addPostTextInternal", ()=>addPostTextInternal);
+parcelHelpers.export(exports, "addPostTextResLabel", ()=>addPostTextResLabel);
+parcelHelpers.export(exports, "callInternalRes", ()=>callInternalRes);
+// add contact q
+parcelHelpers.export(exports, "addContactQuestion", ()=>addContactQuestion);
+parcelHelpers.export(exports, "addContactQuestionIHUT", ()=>addContactQuestionIHUT);
+parcelHelpers.export(exports, "relabelSelection", ()=>relabelSelection);
+// make image
+parcelHelpers.export(exports, "makeImageTags", ()=>makeImageTags);
+// reusable list functions
+parcelHelpers.export(exports, "makeReusableList", ()=>makeReusableList);
+parcelHelpers.export(exports, "callReusableList", ()=>callReusableList);
 var _state = require("@codemirror/state");
+var _tabsJs = require("./tabs.js");
+// Helper to safely get editor
+function getEditor() {
+    const ed = (0, _tabsJs.getActiveEditor)();
+    if (!ed) {
+        console.warn("Editor not ready");
+        return null;
+    }
+    return ed;
+}
+function insertText(view, text) {
+    const sel = view.state.selection.main;
+    view.dispatch({
+        changes: {
+            from: sel.from,
+            to: sel.to,
+            insert: text
+        }
+    });
+}
+function getInputOrLine(view) {
+    view = getView(view);
+    if (!view) return "";
+    const sel = view.state.selection.main;
+    const selectedText = view.state.doc.sliceString(sel.from, sel.to).trim();
+    return selectedText || view.state.doc.lineAt(sel.head).text.trim() || "";
+}
+function setCursorAfterLine(l) {
+    const view = getView();
+    if (!view) return;
+    view.setCursor({
+        line: l,
+        ch: 0
+    });
+}
 // 🔧 Utility: Resolve editorView globally if not passed
-const getView = (view)=>view || (typeof editorView !== "undefined" ? editorView : null);
+const getView = (view)=>view || getEditor();
 function wrapSelection(view, tag) {
     view = getView(view);
     const { state } = view;
@@ -31317,26 +34249,6 @@ function toTitleCase(str) {
         "res"
     ];
     return str.toLowerCase().split(/(\s|-)/).map((part)=>acronyms.includes(part) ? part.toUpperCase() : lowercases.includes(part) ? part : /^[a-z]/.test(part) ? part.charAt(0).toUpperCase() + part.slice(1) : part).join("");
-}
-function insertText(view, text) {
-    view = getView(view);
-    const sel = view.state.selection.main;
-    view.dispatch({
-        changes: {
-            from: sel.from,
-            to: sel.to,
-            insert: text
-        },
-        scrollIntoView: true
-    });
-}
-function getInputOrLine(view) {
-    view = getView(view);
-    const { state } = view;
-    const sel = state.selection.main;
-    const selected = state.doc.slice(sel.from, sel.to).toString().trim();
-    if (selected) return selected;
-    return state.doc.lineAt(sel.from).text.trim();
 }
 function addTerm(view) {
     const text = getInputOrLine(view);
@@ -31405,26 +34317,26 @@ function makeNoAnswer(view) {
     const raw = getInputOrLine(view);
     if (!raw.trim()) return;
     const lines = raw.split("\n").map((l)=>l.trim()).filter(Boolean);
-    let xmlItems = lines.map((line, index)=>`  <noanswer label="n${index + 1}">${line}</noanswer>`).join("\n");
-    insertText(view, xmlItems);
+    let xmlItems1 = lines.map((line, index)=>`  <noanswer label="n${index + 1}">${line}</noanswer>`).join("\n");
+    insertText(view, xmlItems1);
 }
 function makeGroups(view) {
     const raw = getInputOrLine(view);
     if (!raw.trim()) return;
     const lines = raw.split("\n").map((l)=>l.trim()).filter(Boolean);
-    let xmlItems = lines.map((line, index)=>`  <group label="g${index + 1}">${line}</group>`).join("\n");
-    insertText(view, xmlItems);
+    let xmlItems1 = lines.map((line, index)=>`  <group label="g${index + 1}">${line}</group>`).join("\n");
+    insertText(view, xmlItems1);
 }
 function makeAutoFillRows(view) {
     const raw = getInputOrLine(view);
     if (!raw.trim()) return;
     const lines = raw.split("\n").map((l)=>l.trim()).filter(Boolean);
-    let xmlItems = "";
+    let xmlItems1 = "";
     lines.forEach((line, index)=>{
-        xmlItems += `  <row label="r${index + 1}" autofill="">${line}</row>\n`;
+        xmlItems1 += `  <row label="r${index + 1}" autofill="">${line}</row>\n`;
     });
-    xmlItems += `  <row label="none" autofill="thisQuestion.count == 0"><i>None of These Classifications Apply</i></row>\n`;
-    insertText(view, xmlItems);
+    xmlItems1 += `  <row label="none" autofill="thisQuestion.count == 0"><i>None of These Classifications Apply</i></row>\n`;
+    insertText(view, xmlItems1);
 }
 function addAttribute(view, attr) {
     insertText(view, ` ${attr}`);
@@ -31434,7 +34346,8 @@ const brbr = (view)=>insertText(view, `<br/><br/>`);
 const addOpen = (view)=>addAttribute(view, ` open="1" openSize="25" randomize="0"`);
 const addExclusive = (view)=>addAttribute(view, ` exclusive="1" randomize="0"`);
 const addAggregate = (view)=>addAttribute(view, ` aggregate="0" percentages="0"`);
-const addOptional = (view)=>addAttribute(view, `o ptional="1"`);
+const addRandomize0 = (view)=>addAttribute(view, ` randomize="0"`);
+const addOptional = (view)=>addAttribute(view, ` optional="1"`);
 const addShuffleRows = (view)=>addAttribute(view, ` shuffle="rows"`);
 const addShuffleCols = (view)=>addAttribute(view, ` shuffle="cols"`);
 const addShuffleRowsCols = (view)=>addAttribute(view, ` shuffle="rows,cols"`);
@@ -31445,6 +34358,12 @@ const addRowClassNames = (view)=>addAttribute(view, ` ss:rowClassNames=""`);
 const addColClassNames = (view)=>addAttribute(view, ` ss:colClassNames=""`);
 const addChoiceClassNames = (view)=>addAttribute(view, ` ss:choiceClassNames=""`);
 const addRatingDirection = (view)=>addAttribute(view, ` ratingDirection="reverse"`);
+function addAltlabel(view) {
+    const raw = getInputOrLine(view);
+    const cleaned = raw.trim().replace(/\s+/g, "_");
+    const html = ` altlabel="${cleaned}"`;
+    window.editor.replaceSelection(html);
+}
 const addPreText = (view)=>{
     const val = getInputOrLine(view).trim();
     insertText(view, ` ss:preText="\${res.$ {
@@ -31596,18 +34515,332 @@ function makeCondition(view) {
     const xml = lines.map((line)=>`<condition label="" cond="">${line}</condition>`).join("\n");
     insertText(view, xml);
 }
-function makeLooprows(view) {
-    const raw = getInputOrLine(view).trim();
-    if (!raw) return;
-    const lines = raw.replace(/\t+/g, " ").replace(/\n +\n/g, "\n\n").replace(/\n{2,}/g, "\n").split("\n").map((line)=>line.replace(/^[a-zA-Z0-9]{1,2}[.:)\s]+\s*/, "").trim()).filter(Boolean);
-    const output = lines.map((line, i)=>`  <looprow label="${i + 1}">\n    <loopvar name="var">${line}</loopvar>\n  </looprow>`).join("\n");
-    insertText(view, output);
+function wrapInBlock() {
+    try {
+        const editor = window.editor;
+        const input = getInputOrLine().trim();
+        if (!input) {
+            alert("No content selected.");
+            return;
+        }
+        const xml = `<block label="" cond="1">
+${input}
+</block>`;
+        editor.replaceSelection(xml);
+    } catch (err) {
+        console.error("wrapInBlock() failed:", err);
+        alert("Could not wrap content in <block>.");
+    }
+}
+function wrapInBlockRandomize() {
+    try {
+        const editor = window.editor;
+        const input = getInputOrLine().trim();
+        if (!input) {
+            alert("No content selected.");
+            return;
+        }
+        const xml = `<block label="" cond="1" randomizeChildren="1">
+${input}
+</block>`;
+        editor.replaceSelection(xml);
+    } catch (err) {
+        console.error("wrapInBlock() failed:", err);
+        alert("Could not wrap content in <block>.");
+    }
+}
+// loop tag
+// LOOP tag
+function addLoopBlock() {
+    try {
+        const editor = window.editor;
+        const selection = getInputOrLine().trim();
+        if (!selection) {
+            alert("No content selected.");
+            return;
+        }
+        const tagPattern = /(radio|checkbox|text|textarea|block|number|float|select|html)/;
+        // Extract existing <looprow> elements
+        const looprowRegex = /<looprow[\s\S]*?<\/looprow>/gi;
+        const matchedLoopRows = selection.match(looprowRegex) || [];
+        const loopRows = matchedLoopRows.map((row)=>`  ${row.trim()}\n`).join("\n");
+        const mainBlock = selection.replace(looprowRegex, "").trim();
+        // Extract all loopvar names
+        const loopVarNames = [];
+        const varMatchRegex = /<loopvar\s+name="([^"]+)"/gi;
+        let match;
+        while(match = varMatchRegex.exec(loopRows)){
+            const varName = match[1].trim();
+            if (varName && !loopVarNames.includes(varName)) loopVarNames.push(varName);
+        }
+        const varsAttr = loopVarNames.join(", ");
+        const hasAltLabel = mainBlock.includes("altlabel");
+        const updated = hasAltLabel ? mainBlock.replace(new RegExp(`<${tagPattern.source}([\\s\\S]*?)label="([^"]+)"([\\s\\S]*?)altlabel="([^"]+)"`, "g"), (_match, tag, pre, label, between, alt)=>`<${tag}${pre}label="${label.trim()}_[loopvar: label]"${between}altlabel="${alt.trim()}_[loopvar:label]"`) : mainBlock.replace(new RegExp(`<${tagPattern.source}([\\s\\S]*?)label="([^"]+)"`, "g"), (_match, tag, pre, label)=>`<${tag}${pre}label="${label.trim()}_[loopvar: label]"`);
+        const wrapped = `<loop label="" vars="${varsAttr}" title=" " suspend="0">
+  <block label="">
+
+${updated}
+
+  </block>
+
+${loopRows || `  <looprow label="" cond="">
+    <loopvar name=""></loopvar>
+  </looprow>`}
+
+</loop>`;
+        editor.replaceSelection(wrapped);
+    } catch (err) {
+        console.error("addLoopBlock() failed:", err);
+        alert("Could not process loop template.");
+    }
+}
+function makeLooprows() {
+    try {
+        const editor = window.editor;
+        const rawInput = getInputOrLine().trim();
+        if (!rawInput) {
+            alert("No content selected.");
+            return;
+        }
+        // Clean tabs and normalize spacing
+        let cleaned = rawInput.replace(/\t+/g, " ").replace(/\n +\n/g, "\n\n").replace(/\n{2,}/g, "\n").trim().split("\n").map((line)=>line.replace(/^[a-zA-Z0-9]{1,2}[.:)\s]+\s*/, "").trim()).filter((line)=>line.length > 0);
+        const result = cleaned.map((line, i)=>`  <looprow label="${i + 1}">\n    <loopvar name="var">${line}</loopvar>\n  </looprow>`).join("\n");
+        editor.replaceSelection(result);
+    } catch (err) {
+        console.error("makeLooprows() failed:", err);
+        alert("Could not generate looprow XML.");
+    }
+}
+function makeMarker() {
+    let selectedText = getInputOrLine();
+    if (!selectedText.trim()) {
+        alert("No text selected!");
+        return;
+    }
+    let lines = selectedText.split("\n").map((line)=>line.trim()).filter((line)=>line);
+    let xmlItems1 = lines.map((line, index)=>`<marker name="${line}" cond=""/>`).join("\n");
+    window.editor.replaceSelection(xmlItems1);
+}
+function extractNumberAndText(line) {
+    const match = line.match(/^([A-Za-z0-9]+)[.)]\s*(.*)$/);
+    if (!match) return null;
+    //const prefix = match[1];
+    const text = match[2];
+    //const isNumber = /^\d+$/.test(prefix);
+    return {
+        text
+    };
+}
+function buildXmlTag(tagName, tagLabel, lines, numbered, parse) {
+    const count = lines.length;
+    return lines.map((line, i)=>{
+        const parsed = extractNumberAndText(line);
+        let label, valueAttr = "", content;
+        if (numbered === "low" || numbered === "high") {
+            const idx = numbered === "high" ? count - i : i + 1;
+            label = `${tagLabel}${idx}`;
+            valueAttr = ` value="${idx}"`;
+            content = parsed ? parsed.text : line;
+        } else if (parsed) {
+            content = parsed.text;
+            if (parsed.number !== null) label = `${tagLabel}${i + 1}`;
+            else label = `${tagLabel}${i + 1}`;
+        } else {
+            label = `${tagLabel}${i + 1}`;
+            content = line;
+        }
+        return `  <${tagName} label="${label}"${valueAttr}>${content}</${tagName}>`;
+    }).join("\n");
+}
+function addSurveyClassNames(type = "row") {
+    const editor = (0, _tabsJs.getActiveEditor)();
+    const selection = editor.getSelection();
+    const isCursorOnly = selection.length === 0;
+    const typeMap = {
+        row: {
+            tags: [
+                "row"
+            ],
+            attr: 'ss:rowClassNames=""'
+        },
+        col: {
+            tags: [
+                "col"
+            ],
+            attr: 'ss:colClassNames=""'
+        },
+        choice: {
+            tags: [
+                "choice"
+            ],
+            attr: 'ss:choiceClassNames=""'
+        },
+        group: {
+            tags: [
+                "group"
+            ],
+            attr: 'ss:groupClassNames=""'
+        },
+        comment: {
+            tags: [
+                "comment"
+            ],
+            attr: 'ss:commentClassNames=""'
+        },
+        question: {
+            tags: [
+                "radio",
+                "checkbox",
+                "select",
+                "text",
+                "textarea",
+                "number",
+                "float"
+            ],
+            attr: 'ss:questionClassNames=""'
+        }
+    };
+    const rule = typeMap[type.toLowerCase()];
+    if (!rule) return;
+    if (isCursorOnly) // No selection: just insert attribute at cursor
+    editor.replaceSelection(" " + rule.attr);
+    else {
+        // Update selected text
+        const updated = selection.split("\n").map((line)=>{
+            for (const tag of rule.tags){
+                const tagRegex = new RegExp(`<${tag}\\b`);
+                if (tagRegex.test(line.trim()) && !line.includes(rule.attr)) return line.replace(/<(\w+)(\s|>)/, `<$1 ${rule.attr}$2`);
+            }
+            return line;
+        }).join("\n");
+        editor.replaceSelection(updated);
+    }
+}
+function addColWidth() {
+    xmlItems = ` ss:colWidth=""`;
+    window.editor.replaceSelection(xmlItems);
+}
+function addLegendColWidth() {
+    xmlItems = ` ss:legendColWidth=""`;
+    window.editor.replaceSelection(xmlItems);
+}
+function elShuffle(el) {
+    const html = ` ${el}Shuffle=""`;
+    window.editor.replaceSelection(html);
+}
+function makeLi(view) {
+    const selectedText = getInputOrLine();
+    if (!selectedText.trim()) {
+        alert("No text selected!");
+        return;
+    }
+    const lines = selectedText.split("\n").map((line)=>line.trim()).filter((line)=>line);
+    const xmlItems1 = lines.map((line)=>`  <li>${line}</li>`).join("\n");
+    const editor = getEditor();
+    if (editor) insertText(editor, xmlItems1);
+}
+function addPreTextRes(view) {
+    const selectedText = getInputOrLine();
+    const xmlContent = ` ss:preText="\${res.${selectedText.trim()}}"`;
+    const editor = getEditor();
+    if (editor) insertText(editor, xmlContent);
+}
+function addPreTextInternal(view) {
+    const selectedText = getInputOrLine();
+    const xmlContent = ` ss:preText="\${res['%s,preText' % this.label]}"`;
+    const editor = getEditor();
+    if (editor) insertText(editor, xmlContent);
+}
+function addPostTextRes(view) {
+    const selectedText = getInputOrLine();
+    const xmlContent = `<res label="preText">${selectedText.trim()}</res>`;
+    const editor = getEditor();
+    if (editor) insertText(editor, xmlContent);
+}
+function addPostTextExternal(view) {
+    const selectedText = getInputOrLine();
+    const xmlContent = ` ss:postText="\${res.${selectedText.trim()}}"`;
+    const editor = getEditor();
+    if (editor) insertText(editor, xmlContent);
+}
+function addPostTextInternal(view) {
+    const selectedText = getInputOrLine();
+    const xmlContent = ` ss:postText="\${res['%s,postText' % this.label]}"`;
+    const editor = getEditor();
+    if (editor) insertText(editor, xmlContent);
+}
+function addPostTextResLabel(view) {
+    const selectedText = getInputOrLine();
+    const xmlContent = `<res label="postText">${selectedText.trim()}</res>`;
+    const editor = getEditor();
+    if (editor) insertText(editor, xmlContent);
+}
+function callInternalRes(view) {
+    const editor = window.editor;
+    const selectedText = getInputOrLine();
+    const xmlContent = `\${res['%s,res_label' % this.label]}`;
+    window.editor.replaceSelection(xmlContent);
+}
+function addContactQuestion() {
+    const xmlContent = CONTACT_QUESTION;
+    window.editor.replaceSelection(xmlContent);
+}
+function addContactQuestionIHUT() {
+    const xmlContent = CONTACT_QUESTION_IHUT;
+    window.editor.replaceSelection(xmlContent);
+}
+function relabelSelection() {
+    const editor = (0, _tabsJs.getActiveEditor)(); // Assumes your existing method
+    const inputText = editor.getSelection();
+    if (!inputText) return;
+    const lines = inputText.trim().split("\n");
+    if (!lines.length) return;
+    const labelMatch = lines[0].match(/label=['"](\w+)['"]/);
+    const elementMatch = lines[0].match(/<col|<row|<choice/);
+    if (!labelMatch || !elementMatch) return;
+    const startLabel = labelMatch[1];
+    const startElement = elementMatch[0].slice(1);
+    const nonAlphaPart = startLabel.replace(/[a-zA-Z]*/g, "");
+    const isAlphanumeric = /^\d+$/.test(nonAlphaPart);
+    const baseValue = isAlphanumeric ? parseInt(nonAlphaPart, 10) : startLabel.charCodeAt(0);
+    let count = -1;
+    const updated = lines.map((line)=>{
+        if (new RegExp(`<${startElement}`).test(line.trim())) {
+            count++;
+            const newLabel = isAlphanumeric ? startLabel.replace(/\d+/, baseValue + count) : String.fromCharCode(baseValue + count);
+            return line.replace(/label=['"]\w+['"]/, `label="${newLabel}"`);
+        }
+        return line;
+    });
+    editor.replaceSelection(updated.join("\n"));
+}
+function makeImageTags() {
+    const selectedText = getInputOrLine();
+    if (!selectedText.trim()) {
+        alert("No text selected!");
+        return;
+    }
+    const lines = selectedText.split("\n").map((line)=>line.trim()).filter((line)=>line);
+    const imgTags = lines.map((src)=>`<img src="${src}" />`).join("\n");
+    window.editor.replaceSelection(imgTags);
+}
+function makeReusableList() {
+    const selectedText = getInputOrLine();
+    const xmlContent = `<define label="">\n  ${selectedText.trim()}\n</define>`;
+    window.editor.replaceSelection(xmlContent);
+}
+function callReusableList() {
+    const selectedText = getInputOrLine();
+    const xmlContent = `<insert source="${selectedText.trim()}"/>`;
+    window.editor.replaceSelection(xmlContent);
 }
 
-},{"@codemirror/state":"axaOu","@parcel/transformer-js/src/esmodule-helpers.js":"jnFvT"}],"hSpoG":[function(require,module,exports,__globalThis) {
-// tabs.js or main.js — depending on where you want it
+},{"@codemirror/state":"axaOu","./tabs.js":"hSpoG","@parcel/transformer-js/src/esmodule-helpers.js":"jnFvT"}],"hSpoG":[function(require,module,exports,__globalThis) {
+// tabs.js — provides multi-tab EditorView creation
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
+// Helper: Attach minimal CodeMirror 5-compatible API on a CM6 EditorView instance
+parcelHelpers.export(exports, "attachCM5Compat", ()=>attachCM5Compat);
 // 🧠 Create a new EditorView instance
 parcelHelpers.export(exports, "createEditorView", ()=>createEditorView);
 parcelHelpers.export(exports, "initTabs", ()=>initTabs);
@@ -31619,26 +34852,279 @@ parcelHelpers.export(exports, "saveAllTabs", ()=>saveAllTabs);
 parcelHelpers.export(exports, "renderTabs", ()=>renderTabs);
 parcelHelpers.export(exports, "confirmTabCreation", ()=>confirmTabCreation);
 parcelHelpers.export(exports, "addTab", ()=>addTab);
+parcelHelpers.export(exports, "saveEditorContent", ()=>saveEditorContent);
+parcelHelpers.export(exports, "truncateLabel", ()=>truncateLabel);
+parcelHelpers.export(exports, "requestTabDeletion", ()=>requestTabDeletion);
+// Global controls
+parcelHelpers.export(exports, "setTheme", ()=>setTheme);
+parcelHelpers.export(exports, "setWordWrap", ()=>setWordWrap);
+parcelHelpers.export(exports, "forEachEditor", ()=>forEachEditor);
+parcelHelpers.export(exports, "getEditorByName", ()=>getEditorByName);
+parcelHelpers.export(exports, "getTabNames", ()=>getTabNames);
+parcelHelpers.export(exports, "getActiveTabName", ()=>getActiveTabName);
+var _view = require("@codemirror/view");
+var _state = require("@codemirror/state");
+var _codemirror = require("codemirror");
+var _langXml = require("@codemirror/lang-xml");
+var _langPython = require("@codemirror/lang-python");
+var _langJavascript = require("@codemirror/lang-javascript");
+var _langCss = require("@codemirror/lang-css");
 var _functionsJs = require("./functions.js");
+var _commands = require("@codemirror/commands");
+var _language = require("@codemirror/language");
+var _modalsJs = require("./modals.js");
+var _themeOneDark = require("@codemirror/theme-one-dark");
+var _codemirrorThemeGithub = require("@uiw/codemirror-theme-github");
+var _autocomplete = require("@codemirror/autocomplete");
+function attachCM5Compat(editor) {
+    if (!editor) return;
+    // getWrapperElement -> CM6 uses DOM via editor.dom
+    editor.getWrapperElement = ()=>editor.dom;
+    // getValue/setValue
+    editor.getValue = ()=>editor.state.doc.toString();
+    editor.setValue = (val = "")=>{
+        editor.dispatch({
+            changes: {
+                from: 0,
+                to: editor.state.doc.length,
+                insert: String(val)
+            }
+        });
+    };
+    // replaceSelection(text)
+    editor.replaceSelection = (text)=>{
+        _functionsJs.insertText(editor, String(text));
+    };
+    // refresh -> requestMeasure (forces re-measure/layout)
+    editor.refresh = ()=>editor.requestMeasure();
+    // getCursor(from/to/null) -> returns CM5-like cursor {line, ch}
+    editor.getCursor = (which = "from")=>{
+        const sel = editor.state.selection.main;
+        const pos = which === "to" ? sel.to : which === "head" ? sel.head : sel.from;
+        const line = editor.state.doc.lineAt(pos);
+        return {
+            line: line.number - 1,
+            ch: pos - line.from
+        };
+    };
+    // getLine(n) where n is 0-based
+    editor.getLine = (n)=>{
+        const lineNo = Number(n) + 1;
+        return editor.state.doc.line(lineNo).text;
+    };
+    // indexFromPos({line,ch})
+    editor.indexFromPos = (cursor)=>{
+        if (typeof cursor === "number") return cursor;
+        return editor.state.doc.line(cursor.line + 1).from + cursor.ch;
+    };
+    // posFromIndex
+    editor.posFromIndex = (index)=>{
+        const line = editor.state.doc.lineAt(index);
+        return {
+            line: line.number - 1,
+            ch: index - line.from
+        };
+    };
+    // replaceRange(text, from, to)
+    editor.replaceRange = (text, from, to)=>{
+        const getIndex = (p)=>typeof p === 'number' ? p : p ? editor.state.doc.line(p.line + 1).from + p.ch : 0;
+        const fromIdx = getIndex(from);
+        const toIdx = getIndex(to === undefined ? from : to);
+        editor.dispatch({
+            changes: {
+                from: fromIdx,
+                to: toIdx,
+                insert: String(text)
+            }
+        });
+    };
+    // setCursor
+    editor.setCursor = (cursor)=>{
+        if (!cursor) return;
+        const pos = typeof cursor === 'number' ? cursor : editor.indexFromPos(cursor);
+        editor.dispatch({
+            selection: {
+                anchor: pos,
+                head: pos
+            }
+        });
+    };
+    // setSelection(from, to) — legacy API: from/to cursor objects
+    editor.setSelection = (from, to)=>{
+        const posFrom = typeof from === 'number' ? from : editor.indexFromPos(from);
+        const posTo = typeof to === 'number' ? to : editor.indexFromPos(to);
+        editor.dispatch({
+            selection: {
+                anchor: posFrom,
+                head: posTo
+            }
+        });
+    };
+    // getSelection() — returns selected text
+    editor.getSelection = ()=>{
+        const sel = editor.state.selection.main;
+        return editor.state.doc.slice(sel.from, sel.to).toString();
+    };
+}
 const tabs = {};
+let tabOrder = [];
 let activeTab = "default";
 let editorArea;
-function createEditorView(doc = "", theme = oneDark, wrap = true) {
-    return new EditorView({
-        parent: editorArea,
-        state: EditorState.create({
+// Global settings compartments per editor
+function makeTheme(name) {
+    // Custom dracula-inspired theme
+    const draculaTheme = (0, _view.EditorView).theme({
+        '&': {
+            color: '#f8f8f2',
+            backgroundColor: '#282a36'
+        },
+        '.cm-content': {
+            caretColor: '#f8f8f0'
+        },
+        '&.cm-focused .cm-cursor': {
+            borderLeftColor: '#f8f8f0'
+        },
+        '.cm-gutters': {
+            backgroundColor: '#282a36',
+            color: '#6272a4',
+            border: 'none'
+        },
+        '.cm-activeLine': {
+            backgroundColor: '#44475a'
+        },
+        '.cm-activeLineGutter': {
+            backgroundColor: '#44475a'
+        },
+        '&.cm-focused .cm-selectionBackground, ::selection': {
+            backgroundColor: '#44475a'
+        }
+    }, {
+        dark: true
+    });
+    const lightA = (0, _view.EditorView).theme({
+        '&': {
+            color: '#111',
+            backgroundColor: '#fafafa'
+        },
+        '.cm-content': {
+            caretColor: '#111'
+        },
+        '&.cm-focused .cm-cursor': {
+            borderLeftColor: '#111'
+        },
+        '.cm-gutters': {
+            backgroundColor: '#f0f0f0',
+            color: '#666',
+            border: 'none'
+        }
+    }, {
+        dark: false
+    });
+    const lightB = (0, _view.EditorView).theme({
+        '&': {
+            color: '#222',
+            backgroundColor: '#fffef7'
+        },
+        '.cm-content': {
+            caretColor: '#333'
+        },
+        '&.cm-focused .cm-cursor': {
+            borderLeftColor: '#333'
+        },
+        '.cm-gutters': {
+            backgroundColor: '#fff6d5',
+            color: '#775',
+            border: 'none'
+        }
+    }, {
+        dark: false
+    });
+    const themes = {
+        light: lightA,
+        light2: lightB,
+        dark: (0, _themeOneDark.oneDark),
+        github: (0, _codemirrorThemeGithub.githubDark),
+        dracula: draculaTheme
+    };
+    return themes[name] || themes.light;
+}
+let currentTheme = 'light';
+let currentWrap = true;
+function createEditorView(doc = "", themeName = 'light', wrap = true) {
+    // Per-editor language compartment and update listener to switch language depending on surrounding XML tag
+    const langCompartment = new (0, _state.Compartment)();
+    const themeCompartment = new (0, _state.Compartment)();
+    const wrapCompartment = new (0, _state.Compartment)();
+    let currentLangKey = "xml";
+    function findParentTagAtPos(doc, pos) {
+        const before = doc.sliceString(0, pos);
+        const openMatches = [
+            ...before.matchAll(/<([a-zA-Z0-9_-]+)(\s[^>]*)?>/g)
+        ];
+        if (openMatches.length === 0) return null;
+        const lastOpen = openMatches[openMatches.length - 1];
+        const tag = lastOpen[1];
+        const after = doc.sliceString(pos);
+        if (after.indexOf(`</${tag}>`) !== -1) return tag;
+        return null;
+    }
+    const languageSwitchListener = (0, _view.EditorView).updateListener.of((update)=>{
+        if (!update.selectionSet && !update.docChanged) return;
+        const pos = update.state.selection.main.head;
+        const tag = findParentTagAtPos(update.state.doc, pos);
+        let newLang = (0, _langXml.xml)();
+        let newKey = "xml";
+        if (tag && [
+            "exec",
+            "validate",
+            "virtual"
+        ].includes(tag)) {
+            newLang = (0, _langPython.python)();
+            newKey = "python";
+        } else if (tag === "style") {
+            newLang = (0, _langCss.css)();
+            newKey = "css";
+        } else if (tag === "script") {
+            newLang = (0, _langJavascript.javascript)();
+            newKey = "javascript";
+        }
+        if (newKey !== currentLangKey) {
+            update.view.dispatch({
+                effects: langCompartment.reconfigure(newLang)
+            });
+            currentLangKey = newKey;
+        }
+    });
+    // Create off-DOM, we will attach active editor only
+    const offscreenParent = document.createElement('div');
+    const editor = new (0, _view.EditorView)({
+        parent: offscreenParent,
+        state: (0, _state.EditorState).create({
             doc,
             extensions: [
-                basicSetup,
-                lineNumbers(),
-                foldGutter(),
-                indentUnit.of("   "),
-                xml(),
-                bracketMatching(),
-                closeBrackets(),
-                wrap ? EditorView.lineWrapping : [],
-                theme,
-                keymap.of([
+                (0, _codemirror.basicSetup),
+                (0, _view.lineNumbers)(),
+                (0, _language.foldGutter)(),
+                (0, _language.indentUnit).of("   "),
+                langCompartment.of((0, _langXml.xml)()),
+                (0, _language.bracketMatching)(),
+                (0, _autocomplete.closeBrackets)(),
+                wrapCompartment.of(wrap ? (0, _view.EditorView).lineWrapping : []),
+                themeCompartment.of(makeTheme(themeName)),
+                (0, _view.EditorView).theme({
+                    '&': {
+                        height: '100%',
+                        overflow: 'hidden'
+                    },
+                    '.cm-scroller': {
+                        overflow: 'auto',
+                        height: '100%'
+                    }
+                }),
+                (0, _autocomplete.autocompletion)(),
+                languageSwitchListener,
+                (0, _view.keymap).of([
+                    ...(0, _autocomplete.completionKeymap),
                     {
                         key: "Tab",
                         run: (view)=>{
@@ -31667,23 +35153,58 @@ function createEditorView(doc = "", theme = oneDark, wrap = true) {
                     {
                         key: "Ctrl-u",
                         run: ()=>_functionsJs.wrapSelection(tabs[activeTab].editor, "u")
-                    }
+                    },
+                    {
+                        key: "Esc",
+                        run: (view)=>{
+                            const ed = tabs[activeTab].editor;
+                            console.log("Esc pressed in tab:", activeTab, ed);
+                            const sel = ed.state.selection.main;
+                            const selectedText = ed.state.doc.slice(sel.from, sel.to).toString();
+                            if (sel.from !== sel.to && selectedText.includes("\n")) {
+                                ed.dispatch({
+                                    selection: {
+                                        anchor: sel.to
+                                    }
+                                });
+                                return true;
+                            }
+                            if (typeof window !== 'undefined' && typeof window.toggleCommandPalette === 'function') {
+                                window.toggleCommandPalette();
+                                return true;
+                            }
+                            return false;
+                        }
+                    },
+                    ...(0, _commands.defaultKeymap)
                 ])
             ]
         })
     });
+    // Compatibility wrappers for legacy CodeMirror 5-style API used across
+    // the codebase (window.editor.replaceSelection, getValue, setValue, getLine, getCursor, etc.).
+    // We prefer using the native CM6 API where possible, but a shim avoids
+    // making tons of changes across many helper files.
+    attachCM5Compat(editor);
+    // keep compartments for global reconfig
+    editor.__cmCompartments = {
+        lang: langCompartment,
+        theme: themeCompartment,
+        wrap: wrapCompartment
+    };
+    return editor;
 }
 function initTabs(container) {
     editorArea = container;
     const savedTabs = JSON.parse(localStorage.getItem("editorTabs") || "{}");
+    tabOrder = JSON.parse(localStorage.getItem("tabOrder") || "[]");
     activeTab = localStorage.getItem("activeTab") || "default";
     Object.entries(savedTabs).forEach(([name, data])=>{
-        const editor = createEditorView(data.content);
-        editor.dom.style.display = "none";
-        container.appendChild(editor.dom);
+        const editor = createEditorView(data.content, currentTheme, currentWrap);
         tabs[name] = {
             editor
         };
+        if (!tabOrder.includes(name)) tabOrder.push(name);
     });
     if (!tabs["default"]) createTab("default");
     renderTabs();
@@ -31691,12 +35212,11 @@ function initTabs(container) {
 }
 function createTab(name) {
     if (tabs[name]) return;
-    const editor = createEditorView("");
-    editor.dom.style.display = "none";
-    editorArea.appendChild(editor.dom);
+    const editor = createEditorView("", currentTheme, currentWrap);
     tabs[name] = {
         editor
     };
+    tabOrder.push(name);
     activeTab = name;
     saveAllTabs();
     renderTabs();
@@ -31704,13 +35224,14 @@ function createTab(name) {
 }
 function switchTab(name) {
     activeTab = name;
-    Object.values(tabs).forEach(({ editor })=>{
-        editor.dom.style.display = "none";
-    });
+    // ensure only one editor DOM in the container
+    if (editorArea) editorArea.innerHTML = "";
     const activeEditor = tabs[name]?.editor;
-    if (activeEditor) {
-        activeEditor.dom.style.display = "block";
+    if (activeEditor && editorArea) {
+        editorArea.appendChild(activeEditor.dom);
         activeEditor.focus();
+        window.editor = activeEditor;
+        window.editorView = activeEditor;
     }
     localStorage.setItem("activeTab", name);
     document.querySelectorAll(".tab").forEach((tab)=>tab.classList.remove("active"));
@@ -31742,12 +35263,14 @@ function saveAllTabs() {
     };
     localStorage.setItem("editorTabs", JSON.stringify(saved));
     localStorage.setItem("activeTab", activeTab);
+    localStorage.setItem("tabOrder", JSON.stringify(tabOrder));
 }
 function renderTabs() {
     const tabsContainer = document.getElementById("tabs");
     if (!tabsContainer) return;
     tabsContainer.innerHTML = "";
-    for (const tabName of Object.keys(tabs)){
+    const names = tabOrder.filter((n)=>tabs[n]);
+    for (const tabName of names){
         const tabElement = document.createElement("div");
         tabElement.className = "tab";
         tabElement.dataset.tab = tabName;
@@ -31773,7 +35296,7 @@ function renderTabs() {
     addTabBtn.id = "addTabButton";
     addTabBtn.title = "Add New Tab";
     addTabBtn.textContent = "\u2795";
-    addTabBtn.onclick = ()=>openModal("tab");
+    addTabBtn.onclick = ()=>(0, _modalsJs.openModal)("tab");
     tabsContainer.appendChild(addTabBtn);
     tabsContainer.querySelectorAll(".tab").forEach((tab)=>{
         tab.classList.toggle("active", tab.dataset.tab === activeTab);
@@ -31786,13 +35309,921 @@ function confirmTabCreation() {
     if (!tabName) return alert("Tab name required.");
     createTab(tabName);
     tabNameInput.value = "";
-// Close modal if needed
+    // Close modal if open
+    const modal = bootstrap.Modal.getInstance(document.getElementById("surveyModal"));
+    if (modal) modal.hide();
 }
 function addTab() {
-    openModal("tab");
+    (0, _modalsJs.openModal)("tab");
+}
+function saveEditorContent() {
+    if (activeTab && tabs[activeTab]?.editor) {
+        const content = tabs[activeTab].editor.getValue();
+        localStorage.setItem(`editorTab_${activeTab}`, content);
+    }
+}
+function truncateLabel(label, maxLength = 15) {
+    if (label.length <= maxLength) return label;
+    return label.slice(0, maxLength - 3) + "...";
+}
+function requestTabDeletion(name) {
+    (0, _modalsJs.openModal)("delete-tab", name);
+}
+function setTheme(themeName) {
+    currentTheme = themeName;
+    Object.values(tabs).forEach(({ editor })=>{
+        const c = editor.__cmCompartments?.theme;
+        if (c) editor.dispatch({
+            effects: c.reconfigure(makeTheme(themeName))
+        });
+    });
+}
+function setWordWrap(enabled) {
+    currentWrap = !!enabled;
+    Object.values(tabs).forEach(({ editor })=>{
+        const c = editor.__cmCompartments?.wrap;
+        if (c) editor.dispatch({
+            effects: c.reconfigure(enabled ? (0, _view.EditorView).lineWrapping : [])
+        });
+    });
+}
+function forEachEditor(fn) {
+    Object.values(tabs).forEach(({ editor })=>fn(editor));
+}
+function getEditorByName(name) {
+    return tabs[name]?.editor || null;
+}
+function getTabNames() {
+    return tabOrder.slice();
+}
+function getActiveTabName() {
+    return activeTab;
 }
 
-},{"@parcel/transformer-js/src/esmodule-helpers.js":"jnFvT","./functions.js":"3Zc1l"}],"jpcAS":[function(require,module,exports,__globalThis) {
+},{"@codemirror/view":"c2noD","@codemirror/state":"axaOu","codemirror":"ak95T","@codemirror/lang-xml":"kSget","@codemirror/lang-python":"3HUFd","@codemirror/lang-javascript":"3QU1O","@codemirror/lang-css":"lusFz","./functions.js":"3Zc1l","@codemirror/commands":"5nDyv","@codemirror/language":"dx7XI","./modals.js":"3jVfd","@codemirror/theme-one-dark":"6OGAW","@uiw/codemirror-theme-github":"e6KiP","@codemirror/autocomplete":"20ht8","@parcel/transformer-js/src/esmodule-helpers.js":"jnFvT"}],"3jVfd":[function(require,module,exports,__globalThis) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+// Export for module usage and attach to window for legacy callers
+parcelHelpers.export(exports, "openModal", ()=>openModal);
+parcelHelpers.export(exports, "validateFormAndGenerateXML", ()=>validateFormAndGenerateXML);
+var _varsJs = require("./vars.js");
+var _tabsJs = require("./tabs.js");
+var _functionsJs = require("./functions.js");
+var _stylesJs = require("./styles.js");
+//Modal handling
+const modalDefinitions = {
+    "tab": {
+        title: "Create a New Tab",
+        section: ".new-tab",
+        focus: "#tab_name",
+        init: ()=>document.getElementById("tabError").style.display = "none"
+    },
+    "delete-tab": {
+        title: "Confirm Tab Deletion",
+        section: ".delete-tab",
+        init: (tabName)=>{
+            document.getElementById("tabToDeleteName").textContent = tabName;
+            window.tabPendingDeletion = tabName;
+        }
+    },
+    "delete-all-data": {
+        title: "Delete All Data",
+        section: ".delete-all-data",
+        init: ()=>document.getElementById("confirmDeleteAll").onclick = ()=>deleteAllData()
+    },
+    "new-survey": {
+        title: "Create a New Survey",
+        section: ".new-survey",
+        init: ()=>document.getElementById("genXML").onclick = ()=>validateFormAndGenerateXML("survey")
+    },
+    "new-ihut": {
+        title: "Create a New IHUT",
+        section: ".new-ihut",
+        init: ()=>document.getElementById("genIHUTXML").onclick = ()=>validateFormAndGenerateXML("ihut")
+    },
+    "new-mouseover": {
+        title: "Mouseover",
+        section: ".new-mouseover",
+        init: ()=>document.getElementById("genMO").onclick = ()=>generateMO()
+    },
+    "new-popup": {
+        title: "Pop-up",
+        section: ".new-popup",
+        init: ()=>document.getElementById("genPopup").onclick = ()=>generatePopup()
+    },
+    "random-order-tracker": {
+        title: "Random Order Tracker",
+        section: ".random-order-tracker",
+        init: ()=>document.getElementById("genRandomOrder").onclick = ()=>generateRandomOrderTracker()
+    },
+    "dupe-check": {
+        title: "URL Variable Dupe check",
+        section: ".dupe-check",
+        init: ()=>document.getElementById("genDupeCheck").onclick = ()=>generateDupeCheck()
+    },
+    "new-style": {
+        title: "Insert a Survey Style",
+        section: ".new-style",
+        init: ()=>document.getElementById("genNewStyle").onclick = ()=>genNewStyle()
+    },
+    "pipe-in-number": {
+        title: "Pipe Number question in table",
+        section: ".pipe-in-number",
+        init: ()=>document.getElementById("genPipeNumber").onclick = ()=>genPipeNumber()
+    },
+    "disable-continue": {
+        title: "Disable Continue Button",
+        section: ".disable-continue",
+        init: ()=>document.getElementById("genDisableContinue").onclick = ()=>genDisableContinue()
+    }
+};
+function openModal(purpose, tabName = "") {
+    const modalEl = document.getElementById("surveyModal");
+    const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+    const title = document.getElementById("modalTitle");
+    document.querySelectorAll(".modal-section").forEach((section)=>{
+        section.style.display = "none";
+    });
+    const config = modalDefinitions[purpose];
+    if (!config) {
+        console.warn(`Unknown modal purpose: ${purpose}`);
+        return;
+    }
+    title.textContent = config.title;
+    document.querySelector(config.section).style.display = "block";
+    if (config.init) config.init(tabName);
+    let focusInput = config.focus ? document.querySelector(config.focus) : null;
+    modalEl.removeEventListener("shown.bs.modal", modalEl._focusListener);
+    modalEl._focusListener = ()=>{
+        if (focusInput) {
+            focusInput.focus();
+            focusInput.select();
+        }
+    };
+    modalEl.addEventListener("shown.bs.modal", modalEl._focusListener);
+    modal.show();
+}
+/*
+// OLD VERSION
+function openModal(purpose, tabName = "") {
+const modalEl = document.getElementById("surveyModal");
+const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+const title = document.getElementById("modalTitle");
+
+document.querySelectorAll(".modal-section").forEach(section => {
+section.style.display = "none";
+});
+
+let focusInput = null;
+
+if (purpose === "tab") {
+title.textContent = "Create a New Tab";
+document.querySelector(".new-tab").style.display = "block";
+document.getElementById("tabError").style.display = "none";
+focusInput = document.getElementById("tab_name");
+} else if (purpose === "new-survey") {
+title.textContent = "Create a New Survey";
+document.querySelector(".new-survey").style.display = "block";
+document.getElementById("genXML").onclick = () => validateFormAndGenerateXML("survey");
+} else if (purpose === "delete-tab") {
+title.textContent = "Confirm Tab Deletion";
+document.querySelector(".delete-tab").style.display = "block";
+document.getElementById("tabToDeleteName").textContent = tabName;
+window.tabPendingDeletion = tabName;
+} else if (purpose === "new-ihut") {
+title.textContent = "Create a New IHUT";
+document.querySelector(".new-ihut").style.display = "block";
+document.getElementById("genIHUTXML").onclick = () => validateFormAndGenerateXML("ihut");
+} else if (purpose === "new-mouseover") {
+title.textContent = "Mouseover";
+document.querySelector(".new-mouseover").style.display = "block";
+document.getElementById("genMO").onclick = () => generateMO();
+} else if (purpose === "new-popup") {
+title.textContent = "Pop-up";
+document.querySelector(".new-popup").style.display = "block";
+document.getElementById("genPopup").onclick = () => generatePopup();
+} else if (purpose === "random-order-tracker") {
+title.textContent = "Pop-up";
+document.querySelector(".random-order-tracker").style.display = "block";
+document.getElementById("genRandomOrder").onclick = () => generateRandomOrderTracker();
+}
+
+// Clean up previous listeners to avoid duplicates
+modalEl.removeEventListener("shown.bs.modal", modalEl._focusListener);
+
+modalEl._focusListener = () => {
+if (focusInput) {
+focusInput.focus();
+focusInput.select();
+}
+};
+
+modalEl.addEventListener("shown.bs.modal", modalEl._focusListener);
+modal.show();
+}
+ */ function deleteAllData() {
+    localStorage.clear();
+    location.reload(); // Optional: refresh to reset editor state
+}
+function validateFormAndGenerateXML(mode) {
+    const formId = mode === 'ihut' ? '#ihutSurveyForm' : '#surveyForm';
+    const inputs = document.querySelectorAll(`${formId} input, ${formId} select`);
+    let allFilled = true;
+    inputs.forEach((input)=>{
+        const inputId = input.id;
+        const value = input.value.trim();
+        // IHUT-specific conditional skip
+        if (mode === 'ihut' && (inputId === "ihut_QBAPI" || inputId === "ihut_eventID")) {
+            const setupType = document.getElementById("ihut_setup_type").value;
+            const isQualBoardAPI = setupType === "QualBoard - status API" || setupType === "QualBoard - user creation API";
+            if (!isQualBoardAPI && !value) {
+                input.classList.remove("is-invalid"); // Not required
+                return;
+            }
+        }
+        if (!value) {
+            allFilled = false;
+            input.classList.add("is-invalid");
+        } else input.classList.remove("is-invalid");
+    });
+    if (!allFilled) {
+        alert("Please fill in all required fields.");
+        return;
+    }
+    if (mode === 'survey') generateXML();
+    else if (mode === 'ihut') generateIHUTXML();
+}
+function generateXML() {
+    const surveyNumber = document.getElementById("survey_number").value;
+    const clientName = document.getElementById("client_name").value;
+    const surveyName = document.getElementById("survey_name").value;
+    const secretSampleCode = document.getElementById("secret_sample_code").value;
+    const s2s = document.getElementById("s2s").value;
+    const stl_wf = document.getElementById("stl_wf").value;
+    const portal = document.getElementById("portal").value;
+    const useu = document.getElementById("useu").value;
+    const surveyLanguage = document.getElementById("survey_language").value;
+    let langCode = "";
+    if (useu === "US" || surveyLanguage === "Base English") {
+        langCode = "english";
+        setSurveyLanguage('english');
+    } else if (useu === "EU" && surveyLanguage === "Base German") {
+        langCode = "german";
+        setSurveyLanguage('german');
+    } else if (useu === "EU" && surveyLanguage === "Base French") {
+        langCode = "french";
+        setSurveyLanguage('french');
+    }
+    console.log(langCode);
+    let portalLinks = "";
+    let logos = "";
+    if (portal === "Eli Lilly") {
+        portalLinks = LILLY[0];
+        logos = LILLY[1];
+    }
+    if (portal === "Schlesinger") {
+        portalLinks = _varsJs.SAGO[0];
+        logos = _varsJs.SAGO[1];
+    }
+    let s2sText = s2s === "No" ? "" : `${_varsJs.S2S_TEXT}`;
+    let stlwftext = stl_wf === "No" ? "" : `${_varsJs.STL_WF_TEXT}`;
+    let xmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+<survey 
+  alt="${surveyNumber} - ${clientName} - ${surveyName}"
+  autosave="1"
+  autosaveKey="identifier,code,CRID"
+  browserDupes=""
+  builderCompatible="1"
+  compat="153"
+  delphi="1"
+  watermark:fontSize="16"
+  displayOnError="all"
+  extraVariables="record,decLang,list,userAgent,flashDetected,api,dupe"
+  featurephoneNotAllowedMessage="${_varsJs.SURVEY_SETUP[langCode].featurephoneNotAllowedMessage}"
+  fir="on"
+  html:showNumber="0"
+  mobile="compat"
+  mobileDevices="smartphone,tablet,desktop"
+  name="Survey"
+  setup="term,decLang,quota,time"
+  ss:disableBackButton="1"
+  ss:hideProgressBar="0"
+  ss:listDisplay="1"
+  lang="${langCode}"
+  ${portalLinks}
+  state="testing">
+  
+<res label="sys_surveyCompleted">&amp;nbsp;</res>
+<res label="privacy">${_varsJs.SURVEY_SETUP[langCode].privacyText}</res>
+<res label="helpText">${_varsJs.SURVEY_SETUP[langCode].helpText}</res>
+<res label="dialogClose">${_varsJs.SURVEY_SETUP[langCode].dialogClose}</res>
+
+<samplesources default="1">
+${_varsJs.SURVEY_SETUP[langCode].testRedirects}
+  <samplesource list="2">
+    <title>SAGO Live</title>
+    <invalid>You are missing information in the URL. Please verify the URL with the original invite.</invalid>
+    <completed>It seems you have already entered this survey.</completed>
+    <var name="vendorid"/>
+    <var name="RID" unique="1"/>
+    <var name="CRID" unique="1"/>
+    <var name="Matching_Unique_ID"/>
+    <var name="VRID"/>
+    <exit cond="terminated" url="https://surveys.sample-cube.com/ending/?RS=3&amp;RID=\${RID}"/>
+    <exit cond="qualified" url="https://surveys.sample-cube.com/ending/?RS=1&amp;RID=\${RID}&amp;secret=${secretSampleCode}"/>
+    <exit cond="overquota" url="https://surveys.sample-cube.com/ending/?RS=2&amp;RID=\${RID}"/>
+  </samplesource>
+</samplesources>
+
+<radio 
+  label="vvendorid">
+  <title>vendorid</title>
+  <virtual>
+#### ADD NEW VENDOR IDS AS NEW ROWS IN THIS QUESTION WITH THE RELEVANT VALUE 
+bucketize(vendorid)
+  </virtual>
+
+  <row label="none">No vendorid Variable</row>
+  <row label="1234">FocusGroup Consumer US</row>
+  <row label="1235">FocusGroup Healthcare US</row>
+  <row label="other">Other</row>
+</radio>
+
+${_varsJs.SAGO_CSS}
+
+${_varsJs.UI_DIALOG_CLOSE}
+${_varsJs.GROUP_SHUFFLE}
+
+${logos}
+${_varsJs.SURVEY_SETUP[langCode].privacyPolicy(surveyNumber)}
+<style cond="list not in ['0','1'] or (list in ['2'] and vendorid not in ['1234','1235'])" name="survey.logo"/>
+<style cond="list not in ['0','1'] or (list in ['2'] and vendorid not in ['1234','1235'])" name="survey.respview.footer.support"/>
+${_varsJs.COPY_PROTECTION}
+${_varsJs.PRETEST_LABELS_DISPLAY}
+<style cond="list!='0'" name="button.goback"/>
+
+<suspend/>
+
+<html label="list1_live" cond="list == '1' and gv.survey.root.state.live" final="1" where="survey">You are missing information in the URL. Please verify the URL with the original invite.</html>
+
+<note>First survey screen: Consent page and ResearchDefender</note>
+
+<label label="template_point_1" />
+
+${_varsJs.CONSENT_QUESTION}
+${_varsJs.RESDEF}
+
+<note>Second screen: Rest of survey</note>
+
+<label label="template_point_2" />
+<note>/
+/ ********************************************************************* /
+/ ********************************************************************* /
+/ ******************* INSERT REST OF SURVEY HERE ********************** /
+/ ********************************************************************* /
+/ ********************************************************************* /
+/</note>
+
+
+
+${_varsJs.REVIEW_QUESTION}
+${s2sText}
+${stlwftext}
+</survey>`;
+    editor = (0, _tabsJs.getActiveEditor)();
+    if (editor) {
+        const fullLen = editor.state.doc.length;
+        editor.dispatch({
+            changes: {
+                from: 0,
+                to: fullLen,
+                insert: xmlContent
+            }
+        });
+        setTimeout(()=>{
+            editor.focus();
+            (0, _functionsJs.setCursorAfterLine)(517);
+        }, 100);
+    } else console.error("CodeMirror editor not initialized!");
+    let modal = bootstrap.Modal.getInstance(document.getElementById("surveyModal"));
+    if (modal) modal.hide();
+}
+function generateIHUTXML() {
+    const get = (id)=>document.getElementById(id).value;
+    const xmlData = {
+        hutNumber: get("ihut_survey_number"),
+        clientName: get("ihut_client_name"),
+        projectName: get("ihut_survey_name"),
+        surveyType: get("ihut_survey_type"),
+        setupType: get("ihut_setup_type"),
+        qbApiKey: get("ihut_QBAPI"),
+        eventId: get("ihut_eventID"),
+        redirects: get("ihut_redirects"),
+        recodeCheckbox: get("ihut_chckbox_recode"),
+        verity: get("ihut_verity"),
+        contactQuestion: get("ihut_contact_question")
+    };
+    console.log(xmlData);
+    let OTS = xmlData.setupType == "QualMobile (OTS)" ? true : false;
+    console.log(OTS);
+    let extraVariables = '';
+    if (xmlData.surveyType === "Questionnaire/Diary") extraVariables = `  extraVariables="record,decLang,list,userAgent,flashDetected"`;
+    else extraVariables = `  extraVariables="record,decLang,list,userAgent,flashDetected,api,dupe"`;
+    let qbres = xmlData.setupType !== "QualBoard - user creation API" ? "" : `${_varsJs.QUALBOARD_USER_CREATION_API_RES}`;
+    let redirects = ``;
+    let redirecrts_contd = ``;
+    if (xmlData.surveyType === "CLT") redirects = `
+  <samplesource list="2">
+    <title>Sago Live</title>
+    <invalid>You are missing information in the URL. Please verify the URL with the original invite.</invalid>
+    <completed>It seems you have already entered this survey.</completed>
+    <var name="vendorid"/>
+    <var name="code" unique="1"/>
+    <exit cond="terminated">Thank you for your participation! Unfortunately, you haven't qualified this time but there will be another opportunity for you soon! You may close your browser window now.</exit>
+    <exit cond="qualified">Thank you for taking our survey. Your efforts are greatly appreciated! 
+    Please raise your hand and let your Server know you have answered all the questions so they may initial your index card to bring to the front desk to check out.</exit>
+    <exit cond="overquota">Thank you for your willingness to participate. You did not qualify for this study. More members responded than expected and we have reached our quotas. We hope that you will consider participating in future research. You may close your browser window now.</exit>
+  </samplesource>`;
+    else if (xmlData.redirects === "SAMS/Complex Surveys(CS)") redirects = `
+  <samplesource list="2">
+    <title>SAMS / Complex Survey (CS)</title>
+    <invalid>You are missing information in the URL. Please verify the URL with the original invite.</invalid>
+    <completed>It seems you have already entered this survey.</completed>
+    <var name="ESERID" unique="1"/>
+    <var name="samsid" required="1"/>
+    <exit cond="terminated" url="https://survey3.schlesingergroup.com/survey/forms/redirect.aspx?STATUS=T&amp;ESERID=\${ESERID}"/>
+    <exit cond="qualified" url="https://survey3.schlesingergroup.com/survey/forms/redirect.aspx?STATUS=S&amp;ESERID=\${ESERID}" timeout="10">On the next screen, you will be asked to schedule for an appointment. This is NOT a scheduled date and time you need to be available but only a PLACEHOLDER, so our system includes you as qualified for the study.  Additionally, please note, we will NOT reach out via phone to confirm you but will send you confirmation details via email only and No Phone Call.</exit>
+    <exit cond="overquota" url="https://survey3.schlesingergroup.com/survey/forms/redirect.aspx?STATUS=Q&amp;ESERID=\${ESERID}"/>
+  </samplesource>`;
+    else if (xmlData.redirects === "Esearch") redirects = `
+  <samplesource list="2">
+    <title>Esearch</title>
+    <invalid>You are missing information in the URL. Please verify the URL with the original invite.</invalid>
+    <completed>It seems you have already entered this survey.</completed>
+    <var name="code" unique="1"/>
+    <exit cond="terminated" url="http://www.esearch.com/survey/message.epl?surveyID=SG021023-POD&amp;response=2&amp;userID=\${code}"/>
+    <exit cond="qualified" url=http://www.esearch.com/survey/message.epl?surveyID=SG021023-POD&amp;response=2&amp;userID=\${code}"/>
+    <exit cond="overquota" url="http://www.esearch.com/survey/message.epl?surveyID=SG021023-POD&amp;response=1&amp;userID=\${code}"/>
+  </samplesource>`;
+    else if (OTS) redirects = `
+  <samplesource list="2">
+    <title>Default End Page Text OTS</title>
+    <invalid>You are missing information in the URL. Please verify the URL with the original invite.</invalid>
+    <completed>It seems you have already entered this survey.</completed>
+    <var name="cf1" required="1"/>
+    <var name="ParticipantQuestionID" unique="1"/>
+    <var name="participantID" required="1"/>
+    <var name="assignmentID" required="1"/>
+    <exit cond="terminated">OOPS! Something went wrong. Please send us an email at <a href="mailto:ihuthelp@sago.com?Subject=${xmlData.hutNumber}" target="_blank">ihuthelp@sago.com</a> and include a screenshot of the error message you received. </exit>
+    <exit cond="qualified">Thank you for your participation and for sharing your opinions with us! Your efforts are greatly appreciated.<br/><br/><div class="closing-screen">To ensure your responses are saved, please click the white "X" in the top right-hand corner of your screen. Once clicked, you will return to the QualMobile app to complete the assignment.</div></exit>
+    <exit cond="overquota">Thank you for your willingness to participate. You did not qualify for this study. More members responded than expected and we have reached our quotas. We hope that you will consider participating in future research. You may close your browser window now.</exit>
+  </samplesource>`;
+    else redirects = `
+  <samplesource list="2">
+    <title>Default End Page Text</title>
+    <invalid>You are missing information in the URL. Please verify the URL with the original invite.</invalid>
+    <completed>It seems you have already entered this survey.</completed>
+    <var name="code"/>
+    <exit cond="terminated">Thank you for your participation! Unfortunately, you haven't qualified this time but there will be another opportunity for you soon! You may close your browser window now.</exit>
+    <exit cond="qualified">Thank you for your participation and sharing your opinions with us! Your efforts are greatly appreciated. You may close your browser window now.</exit>
+    <exit cond="overquota">Thank you for your willingness to participate. You did not qualify for this study. More members responded than expected and we have reached our quotas. We hope that you will consider participating in future research. You may close your browser window now.</exit>
+  </samplesource>`;
+    if (xmlData.setupType === "QualBoard - status API") redirecrts_contd = `
+  <samplesource list="3">
+    <title>QualBoard</title>
+    <invalid>You are missing information in the URL. Please verify the URL with the original invite.</invalid>
+    <completed>It seems you have already entered this survey.</completed>
+    <var name="Rn" required="1"/>
+    <var name="userId" required="1"/>
+    <var name="eventId" required="1"/>
+    <var name="questionId" required="1"/>
+    <var name="sesskey" unique="1"/>
+    <var name="surveyNumber"/>
+    <exit cond="terminated">Thank you for your participation! Unfortunately, you haven't qualified this time but there will be another opportunity for you soon! You may close your browser window now.</exit>
+    <exit cond="qualified" url="https://qualboard.com/participate/#/projects/[$externalParameters.projectId$]/group-discussions/\${eventId}/"/>
+    <exit cond="overquota">Thank you for your willingness to participate. You did not qualify for this study. More members responded than expected and we have reached our quotas. We hope that you will consider participating in future research. You may close your browser window now.</exit>
+  </samplesource>`;
+    else if (xmlData.setupType === "QualBoard - user creation API") redirecrts_contd = `
+  <samplesource list="3">
+    <title>QualBoard</title>
+    <invalid>You are missing information in the URL. Please verify the URL with the original invite.</invalid>
+    <completed>It seems you have already entered this survey.</completed>
+    <var name="Rn" required="1"/>
+    <var name="userId" required="1"/>
+    <var name="eventId" required="1"/>
+    <var name="questionId" required="1"/>
+    <var name="sesskey" unique="1"/>
+    <var name="surveyNumber"/>
+    <exit cond="terminated">Thank you for your participation! Unfortunately, you haven't qualified this time but there will be another opportunity for you soon! You may close your browser window now.</exit>
+    <exit cond="qualified">Thank you for your participation and sharing your opinions with us! Your efforts are greatly appreciated. You may close your browser window now.</exit>
+    <exit cond="overquota">Thank you for your willingness to participate. You did not qualify for this study. More members responded than expected and we have reached our quotas. We hope that you will consider participating in future research. You may close your browser window now.</exit>
+  </samplesource>`;
+    let ihutCSS = ``;
+    if (xmlData.surveyType !== "Screener" && OTS) ihutCSS = _varsJs.IHUT_OTS_CSS;
+    let consentQ = '';
+    if (xmlData.surveyType !== "CLT") {
+        consentQ = _varsJs.CONSENT_QUESTION;
+        if (xmlData.surveyType !== "Screener") suspend = '<suspend/>';
+    }
+    let cltNote = ``;
+    if (xmlData.surveyType === "CLT") cltNote = _varsJs.CLTNOTE;
+    let ots_api = ``;
+    let restOfSurvey_1 = ``;
+    let restOfSurvey_2 = ``;
+    let restOfSurvey_3 = ``;
+    let QualBoardAPI = ``;
+    if (xmlData.surveyType !== "CLT") {
+        if (xmlData.setupType === 'QualBoard - status API') QualBoardAPI = `<block label="bQualBoard">
+  <logic label="QualBoard" api:method="POST" api:url="https://api.qualboard.com/api/events/\${eventId}/questions/\${questionId}/external-redirect-callback?userId=\${userId}&amp;X-External-Redirect=${xmlData.qbApiKey}" uses="api.1"/>
+  <text 
+   label="QualBoard_LIVE_RESPONSE"
+   size="40"
+   sst="0"
+   where="execute,survey,report">
+    <title>Hidden: QualBoard API Live response if any.</title>
+    <exec>
+tq = thisQuestion
+
+# Initialize
+tq.val = None
+
+response = QualBoard.r
+
+print response.encode('utf-8-sig')
+    </exec>
+
+  </text>
+
+  <suspend/>
+</block>`;
+        if (xmlData.setupType === 'QualBoard - user creation API') {
+            restOfSurvey_1 = _varsJs.CONTACT_QUESTION_IHUT;
+            restOfSurvey_1 += `<textarea
+  label="QUALBOARD_DATA"
+  where="execute,survey,report">
+  <title>Hidden: Qual Board API DATA</title>
+  <exec>
+tq = thisQuestion
+
+# Initialize
+tq.rHead.val = None
+tq.rData.val = None
+
+p.aHead = {'contentType': 'application/x-www-form-urlencoded; charset=UTF-8'}
+
+p.aData = {
+'Email'           : '%s' % contact.r9.unsafe_val,
+'FirstName'       : '%s' % contact.r1.unsafe_val,
+'LastName'         : '%s' % contact.r2.unsafe_val,
+'DisplayName'       : '%s' % contact.r1.unsafe_val,
+'ApiKey'            : '${xmlData.qbApiKey}',
+'SetTempPassword'   : 'True',
+'ResponseFormat'    : '0',
+'LanguageCode'      : 'en',
+'EventId'           : '${xmlData.eventId}',
+'GroupTags'         : '',
+}
+
+p.logicURL = "Email=%(Email)s&amp;FirstName=%(FirstName)s&amp;LastName=%(LastName)s&amp;DisplayName=%(DisplayName)s&amp;ApiKey=%(ApiKey)s&amp;SetTempPassword=%(SetTempPassword)s&amp;ResponseFormat=%(ResponseFormat)s&amp;LanguageCode=%(LanguageCode)s&amp;EventId=%(EventId)s&amp;GroupTags=%(GroupTags)s" % p.aData
+
+print p.logicURL
+
+tq.rHead.val = str(p.aHead).replace("'",'*').replace('*','"')
+tq.rData.val = str(p.aData).replace("'",'*').replace('*','"')
+  </exec>
+
+  <row label="rHead">aHead</row>
+  <row label="rData">aData</row>
+</textarea>
+
+<suspend/>
+
+<logic label="QualBoard" api:data="QUALBOARD_DATA.rData.unsafe_val" api:headers="{'contentType': 'application/x-www-form-urlencoded;charset=UTF-8', 'Authorization': '${xmlData.qbApiKey}'}" api:method="GET" api:params="{'withCredentials': 'tru?', 'dataType':  'html'}" api:url="https://api.qualboard.com/api/v4/users/import?\${p.logicURL}" uses="api.1"/>
+<text 
+  label="QUALBOARD_RESPONSE"
+  size="40"
+  sst="0"
+  where="execute,survey,report">
+  <title>Hidden: API response.</title>
+  <exec>
+tq = thisQuestion
+
+# Initialize
+for each_row in tq.rows:
+	each_row.val = None  
+
+response = QualBoard.r
+print response
+
+
+for key, item in response.items():
+	print key, item
+
+for each_row in tq.rows:
+	if response[each_row.label]:
+		each_row.val = response[each_row.label]
+
+print QualBoard.status
+  </exec>
+
+  <row label="isNewUser">isNewUser</row>
+  <row label="password">password</row>
+  <row label="userId">userId</row>
+  <row label="error">error</row>
+</text>
+
+<suspend/>
+
+<block label="respondent_email" cond="QUALBOARD_RESPONSE.isNewUser.val == 'True'">
+  <pipe label="pass_pipe" capture="">
+    <case label="r1" cond="QUALBOARD_RESPONSE.password.val not in ['', None]">\${QUALBOARD_RESPONSE.password.val}</case>
+    <case label="r2" cond="1">None</case></pipe>
+  <logic label="email" email:company="Qualtrics" email:content="\${res.qual_email}" email:recipient="\${contact.r9.unsafe_val}" email:sender="support@qualboard.com" email:subject="Welcome to QualBoard" uses="email.1"/>
+</block>
+`;
+        }
+        if (xmlData.surveyType === "Questionnaire/Diary" && OTS) ots_api = _varsJs.OTS_API;
+        if (xmlData.surveyType === "Screener" && OTS) {
+            restOfSurvey_2 = _varsJs.CONTACT_QUESTION_IHUT;
+            restOfSurvey_2 += _varsJs.OTS_SCREENER_PART_1;
+            if (xmlData.verity === "Yes") restOfSurvey_2 += VERITY_API;
+            restOfSurvey_2 += OTS_SCREENER_PART_2(xmlData.hutNumber);
+        }
+        if (xmlData.verity === "Yes" && xmlData.setupType !== "QualBoard - user creation API" && xmlData.contactQuestion === "Yes") {
+            restOfSurvey_3 = _varsJs.CONTACT_QUESTION_IHUT;
+            if (!restOfSurvey_2.includes(_varsJs.VERITY_API)) restOfSurvey_3 += _varsJs.VERITY_API;
+        }
+    }
+    const xml = `
+<?xml version="1.0" encoding="UTF-8"?>
+<survey 
+  alt="${xmlData.hutNumber} - ${xmlData.clientName} - ${xmlData.projectName}"
+  autosave="1"
+  autosaveKey="code,sesskey,ESERID,ParticipantQuestionID"
+  browserDupes=""
+  builderCompatible="1"
+  compat="153"
+  delphi="1"
+  watermark:fontSize="16"
+  displayOnError="all"
+${extraVariables}
+  featurephoneNotAllowedMessage="The device you are using is not allowed to take this survey."
+  fir="on"
+  html:showNumber="0"
+  mobile="compat"
+  mobileDevices="smartphone,tablet,desktop"
+  name="Survey"
+  setup="term,decLang,quota,time"
+  ss:disableBackButton="1"
+  ss:hideProgressBar="0"
+  ss:listDisplay="1"
+  ss:includeJS="https://surveys.sago.com/survey/selfserve/1819/jtsfiles/jts_static_108.js"
+  ss:includeCSS="https://surveys.sago.com/survey/selfserve/1819/jtsfiles/jts_static_104.css"
+  state="testing">
+
+<res label="privacy">Privacy Policy</res>
+<res label="helpText">Help</res>
+<res label="dialogClose">Close</res>
+${qbres}
+<samplesources default="1">
+  <samplesource list="1">
+    <title>Sago Test</title>
+    <invalid>You are missing information in the URL. Please verify the URL with the original invite.</invalid>
+    <completed>It seems you have already entered this survey.</completed>
+    <var name="code"/>
+    <exit cond="terminated">Thank you for your participation! Unfortunately, you haven't qualified this time but there will be another opportunity for you soon! You may close your browser window now.</exit>
+    <exit cond="qualified">Thank you for your participation and sharing your opinions with us! Your efforts are greatly appreciated. You may close your browser window now.</exit>
+    <exit cond="overquota">Thank you for your willingness to participate. You did not qualify for this study. More members responded than expected and we have reached our quotas. We hope that you will consider participating in future research. You may close your browser window now.</exit>
+  </samplesource>
+${redirects}
+${redirecrts_contd}
+</samplesources>
+
+${_varsJs.IHUT_CSS}
+
+${ihutCSS}
+
+${_varsJs.UI_DIALOG_CLOSE}
+
+${_varsJs.GROUP_SHUFFLE}
+
+${_varsJs.CHECKBOX_RECODE}
+
+${_varsJs.IHUT_LOGO}
+
+<style name="survey.respview.footer.support"><![CDATA[
+<a href="https://www.focusgroup.com/Page/PrivacyPolicy" target="_blank">\${res.privacy}</a> - <a href="mailto:help@focusgroup.com?Subject=${xmlData.hutNumber}" target="_blank">\${res.helpText}</a>
+]]></style>
+
+${_varsJs.COPY_PROTECTION}
+
+${_varsJs.PRETEST_LABELS_DISPLAY}
+
+<style cond="list!='0'" name="button.goback"/>
+
+<suspend/>
+
+<html label="list1_live" cond="list == '1' and gv.survey.root.state.live" final="1" where="survey">You are missing information in the URL. Please verify the URL with the original invite.</html>
+
+<note>First survey screen: Intro message</note>
+
+${consentQ}
+
+<label label="template_point_2" />
+<note>/
+/ ********************************************************************* /
+/ ********************************************************************* /
+/ ******************* INSERT REST OF SURVEY HERE ********************** /
+/ ********************************************************************* /
+/ ********************************************************************* /
+/</note>
+
+
+
+
+${cltNote}
+
+${restOfSurvey_1}
+
+${ots_api}
+
+${restOfSurvey_2}
+
+${restOfSurvey_3}
+
+${QualBoardAPI}
+</survey>`.trim();
+    editor = (0, _tabsJs.getActiveEditor)();
+    if (editor) {
+        const fullLen = editor.state.doc.length;
+        editor.dispatch({
+            changes: {
+                from: 0,
+                to: fullLen,
+                insert: xml
+            }
+        });
+    } else {
+        console.error("CodeMirror editor not initialized!");
+        return;
+    }
+    let modal = bootstrap.Modal.getInstance(document.getElementById("surveyModal"));
+    if (modal) modal.hide();
+}
+function generateMO() {
+    const get = (id)=>document.getElementById(id).value.trim();
+    const textImage = get("moTextImage") === "Yes";
+    const protectPopupImage = get("moImageProtect") === "Yes";
+    const text = get("moName");
+    const descImage = get("moContentImage") === "Yes";
+    const descImageProtected = get("moContentImageProtect") === "Yes";
+    const desc = get("moContent");
+    const surveyPath = "${gv.survey.path}"; // Template literal placeholder
+    let textHTML = "";
+    let descHTML = "";
+    // Build mouseover label
+    if (!textImage) textHTML = text;
+    else textHTML = protectPopupImage ? `[protected ${text} placement=top]` : `<img src="/survey/${surveyPath}/${text}" />`;
+    // Build mouseover content
+    if (!descImage) descHTML = desc;
+    else descHTML = descImageProtected ? `[protected ${desc} placement=top]` : `<img src="/survey/${surveyPath}/${desc}" />`;
+    const output = `<span class="self-tooltip">${textHTML}</span><span class="tooltip-content">${descHTML}</span>`;
+    const editor1 = (0, _tabsJs.getActiveEditor)();
+    editor1.replaceSelection(output);
+    const modal = bootstrap.Modal.getInstance(document.getElementById("surveyModal"));
+    if (modal) modal.hide();
+}
+function generatePopup() {
+    const get = (id)=>document.getElementById(id).value.trim();
+    const textImage = get("popupTextImage") === "Yes";
+    const protectPopupImage = get("popupImageProtect") === "Yes";
+    const text = get("popupTextName");
+    const descImage = get("popupContentImage") === "Yes";
+    const descImageProtected = get("popupContentProtect") === "Yes";
+    const desc = get("popupContent");
+    const surveyPath = "${gv.survey.path}"; // placeholder for server-side resolution
+    const width = get("popupWidth") || "600";
+    const height = get("popupHeight") || "400";
+    const title = get("popupTitle") || "";
+    const popupCall = `Survey.uidialog.make($(this).next('.popup-content'), {width: Math.min(${width}, $(window).width()), height: Math.min(${height}, $(window).height()), title: '${title}'} );`;
+    let anchor = "";
+    // Build clickable anchor element
+    if (!textImage) anchor = `<span class="self-popup" onclick="${popupCall}">${text}</span>`;
+    else if (protectPopupImage) anchor = `<span class="self-popup" onclick="${popupCall}">[protected ${text} placement=top]</span>`;
+    else anchor = `<span class="self-popup" onclick="${popupCall}"><img src="/survey/${surveyPath}/${text}" /></span>`;
+    // Build pop-up content element
+    let content = "";
+    if (!descImage) content = `<div class="popup-content">${desc}</div>`;
+    else if (descImageProtected) content = `<div class="popup-content">[protected ${desc} placement=top]</div>`;
+    else content = `<div class="popup-content"><img src="/survey/${surveyPath}/${desc}" /></div>`;
+    const output = `${anchor}${content}`;
+    const editor1 = (0, _tabsJs.getActiveEditor)();
+    editor1.replaceSelection(output);
+    const modal = bootstrap.Modal.getInstance(document.getElementById("surveyModal"));
+    if (modal) modal.hide();
+}
+function generateRandomOrderTracker() {
+    const get = (id)=>document.getElementById(id).value.trim();
+    const loop_block = get("loop_block");
+    const loop_block_label = get("loop_block_label");
+    const editor1 = (0, _tabsJs.getActiveEditor)();
+    let output = ``;
+    if (loop_block === "Loop") output = `
+<number label="h${loop_block_label}_order_" size="2">
+  <title>Virtual: ${loop_block_label} Order</title>
+  <virtual>assignRandomOrder("${loop_block_label}_expanded", "children")</virtual>
+  <row label="${loop_block_label}_1_expanded">Concept 1</row>
+  <row label="${loop_block_label}_2_expanded">Concept 2</row>
+  <row label="${loop_block_label}_3_expanded">Concept 3</row>
+</number>`;
+    else if (loop_block === "Block") output = `
+<number label="h${loop_block_label}_order" size="2">
+  <title>Virtual: ${loop_block_label} Order</title>
+  <virtual>assignRandomOrder("${loop_block_label}", "children")</virtual>
+  <row label="r1">Concept 1</row>
+  <row label="r2">Concept 2</row>
+  <row label="r3">Concept 3</row>
+</number>
+<note>Change row labels to the labels of block's children, then delete this note</note>`;
+    editor1.replaceSelection(output);
+    const modal = bootstrap.Modal.getInstance(document.getElementById("surveyModal"));
+    if (modal) modal.hide();
+}
+function genNewStyle() {
+    const selected = document.getElementById("styleDropdown").value;
+    const match = (0, _stylesJs.getSurveyStyles)().find((s)=>s.label === selected);
+    if (match) {
+        (0, _tabsJs.getActiveEditor)().replaceSelection(match.value + "\n");
+        const modal = bootstrap.Modal.getInstance(document.getElementById("surveyModal"));
+        if (modal) modal.hide();
+    }
+}
+function generateDupeCheck() {
+    const urlVar = document.getElementById("dupeVarName").value;
+    const xmlContent = dupeCheckScript(urlVar);
+    (0, _tabsJs.getActiveEditor)().replaceSelection(xmlContent + "\n");
+    const modal = bootstrap.Modal.getInstance(document.getElementById("surveyModal"));
+    if (modal) modal.hide();
+}
+function genPipeNumber() {
+    const qLabel = document.getElementById("pipeNumberLabel").value;
+    const qMultiCol = document.getElementById("pipeNumberMultiCol").value === "Yes" ? true : false;
+    const questionTopLegendItem = `
+<style name="question.top-legend-item" arg:colText="Replace with res tag" mode="before" cond="col.index == 0"><![CDATA[
+\\@if ec.simpleList
+    <div id="\${this.label}_\${col.label}" class="legend col-legend col-legend-top col-legend-basic \${levels} \${this.grouping.cols && (col.group || col.index!=0) && ec.haveLeftLegend && ec.haveRightLegend ? "col-legend-space" : "border-collapse"} \${col.styles.ss.colClassNames} \${col.group ? col.group.styles.ss.groupClassNames : ""} \${colError}">
+        \${colText}
+    </div>
+\\@else
+\\@if this.styles.ss.colWidth
+    <\${tag} scope="col" id="\${this.label}_\${col.label}" class="cell nonempty legend col-legend col-legend-top col-legend-basic \${levels} \${this.grouping.cols ? "desktop" : "mobile"} \${this.grouping.cols && (col.group || col.index!=0) && ec.haveLeftLegend && ec.haveRightLegend ? "col-legend-space" : "border-collapse"} \${col.styles.ss.colClassNames} \${col.group ? col.group.styles.ss.groupClassNames : ""} \${colError}" style="width:\${this.styles.ss.colWidth}; min-width:\${this.styles.ss.colWidth}">
+        \${colText}
+    </\${tag}>
+\\@else
+    <\${tag} scope="col" id="\${this.label}_\${col.label}" class="cell nonempty legend col-legend col-legend-top col-legend-basic \${levels} \${this.grouping.cols ? "desktop" : "mobile"} \${this.grouping.cols && (col.group || col.index!=0) && ec.haveLeftLegend && ec.haveRightLegend ? "col-legend-space" : "border-collapse"} \${col.styles.ss.colClassNames} \${col.group ? col.group.styles.ss.groupClassNames : ""} \${colError}">
+        \${colText}
+    </\${tag}>
+\\@endif
+\\@endif
+]]></style>`;
+    const elementInner = qMultiCol ? `\${${qLabel}.rows[row.index][0].ival}` : `\${${qLabel}.rows[row.index].ival}`;
+    const questionElement = `
+<style name="question.element" mode="before" cond="col.index == 0"><![CDATA[
+\\@if ec.simpleList
+<div class="element \${rowStyle} \${levels} \${extraClasses} \${col.group ? col.group.styles.ss.groupClassNames : (row.group ? row.group.styles.ss.groupClassNames : "")} \${col.styles.ss.colClassNames} \${row.styles.ss.rowClassNames} \${isClickable ? "clickableCell" : ""}"\${extra}>
+     ${elementInner}
+</div>
+\\@else
+<\${tag} \${headers} class="cell nonempty element \${levels} \${this.grouping.cols ? "desktop" : "mobile"} border-collapse \${extraClasses} \${col.group ? col.group.styles.ss.groupClassNames : (row.group ? row.group.styles.ss.groupClassNames : "")} \${col.styles.ss.colClassNames} \${row.styles.ss.rowClassNames} \${isClickable ? "clickableCell" : ""}"\${extra}>
+     ${elementInner}
+</\${tag}>
+\\@endif
+]]></style>`;
+    const xmlContent = questionTopLegendItem + "\n\n" + questionElement;
+    (0, _tabsJs.getActiveEditor)().replaceSelection(xmlContent + "\n");
+    const modal = bootstrap.Modal.getInstance(document.getElementById("surveyModal"));
+    if (modal) modal.hide();
+}
+function genDisableContinue() {
+    const qLabels = document.getElementById("disableLabels").value;
+    const duration = document.getElementById("disableDuration").value;
+    const xmlContent = `
+    <style name="buttons" mode="after" with="${qLabels}" wrap="ready" arg:timeout="${duration}"><![CDATA[
+$ ("#btn_continue,#btn_finish").prop("disabled", true);
+setTimeout(function() {
+	$ ("#btn_continue,#btn_finish").prop("disabled", false);
+}, $(timeout)*1000);
+]]></style>`;
+    (0, _tabsJs.getActiveEditor)().replaceSelection(xmlContent + "\n");
+    const modal = bootstrap.Modal.getInstance(document.getElementById("surveyModal"));
+    if (modal) modal.hide();
+}
+if (typeof window !== 'undefined') {
+    window.openModal = openModal;
+    window.validateFormAndGenerateXML = validateFormAndGenerateXML;
+}
+
+},{"./vars.js":"jpcAS","./tabs.js":"hSpoG","./functions.js":"3Zc1l","./styles.js":"j3NQt","@parcel/transformer-js/src/esmodule-helpers.js":"jnFvT"}],"jpcAS":[function(require,module,exports,__globalThis) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
 parcelHelpers.export(exports, "LILLY", ()=>LILLY);
@@ -34805,9 +39236,9 @@ if ${dupeVarName} != '':
 }
 
 },{"@parcel/transformer-js/src/esmodule-helpers.js":"jnFvT"}],"j3NQt":[function(require,module,exports,__globalThis) {
-// STYLES FUNCTIONS
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
 parcelHelpers.defineInteropFlag(exports);
+// STYLES FUNCTIONS
 parcelHelpers.export(exports, "groupStylesByPrefix", ()=>groupStylesByPrefix);
 parcelHelpers.export(exports, "getSurveyStyles", ()=>getSurveyStyles);
 // styles elements and attributes
@@ -34825,6 +39256,7 @@ parcelHelpers.export(exports, "addLeftBlankLegend", ()=>addLeftBlankLegend);
 parcelHelpers.export(exports, "addMaxDiff", ()=>addMaxDiff);
 parcelHelpers.export(exports, "addColFixDeclaration", ()=>addColFixDeclaration);
 parcelHelpers.export(exports, "addColFixCall", ()=>addColFixCall);
+var _functionsJs = require("./functions.js");
 function groupStylesByPrefix(definitions) {
     const groups = {};
     definitions.forEach(({ label })=>{
@@ -34846,26 +39278,26 @@ function getSurveyStyles() {
         }));
 }
 function addNewStyleBlank() {
-    const selectedText = getInputOrLine();
+    const selectedText = (0, _functionsJs.getInputOrLine)();
     const xmlContent = `<style name=""> <![CDATA[
 
 ]]></style>`;
     window.editor.replaceSelection(xmlContent);
 }
 function addNewStyleBlankwithLabel() {
-    const selectedText = getInputOrLine();
+    const selectedText = (0, _functionsJs.getInputOrLine)();
     const xmlContent = `<style name="" label=""> <![CDATA[
 
 ]]></style>`;
     window.editor.replaceSelection(xmlContent);
 }
 function addStyleCopy() {
-    const selectedText = getInputOrLine();
+    const selectedText = (0, _functionsJs.getInputOrLine)();
     const xmlContent = `<style copy=""/>`;
     window.editor.replaceSelection(xmlContent);
 }
 function addSurveyWideCSS() {
-    const selectedText = getInputOrLine();
+    const selectedText = (0, _functionsJs.getInputOrLine)();
     const xmlContent = `<style mode="after" name="respview.client.css"><![CDATA[
 <style type="text/css">
 ${selectedText}
@@ -34874,7 +39306,7 @@ ${selectedText}
     window.editor.replaceSelection(xmlContent);
 }
 function addSurveyWideJS() {
-    const selectedText = getInputOrLine();
+    const selectedText = (0, _functionsJs.getInputOrLine)();
     const xmlContent = `<style mode="after" name="respview.client.js"> <![CDATA[
 <script>
 ${selectedText}
@@ -34883,7 +39315,7 @@ ${selectedText}
     window.editor.replaceSelection(xmlContent);
 }
 function addQuestionSpecificCSS() {
-    const selectedText = getInputOrLine();
+    const selectedText = (0, _functionsJs.getInputOrLine)();
     const xmlContent = `<style name="page.head"><![CDATA[
 <style type="text/css">
 #question_$(this.label) {
@@ -34894,14 +39326,14 @@ function addQuestionSpecificCSS() {
     window.editor.replaceSelection(xmlContent);
 }
 function addQuestionSpecificJSAfterQ() {
-    const selectedText = getInputOrLine();
+    const selectedText = (0, _functionsJs.getInputOrLine)();
     const xmlContent = `<style name="question.footer" mode="after" wrap="ready" ><![CDATA[
 let $q = $ ("#question_$(this.label)");
 ]]></style>`;
     window.editor.replaceSelection(xmlContent);
 }
 function addQuestionSpecificJSInHead() {
-    const selectedText = getInputOrLine();
+    const selectedText = (0, _functionsJs.getInputOrLine)();
     const xmlContent = `<style name="page.head" wrap="ready" ><![CDATA[
 let $q = $ ("#question_$(this.label)");
 ]]></style>`;
@@ -34931,7 +39363,7 @@ $ (document).ready(function(){
     window.editor.replaceSelection(xmlContent);
 }
 function addLeftBlankLegend() {
-    const selectedText = getInputOrLine();
+    const selectedText = (0, _functionsJs.getInputOrLine)();
     const xmlContent = `  <res label="leftLegend">${selectedText}</res>
   <style name="question.left-blank-legend"><![CDATA[
 <$(tag) class="pseudo-col-legend nonempty cell">\${res["%s,leftLegend" % this.label]}</$(tag)>
@@ -35004,6 +39436,959 @@ function addColFixCall() {
     window.editor.replaceSelection(xmlContent);
 }
 
-},{"@parcel/transformer-js/src/esmodule-helpers.js":"jnFvT"}]},["6W9dp","kaqeV"], "kaqeV", "parcelRequire8bb2", {})
+},{"./functions.js":"3Zc1l","@parcel/transformer-js/src/esmodule-helpers.js":"jnFvT"}],"laTkQ":[function(require,module,exports,__globalThis) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+// make radio
+parcelHelpers.export(exports, "makeRadio", ()=>makeRadio);
+//make rating
+parcelHelpers.export(exports, "makeRating", ()=>makeRating);
+// make checkbox
+parcelHelpers.export(exports, "makeCheckbox", ()=>makeCheckbox);
+// make Starrating
+parcelHelpers.export(exports, "makeStarrating", ()=>makeStarrating);
+// make Select
+parcelHelpers.export(exports, "makeSelect", ()=>makeSelect);
+// make Sliderpoints
+parcelHelpers.export(exports, "makeSliderpoints", ()=>makeSliderpoints);
+// make text
+parcelHelpers.export(exports, "makeText", ()=>makeText);
+// make textarea
+parcelHelpers.export(exports, "makeTextarea", ()=>makeTextarea);
+// make number
+parcelHelpers.export(exports, "makeNumber", ()=>makeNumber);
+// make slidernumber
+parcelHelpers.export(exports, "makeSlidernumber", ()=>makeSlidernumber);
+// make float
+parcelHelpers.export(exports, "makeFloat", ()=>makeFloat);
+//make autosum
+parcelHelpers.export(exports, "makeAutosum", ()=>makeAutosum);
+//make autosum percent
+parcelHelpers.export(exports, "makeAutosumPercent", ()=>makeAutosumPercent);
+// make comment (<html>)
+parcelHelpers.export(exports, "makeSurveyComment", ()=>makeSurveyComment);
+//make pipe
+parcelHelpers.export(exports, "makePipe", ()=>makePipe);
+// make comment (<html>)
+parcelHelpers.export(exports, "makeNote", ()=>makeNote);
+var _functionsJs = require("./functions.js");
+function makeRadio() {
+    let surveyLanguage = localStorage.getItem("surveyLanguage");
+    let selectedText = (0, _functionsJs.getInputOrLine)();
+    if (!selectedText.trim()) {
+        alert("No text selected!");
+        return;
+    }
+    try {
+        let input = selectedText.trim();
+        //  Convert numbering format (e.g., "1.2" → "1_2")
+        input = input.replace(/^(\w?\d+)\.(\d+)/, "$1_$2");
+        //  Extract label
+        let labelMatch = input.match(/^([a-zA-Z0-9-_]+)(\.|:|\)|\s)/);
+        let label = labelMatch ? labelMatch[1] : "Unknown";
+        input = input.replace(/^([a-zA-Z0-9-_]+)(\.|:|\)|\s)/, "");
+        //  Remove blank lines
+        input = input.replace(/\n\n+/g, "\n");
+        //  Ensure label starts with "Q" if it's numeric
+        if (!isNaN(label[0])) label = "Q" + label;
+        //  Capture title
+        let title = "";
+        if (input.includes("@")) title = input.substring(0, input.indexOf("@"));
+        else {
+            let markers = [
+                "<row",
+                "<col",
+                "<choice",
+                "<comment",
+                "<group",
+                "<net",
+                "<exec"
+            ];
+            let indices = markers.map((marker)=>input.indexOf(marker)).filter((index)=>index !== -1);
+            let inputIndex = indices.length ? Math.min(...indices) : input.length;
+            title = input.substring(0, inputIndex);
+        }
+        //  Remove title from input
+        input = input.replace(title, "").trim();
+        //  Determine comment based on content
+        let comment = "";
+        if (!input.includes("<comment>")) {
+            const set = comments[surveyLanguage] || comments.english;
+            console.log(set);
+            const is2D = input.includes("<row") && input.includes("<col");
+            comment = is2D ? `<comment>${set.radio2d}</comment>\n` : `<comment>${set.radio}</comment>\n`;
+        }
+        //  Compose final question output
+        let xmlItems = input.includes("<comment>") ? `<radio label="${label.trim()}">\n  <title>${title.trim()}</title>\n  ${input}\n</radio>\n<suspend/>` : `<radio label="${label.trim()}">\n  <title>${title.trim()}</title>\n  ${comment}  ${input}\n</radio>\n<suspend/>`;
+        window.editor.replaceSelection(xmlItems);
+        return xmlItems;
+    } catch (error) {
+        console.error("makeRadio clip failed:", error);
+        return "";
+    }
+}
+function makeRating() {
+    let selectedText = (0, _functionsJs.getInputOrLine)();
+    let surveyLanguage = localStorage.getItem("surveyLanguage");
+    if (!selectedText.trim()) {
+        alert("No text selected!");
+        return;
+    }
+    try {
+        let input = selectedText.trim();
+        input = input.replace(/^(\w?\d+)\.(\d+)/, "$1_$2");
+        input = input.replace(/\n\n+/g, "\n");
+        let labelMatch = input.match(/^([a-zA-Z0-9-_]+)(\.|:|\)|\s)/);
+        let label = labelMatch ? labelMatch[1] : "Unknown";
+        input = input.replace(/^([a-zA-Z0-9-_]+)(\.|:|\)|\s)/, "");
+        if (!isNaN(label[0])) label = "Q" + label;
+        let title = "";
+        if (input.includes("@")) title = input.substring(0, input.indexOf("@"));
+        else {
+            let markers = [
+                "<row",
+                "<col",
+                "<choice",
+                "<comment",
+                "<group",
+                "<net",
+                "<exec"
+            ];
+            let indices = markers.map((marker)=>input.indexOf(marker)).filter((index)=>index !== -1);
+            let inputIndex = indices.length ? Math.min(...indices) : input.length;
+            title = input.substring(0, inputIndex);
+        }
+        input = input.replace(title, "").trim();
+        let shuffle = "";
+        let style = "";
+        let comment = "";
+        if (!input.includes("<comment>")) {
+            const set = comments[surveyLanguage] || comments.english;
+            const is2D = input.includes("<row") && input.includes("<col");
+            comment = is2D ? `<comment>${set.radio2d}</comment>\n` : `<comment>${set.radio}</comment>\n`;
+        }
+        if (input.includes("<row") && input.includes("<col")) {
+            let sections = input.split("  ");
+            sections.forEach((section)=>{
+                if (section.includes("value=")) shuffle = section.includes("<col") ? ` shuffle="rows"` : ` shuffle="cols"`;
+            });
+        }
+        let xmlItems = input.includes("<comment>") ? `<radio label="${label.trim()}"${shuffle}${style} type="rating">\n  <title>${title.trim()}</title>\n  ${input}\n</radio>\n<suspend/>` : `<radio label="${label.trim()}"${shuffle}${style} type="rating">\n  <title>${title.trim()}</title>\n  ${comment}  ${input}\n</radio>\n<suspend/>`;
+        window.editor.replaceSelection(xmlItems);
+        return xmlItems;
+    } catch (error) {
+        console.error("makeRatingQuestion clip failed:", error);
+        return "";
+    }
+}
+function makeCheckbox() {
+    let selectedText = (0, _functionsJs.getInputOrLine)();
+    let surveyLanguage = localStorage.getItem("surveyLanguage");
+    const shouldRecode = document.getElementById("ihut_chckbox_recode")?.value === "Yes";
+    if (!selectedText.trim()) {
+        alert("No text selected!");
+        return;
+    }
+    try {
+        let input = selectedText.trim();
+        input = input.replace(/^(\w?\d+)\.(\d+)/, "$1_$2");
+        let labelMatch = input.match(/^([a-zA-Z0-9-_]+)(\.|:|\)|\s)/);
+        let label = labelMatch ? labelMatch[1] : "Unknown";
+        input = input.replace(/^([a-zA-Z0-9-_]+)(\.|:|\)|\s)/, "");
+        input = input.replace(/\n\n+/g, "\n");
+        if (!isNaN(label[0])) label = "Q" + label;
+        let title = "";
+        if (input.includes("@")) title = input.substring(0, input.indexOf("@"));
+        else {
+            let markers = [
+                "<row",
+                "<col",
+                "<choice",
+                "<comment",
+                "<group",
+                "<net",
+                "<exec"
+            ];
+            let indices = markers.map((marker)=>input.indexOf(marker)).filter((index)=>index !== -1);
+            let inputIndex = indices.length ? Math.min(...indices) : input.length;
+            title = input.substring(0, inputIndex);
+        }
+        input = input.replace(title, "").trim();
+        let notaArray = [
+            ">None of the above",
+            ">None of these"
+        ];
+        notaArray.forEach((nota)=>{
+            if (input.includes(nota)) input = input.replace(nota, ` exclusive="1" randomize="0"${nota}`);
+        });
+        let comment = "";
+        if (!input.includes("<comment>")) {
+            const set = comments[surveyLanguage] || comments.english;
+            comment = `<comment>${set.checkbox}</comment>\n`;
+        }
+        let xmlItems = input.includes("<comment>") ? `<checkbox label="${label.trim()}" atleast="1">\n  <title>${title.trim()}</title>\n  ${input}\n</checkbox>\n<suspend/>` : `<checkbox label="${label.trim()}" atleast="1">\n  <title>${title.trim()}</title>\n  ${comment}  ${input}\n</checkbox>\n<suspend/>`;
+        if (shouldRecode) {
+            const execLabel = label.trim();
+            const hiddenTitle = `HIDDEN: record ${label.trim()} answers`;
+            const recodeBlock = `\n<text label="h${execLabel}" where="execute,survey,report">
+  <title>${hiddenTitle}</title>
+  <exec>
+chkbox_recode(thisQuestion)
+  </exec>
+</text>
+<suspend/>`;
+            xmlItems += `\n${recodeBlock}`;
+        }
+        window.editor.replaceSelection(xmlItems);
+        return xmlItems;
+    } catch (error) {
+        console.error("makeCheckbox clip failed:", error);
+        return "";
+    }
+}
+function makeStarrating() {
+    let selectedText = (0, _functionsJs.getInputOrLine)();
+    let surveyLanguage = localStorage.getItem("surveyLanguage");
+    if (!selectedText.trim()) {
+        alert("No text selected!");
+        return;
+    }
+    try {
+        let input = selectedText.trim();
+        input = input.replace(/^(\w?\d+)\.(\d+)/, "$1_$2");
+        let labelMatch = input.match(/^([a-zA-Z0-9-_]+)(\.|:|\)|\s)/);
+        let label = labelMatch ? labelMatch[1] : "Unknown";
+        input = input.replace(/^([a-zA-Z0-9-_]+)(\.|:|\)|\s)/, "");
+        input = input.replace(/\n\n+/g, "\n");
+        if (!isNaN(label[0])) label = "Q" + label;
+        let title = "";
+        if (input.includes("@")) title = input.substring(0, input.indexOf("@"));
+        else {
+            let markers = [
+                "<row",
+                "<col",
+                "<choice",
+                "<comment",
+                "<group",
+                "<net",
+                "<exec"
+            ];
+            let indices = markers.map((marker)=>input.indexOf(marker)).filter((index)=>index !== -1);
+            let inputIndex = indices.length ? Math.min(...indices) : input.length;
+            title = input.substring(0, inputIndex);
+        }
+        input = input.replace(title, "").trim();
+        let xmlItems = `<select label="${label.trim()}"\n  optional="0"\n  starrating:star_selected_css="color: rgb(107,193,116);"\n  uses="starrating.5">\n  <title>${title.trim()}</title>\n  ${input}\n</select>\n<suspend/>`;
+        window.editor.replaceSelection(xmlItems);
+        return xmlItems;
+    } catch (error) {
+        console.error("makeStarrating clip failed:", error);
+        return "";
+    }
+}
+function makeSelect() {
+    let selectedText = (0, _functionsJs.getInputOrLine)();
+    let surveyLanguage = localStorage.getItem("surveyLanguage");
+    if (!selectedText.trim()) {
+        alert("No text selected!");
+        return;
+    }
+    try {
+        let input = selectedText.trim();
+        input = input.replace(/^(\w?\d+)\.(\d+)/, "$1_$2");
+        let labelMatch = input.match(/^([a-zA-Z0-9-_]+)(\.|:|\)|\s)/);
+        let label = labelMatch ? labelMatch[1] : "Unknown";
+        input = input.replace(/^([a-zA-Z0-9-_]+)(\.|:|\)|\s)/, "");
+        input = input.replace(/\n\n+/g, "\n");
+        if (!isNaN(label[0])) label = "Q" + label;
+        let title = "";
+        if (input.includes("@")) title = input.substring(0, input.indexOf("@"));
+        else {
+            let markers = [
+                "<row",
+                "<col",
+                "<choice",
+                "<comment",
+                "<group",
+                "<net",
+                "<exec"
+            ];
+            let indices = markers.map((marker)=>input.indexOf(marker)).filter((index)=>index !== -1);
+            let inputIndex = indices.length ? Math.min(...indices) : input.length;
+            title = input.substring(0, inputIndex);
+        }
+        input = input.replace(title, "").trim();
+        let xmlItems = `<select label="${label.trim()}" optional="0">\n  <title>${title.trim()}</title>\n  ${input}\n</select>\n<suspend/>`;
+        window.editor.replaceSelection(xmlItems);
+        return xmlItems;
+    } catch (error) {
+        console.error("makeSelect clip failed:", error);
+        return "";
+    }
+}
+function makeSliderpoints() {
+    let selectedText = (0, _functionsJs.getInputOrLine)();
+    let surveyLanguage = localStorage.getItem("surveyLanguage");
+    if (!selectedText.trim()) {
+        alert("No text selected!");
+        return;
+    }
+    try {
+        let input = selectedText.trim();
+        input = input.replace(/^(\w?\d+)\.(\d+)/, "$1_$2");
+        let labelMatch = input.match(/^([a-zA-Z0-9-_]+)(\.|:|\)|\s)/);
+        let label = labelMatch ? labelMatch[1] : "Unknown";
+        input = input.replace(/^([a-zA-Z0-9-_]+)(\.|:|\)|\s)/, "");
+        input = input.replace(/\n\n+/g, "\n");
+        if (!isNaN(label[0])) label = "Q" + label;
+        let title = "";
+        if (input.includes("@")) title = input.substring(0, input.indexOf("@"));
+        else {
+            let markers = [
+                "<row",
+                "<col",
+                "<choice",
+                "<comment",
+                "<group",
+                "<net",
+                "<exec"
+            ];
+            let indices = markers.map((marker)=>input.indexOf(marker)).filter((index)=>index !== -1);
+            let inputIndex = indices.length ? Math.min(...indices) : input.length;
+            title = input.substring(0, inputIndex);
+        }
+        input = input.replace(title, "").trim();
+        let xmlItems = `<select label="${label.trim()}" \n  optional="0"\n  sliderpoints:handle_css="background-color: rgb(107,193,116);"\n  sliderpoints:legend_selected_css="color: rgb(107,193,116);"\n  ss:questionClassNames="sq-sliderpoints"\n  uses="sliderpoints.3">\n  <title>${title.trim()}</title>\n  ${input}\n</select>\n<suspend/>`;
+        window.editor.replaceSelection(xmlItems);
+        return xmlItems;
+    } catch (error) {
+        console.error("makeSliderpoints clip failed:", error);
+        return "";
+    }
+}
+function makeText() {
+    let surveyLanguage = localStorage.getItem("surveyLanguage");
+    let selectedText = (0, _functionsJs.getInputOrLine)();
+    if (!selectedText.trim()) {
+        alert("No text selected!");
+        return;
+    }
+    try {
+        let input = selectedText.trim();
+        //  Convert numbering format (e.g., "1.2" → "1_2")
+        input = input.replace(/^(\w?\d+)\.(\d+)/, "$1_$2");
+        //  Extract label
+        let labelMatch = input.match(/^([a-zA-Z0-9-_]+)(\.|:|\)|\s)/);
+        let label = labelMatch ? labelMatch[1] : "Unknown";
+        input = input.replace(/^([a-zA-Z0-9-_]+)(\.|:|\)|\s)/, "");
+        //  Remove blank lines
+        input = input.replace(/\n\n+/g, "\n");
+        //  Ensure label starts with "Q" if it's numeric
+        if (!isNaN(label[0])) label = "Q" + label;
+        //  Capture title
+        let title = "";
+        if (input.includes("@")) title = input.substring(0, input.indexOf("@"));
+        else {
+            let markers = [
+                "<row",
+                "<col",
+                "<choice",
+                "<comment",
+                "<group",
+                "<net",
+                "<exec"
+            ];
+            let indices = markers.map((marker)=>input.indexOf(marker)).filter((index)=>index !== -1);
+            let inputIndex = indices.length ? Math.min(...indices) : input.length;
+            title = input.substring(0, inputIndex);
+        }
+        //  Remove title from input
+        input = input.replace(title, "").trim();
+        //  Determine comment based on content
+        let comment = "";
+        if (!input.includes("<comment>")) {
+            const set = comments[surveyLanguage] || comments.english;
+            comment = `<comment>${set.text}</comment>\n`;
+        }
+        //  Compose final question output
+        let xmlItems = input.includes("<comment>") ? `<text label="${label.trim()}" size="40" optional="0">\n  <title>${title.trim()}</title>\n  ${input}\n</text>\n<suspend/>` : `<text label="${label.trim()}" size="40" optional="0">\n  <title>${title.trim()}</title>\n  ${comment}  ${input}\n</text>\n<suspend/>`;
+        window.editor.replaceSelection(xmlItems);
+        return xmlItems;
+    } catch (error) {
+        console.error("makeText clip failed:", error);
+        return "";
+    }
+}
+function makeTextarea() {
+    let surveyLanguage = localStorage.getItem("surveyLanguage");
+    let selectedText = (0, _functionsJs.getInputOrLine)();
+    if (!selectedText.trim()) {
+        alert("No text selected!");
+        return;
+    }
+    try {
+        let input = selectedText.trim();
+        //  Convert numbering format (e.g., "1.2" → "1_2")
+        input = input.replace(/^(\w?\d+)\.(\d+)/, "$1_$2");
+        //  Extract label
+        let labelMatch = input.match(/^([a-zA-Z0-9-_]+)(\.|:|\)|\s)/);
+        let label = labelMatch ? labelMatch[1] : "Unknown";
+        input = input.replace(/^([a-zA-Z0-9-_]+)(\.|:|\)|\s)/, "");
+        //  Remove blank lines
+        input = input.replace(/\n\n+/g, "\n");
+        //  Ensure label starts with "Q" if it's numeric
+        if (!isNaN(label[0])) label = "Q" + label;
+        //  Capture title
+        let title = "";
+        if (input.includes("@")) title = input.substring(0, input.indexOf("@"));
+        else {
+            let markers = [
+                "<row",
+                "<col",
+                "<choice",
+                "<comment",
+                "<group",
+                "<net",
+                "<exec"
+            ];
+            let indices = markers.map((marker)=>input.indexOf(marker)).filter((index)=>index !== -1);
+            let inputIndex = indices.length ? Math.min(...indices) : input.length;
+            title = input.substring(0, inputIndex);
+        }
+        //  Remove title from input
+        input = input.replace(title, "").trim();
+        //  Determine comment based on content
+        let comment = "";
+        if (!input.includes("<comment>")) {
+            const set = comments[surveyLanguage] || comments.english;
+            comment = `<comment>${set.text}</comment>\n`;
+        }
+        //  Compose final question output
+        let xmlItems = input.includes("<comment>") ? `<textarea label="${label.trim()}" optional="0">\n  <title>${title.trim()}</title>\n  ${input}\n</textarea>\n<suspend/>` : `<textarea label="${label.trim()}" optional="0">\n  <title>${title.trim()}</title>\n  ${comment}  ${input}\n</textarea>\n<suspend/>`;
+        window.editor.replaceSelection(xmlItems);
+        return xmlItems;
+    } catch (error) {
+        console.error("makeTextarea clip failed:", error);
+        return "";
+    }
+}
+function makeNumber() {
+    let surveyLanguage = localStorage.getItem("surveyLanguage");
+    let selectedText = (0, _functionsJs.getInputOrLine)();
+    if (!selectedText.trim()) {
+        alert("No text selected!");
+        return;
+    }
+    try {
+        let input = selectedText.trim();
+        //  Convert numbering format (e.g., "1.2" → "1_2")
+        input = input.replace(/^(\w?\d+)\.(\d+)/, "$1_$2");
+        //  Extract label
+        let labelMatch = input.match(/^([a-zA-Z0-9-_]+)(\.|:|\)|\s)/);
+        let label = labelMatch ? labelMatch[1] : "Unknown";
+        input = input.replace(/^([a-zA-Z0-9-_]+)(\.|:|\)|\s)/, "");
+        //  Remove blank lines
+        input = input.replace(/\n\n+/g, "\n");
+        //  Ensure label starts with "Q" if it's numeric
+        if (!isNaN(label[0])) label = "Q" + label;
+        //  Capture title
+        let title = "";
+        if (input.includes("@")) title = input.substring(0, input.indexOf("@"));
+        else {
+            let markers = [
+                "<row",
+                "<col",
+                "<choice",
+                "<comment",
+                "<group",
+                "<net",
+                "<exec"
+            ];
+            let indices = markers.map((marker)=>input.indexOf(marker)).filter((index)=>index !== -1);
+            let inputIndex = indices.length ? Math.min(...indices) : input.length;
+            title = input.substring(0, inputIndex);
+        }
+        //  Remove title from input
+        input = input.replace(title, "").trim();
+        //  Determine comment based on content
+        let comment = "";
+        if (!input.includes("<comment>")) {
+            const set = comments[surveyLanguage] || comments.english;
+            comment = `<comment>${set.number}</comment>\n`;
+        }
+        //  Compose final question output
+        let xmlItems = input.includes("<comment>") ? `<number label="${label.trim()}" size="3" optional="0" verify="range(0,99999)">\n  <title>${title.trim()}</title>\n  ${input}\n</number>\n<suspend/>` : `<number label="${label.trim()}" size="3" optional="0" verify="range(0,99999)">\n  <title>${title.trim()}</title>\n  ${comment}  ${input}\n</number>\n<suspend/>`;
+        window.editor.replaceSelection(xmlItems);
+        return xmlItems;
+    } catch (error) {
+        console.error("makeNumber clip failed:", error);
+        return "";
+    }
+}
+function makeSlidernumber() {
+    let surveyLanguage = localStorage.getItem("surveyLanguage");
+    let selectedText = (0, _functionsJs.getInputOrLine)();
+    if (!selectedText.trim()) {
+        alert("No text selected!");
+        return;
+    }
+    try {
+        let input = selectedText.trim();
+        //  Convert numbering format (e.g., "1.2" → "1_2")
+        input = input.replace(/^(\w?\d+)\.(\d+)/, "$1_$2");
+        //  Extract label
+        let labelMatch = input.match(/^([a-zA-Z0-9-_]+)(\.|:|\)|\s)/);
+        let label = labelMatch ? labelMatch[1] : "Unknown";
+        input = input.replace(/^([a-zA-Z0-9-_]+)(\.|:|\)|\s)/, "");
+        //  Remove blank lines
+        input = input.replace(/\n\n+/g, "\n");
+        //  Ensure label starts with "Q" if it's numeric
+        if (!isNaN(label[0])) label = "Q" + label;
+        //  Capture title
+        let title = "";
+        if (input.includes("@")) title = input.substring(0, input.indexOf("@"));
+        else {
+            let markers = [
+                "<row",
+                "<col",
+                "<choice",
+                "<comment",
+                "<group",
+                "<net",
+                "<exec"
+            ];
+            let indices = markers.map((marker)=>input.indexOf(marker)).filter((index)=>index !== -1);
+            let inputIndex = indices.length ? Math.min(...indices) : input.length;
+            title = input.substring(0, inputIndex);
+        }
+        //  Remove title from input
+        input = input.replace(title, "").trim();
+        //  Determine comment based on content
+        let comment = "";
+        if (!input.includes("<comment>")) {
+            const set = comments[surveyLanguage] || comments.english;
+            comment = `<comment>${set.slidernumber}</comment>\n`;
+        }
+        let legends = `<res label="lLegend">LeftLegend Text</res>\n  <res label="mLegend">MidLegend Text</res>\n  <res label="rLegend">RightLegend Text</res>`;
+        //  Compose final radio question output
+        let xmlItems = input.includes("<comment>") ? `<number label="${label.trim()}"\n  size="3"\n  optional="0"\n  verify="range(0,100)"\n  slidernumber:handle_active_css="background: #8de no-repeat; border-color:#8de;"\n  slidernumber:handle_css="background: #8de no-repeat; border-color:#8de;"\n  slidernumber:handle_offscale_css="background: #8de no-repeat; border-color:#8de;"\n  slidernumber:leftLegend="\${res['${label.trim()},lLegend']}"\n  slidernumber:midLegend="\${res['${label.trim()},mLegend']}"\n  slidernumber:rightLegend="\${res['${label.trim()},rLegend']}"\n  slidernumber:track_range_css="background-color: rgb(107,193,116);"\n  uses="slidernumber.6">\n  <title>${title.trim()}</title>\n  ${input}\n</number>\n<suspend/>` : `<number label="${label.trim()}"\n  size="3"\n  optional="0"\n  verify="range(0,100)"\n  slidernumber:handle_active_css="background: #8de no-repeat; border-color:#8de;"\n  slidernumber:handle_css="background: #8de no-repeat; border-color:#8de;"\n  slidernumber:handle_offscale_css="background: #8de no-repeat; border-color:#8de;"\n  slidernumber:leftLegend="\${res['${label.trim()},lLegend']}"\n  slidernumber:midLegend="\${res['${label.trim()},mLegend']}"\n  slidernumber:rightLegend="\${res['${label.trim()},rLegend']}"\n  slidernumber:track_range_css="background-color: rgb(107,193,116);"\n  uses="slidernumber.6">\n  <title>${title.trim()}</title>\n  ${comment}\n  ${input}\n  ${legends}\n</number>\n<suspend/>`;
+        window.editor.replaceSelection(xmlItems);
+        return xmlItems;
+    } catch (error) {
+        console.error("makeSlidernumber clip failed:", error);
+        return "";
+    }
+}
+function makeFloat() {
+    let surveyLanguage = localStorage.getItem("surveyLanguage");
+    let selectedText = (0, _functionsJs.getInputOrLine)();
+    if (!selectedText.trim()) {
+        alert("No text selected!");
+        return;
+    }
+    try {
+        let input = selectedText.trim();
+        //  Convert numbering format (e.g., "1.2" → "1_2")
+        input = input.replace(/^(\w?\d+)\.(\d+)/, "$1_$2");
+        //  Extract label
+        let labelMatch = input.match(/^([a-zA-Z0-9-_]+)(\.|:|\)|\s)/);
+        let label = labelMatch ? labelMatch[1] : "Unknown";
+        input = input.replace(/^([a-zA-Z0-9-_]+)(\.|:|\)|\s)/, "");
+        //  Remove blank lines
+        input = input.replace(/\n\n+/g, "\n");
+        //  Ensure label starts with "Q" if it's numeric
+        if (!isNaN(label[0])) label = "Q" + label;
+        //  Capture title
+        let title = "";
+        if (input.includes("@")) title = input.substring(0, input.indexOf("@"));
+        else {
+            let markers = [
+                "<row",
+                "<col",
+                "<choice",
+                "<comment",
+                "<group",
+                "<net",
+                "<exec"
+            ];
+            let indices = markers.map((marker)=>input.indexOf(marker)).filter((index)=>index !== -1);
+            let inputIndex = indices.length ? Math.min(...indices) : input.length;
+            title = input.substring(0, inputIndex);
+        }
+        //  Remove title from input
+        input = input.replace(title, "").trim();
+        //  Determine comment based on content
+        let comment = "";
+        if (!input.includes("<comment>")) {
+            const set = comments[surveyLanguage] || comments.english;
+            comment = `<comment>${set.float}</comment>\n`;
+        }
+        //  Compose final question output
+        let xmlItems = input.includes("<comment>") ? `<float label="${label.trim()}" size="3" optional="0" range="0,99999">\n  <title>${title.trim()}</title>\n  ${input}\n</float>\n<suspend/>` : `<float label="${label.trim()}" size="3" optional="0" range="0,99999">\n  <title>${title.trim()}</title>\n  ${comment}\n  ${input}\n</float>\n<suspend/>`;
+        window.editor.replaceSelection(xmlItems);
+        return xmlItems;
+    } catch (error) {
+        console.error("makeNumber clip failed:", error);
+        return "";
+    }
+}
+function makeAutosum() {
+    let surveyLanguage = localStorage.getItem("surveyLanguage");
+    let selectedText = (0, _functionsJs.getInputOrLine)();
+    if (!selectedText.trim()) {
+        alert("No text selected!");
+        return;
+    }
+    try {
+        let input = selectedText.trim();
+        input = input.replace(/^(\w?\d+)\.(\d+)/, "$1_$2");
+        let labelMatch = input.match(/^([a-zA-Z0-9-_]+)(\.|:|\)|\s)/);
+        let label = labelMatch ? labelMatch[1] : "Unknown";
+        input = input.replace(/^([a-zA-Z0-9-_]+)(\.|:|\)|\s)/, "");
+        let openRows = [];
+        let openCols = [];
+        let validation = "";
+        input = input.replace(/\n\n+/g, "\n");
+        if (!isNaN(label[0])) label = "Q" + label;
+        let title = "";
+        if (input.includes("@")) title = input.substring(0, input.indexOf("@"));
+        else {
+            let markers = [
+                "<row",
+                "<col",
+                "<choice",
+                "<comment",
+                "<group",
+                "<net",
+                "<exec"
+            ];
+            let indices = markers.map((marker)=>input.indexOf(marker)).filter((index)=>index !== -1);
+            let inputIndex = indices.length ? Math.min(...indices) : input.length;
+            title = input.substring(0, inputIndex);
+        }
+        input = input.replace(title, "").trim();
+        if (input.includes('open="1"')) {
+            let splitInput = input.split("\n");
+            splitInput.forEach((inputLine)=>{
+                if (inputLine.includes('open="1"')) {
+                    let lineLabel = inputLine.match(/label="([^"]+)"/)?.[1] || "";
+                    if (inputLine.includes("<row")) openRows.push(lineLabel);
+                    if (inputLine.includes("<col")) openCols.push(lineLabel);
+                }
+            });
+            input = input.replace(/open="1"/g, 'open="1" openOptional="1"');
+            validation = `  <validate>`;
+            if (openRows.length > 0) validation += autosum_validate_rows;
+            if (openCols.length > 0) validation += autosum_validate_cols;
+            validation += `  </validate>\n`;
+        }
+        let output = input ? `  ${input}\n` : "";
+        let comment = "";
+        if (!input.includes("<comment>")) {
+            const set = comments[surveyLanguage] || comments.english;
+            comment = `<comment>${set.number}</comment>\n`;
+        }
+        let xmlItems = input.includes("<comment>") ? `<number label="${label.trim()}" verify="range(0,99999)" size="3" optional="1" uses="autosum.5">\n  <title>${title.trim()}</title>\n  ${validation}${output}</number>\n<suspend/>\n\n<exec>\nif ${label.trim()}.displayed:\n\tfor eachRow in ${label.trim()}.rows:\n\t\tfor eachCol in ${label.trim()}.cols:\n\t\t\tif eachRow.displayed and eachCol.displayed and eachRow[eachCol.index].val in ['', None]:\n\t\t\t\teachRow[eachCol.index].val = 0\n</exec>` : `<number label="${label.trim()}" verify="range(0,99999)" size="3" optional="1" uses="autosum.5">\n  <title>${title.trim()}</title>\n  ${comment}\n${validation}${output}</number>\n<suspend/>\n\n<exec>\nif ${label.trim()}.displayed:\n\tfor eachRow in ${label.trim()}.rows:\n\t\tfor eachCol in ${label.trim()}.cols:\n\t\t\tif eachRow.displayed and eachCol.displayed and eachRow[eachCol.index].val in ['', None]:\n\t\t\t\teachRow[eachCol.index].val = 0\n</exec>`;
+        window.editor.replaceSelection(xmlItems);
+        return xmlItems;
+    } catch (error) {
+        console.error("makeNumberQuestion clip failed:", error);
+        return "";
+    }
+}
+function makeAutosumPercent() {
+    let surveyLanguage = localStorage.getItem("surveyLanguage");
+    let selectedText = (0, _functionsJs.getInputOrLine)();
+    if (!selectedText.trim()) {
+        alert("No text selected!");
+        return;
+    }
+    try {
+        let input = selectedText.trim();
+        input = input.replace(/^(\w?\d+)\.(\d+)/, "$1_$2");
+        let labelMatch = input.match(/^([a-zA-Z0-9-_]+)(\.|:|\)|\s)/);
+        let label = labelMatch ? labelMatch[1] : "Unknown";
+        input = input.replace(/^([a-zA-Z0-9-_]+)(\.|:|\)|\s)/, "");
+        let openRows = [];
+        let openCols = [];
+        let validation = "";
+        input = input.replace(/\n\n+/g, "\n");
+        if (!isNaN(label[0])) label = "Q" + label;
+        let title = "";
+        if (input.includes("@")) title = input.substring(0, input.indexOf("@"));
+        else {
+            let markers = [
+                "<row",
+                "<col",
+                "<choice",
+                "<comment",
+                "<group",
+                "<net",
+                "<exec"
+            ];
+            let indices = markers.map((marker)=>input.indexOf(marker)).filter((index)=>index !== -1);
+            let inputIndex = indices.length ? Math.min(...indices) : input.length;
+            title = input.substring(0, inputIndex);
+        }
+        input = input.replace(title, "").trim();
+        if (input.includes('open="1"')) {
+            let splitInput = input.split("\n");
+            splitInput.forEach((inputLine)=>{
+                if (inputLine.includes('open="1"')) {
+                    let lineLabel = inputLine.match(/label="([^"]+)"/)?.[1] || "";
+                    if (inputLine.includes("<row")) openRows.push(lineLabel);
+                    if (inputLine.includes("<col")) openCols.push(lineLabel);
+                }
+            });
+            input = input.replace(/open="1"/g, 'open="1" openOptional="1"');
+            validation = `  <validate>`;
+            if (openRows.length > 0) validation += autosum_validate_rows;
+            if (openCols.length > 0) validation += autosum_validate_cols;
+            validation += `  </validate>\n`;
+        }
+        let output = input ? `  ${input}\n` : "";
+        let comment = "";
+        if (!input.includes("<comment>")) {
+            const set = comments[surveyLanguage] || comments.english;
+            comment = `<comment>${set.autosumPercent}</comment>\n`;
+        }
+        let xmlItems = input.includes("<comment>") ? `<number label="${label.trim()}" verify="range(0,100)" size="3" optional="1" uses="autosum.5" amount="100" autosum:postText="%">\n  <title>${title.trim()}</title>\n  ${validation}${output}</number>\n<suspend/>\n\n<exec>\nif ${label.trim()}.displayed:\n\tfor eachRow in ${label.trim()}.rows:\n\t\tfor eachCol in ${label.trim()}.cols:\n\t\t\tif eachRow.displayed and eachCol.displayed and eachRow[eachCol.index].val in ['', None]:\n\t\t\t\teachRow[eachCol.index].val = 0\n</exec>` : `<number label="${label.trim()}" verify="range(0,100)" size="3" optional="1" uses="autosum.5" amount="100" autosum:postText="%">\n  <title>${title.trim()}</title>\n  ${comment}${validation}${output}</number>\n<suspend/>\n\n<exec>\nif ${label.trim()}.displayed:\n\tfor eachRow in ${label.trim()}.rows:\n\t\tfor eachCol in ${label.trim()}.cols:\n\t\t\tif eachRow.displayed and eachCol.displayed and eachRow[eachCol.index].val in ['', None]:\n\t\t\t\teachRow[eachCol.index].val = 0\n</exec>`;
+        window.editor.replaceSelection(xmlItems);
+        return xmlItems;
+    } catch (error) {
+        console.error("makeNumberQuestion clip failed:", error);
+        return "";
+    }
+}
+function makeSurveyComment() {
+    let selectedText = (0, _functionsJs.getInputOrLine)();
+    if (!selectedText.trim()) {
+        alert("No text selected!");
+        return;
+    }
+    try {
+        let input = selectedText.trim();
+        input = input.replace(/^(\w?\d+)\.(\d+)/, "$1_$2");
+        let labelMatch = input.match(/^([a-zA-Z0-9-_]+)(\.|:|\)|\s)/);
+        let label = labelMatch ? labelMatch[1] : "Unknown";
+        input = input.replace(/^([a-zA-Z0-9-_]+)(\.|:|\)|\s)/, "");
+        let xmlItems = `<html label="${label.trim()}" where="survey">${input}</html>`;
+        window.editor.replaceSelection(xmlItems);
+        return xmlItems;
+    } catch (error) {
+        console.error("makeSurveyComment clip failed:", error);
+        return "";
+    }
+}
+function makePipe() {
+    const selectedText = (0, _functionsJs.getInputOrLine)();
+    if (!selectedText.trim()) {
+        alert("No text selected!");
+        return;
+    }
+    try {
+        let input = selectedText.trim();
+        // Remove blank lines
+        input = input.replace(/\n\n+/g, "\n");
+        // Check if there is at least one <case>
+        if (!input.includes("<case")) {
+            alert("<pipe> tag requires at least one <case> element.");
+            return;
+        }
+        const output = `<pipe label="" capture="">\n  ${input}\n</pipe>\n`;
+        window.editor.replaceSelection(output);
+        return output;
+    } catch (error) {
+        console.error("makePipe clip failed:", error);
+        alert("An error occurred while generating the <pipe> tag.");
+        return "";
+    }
+}
+function makeNote() {
+    let selectedText = (0, _functionsJs.getInputOrLine)();
+    if (!selectedText.trim()) {
+        alert("No text selected!");
+        return;
+    }
+    try {
+        let input = selectedText.trim();
+        input = input.replace(/^(\w?\d+)\.(\d+)/, "$1_$2");
+        input = input.replace(/^([a-zA-Z0-9-_]+)(\.|:|\)|\s)/, "");
+        let xmlItems = `<note>\n${input}\n</note>\n`;
+        window.editor.replaceSelection(xmlItems);
+        return xmlItems;
+    } catch (error) {
+        console.error("makeNote clip failed:", error);
+        return "";
+    }
+}
+
+},{"./functions.js":"3Zc1l","@parcel/transformer-js/src/esmodule-helpers.js":"jnFvT"}],"2LnrP":[function(require,module,exports,__globalThis) {
+var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
+parcelHelpers.defineInteropFlag(exports);
+// STANDARDS
+parcelHelpers.export(exports, "makeStateSelect", ()=>makeStateSelect);
+parcelHelpers.export(exports, "makeStateOnly", ()=>makeStateOnly);
+parcelHelpers.export(exports, "makeStateWithRecode", ()=>makeStateWithRecode);
+parcelHelpers.export(exports, "makeStateCheckbox", ()=>makeStateCheckbox);
+parcelHelpers.export(exports, "makeCountrySelectISO", ()=>makeCountrySelectISO);
+// Add Survey Copy Protection
+parcelHelpers.export(exports, "addCopyProtection", ()=>addCopyProtection);
+parcelHelpers.export(exports, "makeUnselectableSpan", ()=>makeUnselectableSpan);
+parcelHelpers.export(exports, "makeUnselectableDiv", ()=>makeUnselectableDiv);
+parcelHelpers.export(exports, "addUnselectableAttributes", ()=>addUnselectableAttributes);
+parcelHelpers.export(exports, "addMouseoverTemplate", ()=>addMouseoverTemplate);
+parcelHelpers.export(exports, "addPopupTemplate", ()=>addPopupTemplate);
+parcelHelpers.export(exports, "addvStatusVirtual", ()=>addvStatusVirtual);
+parcelHelpers.export(exports, "addvChange", ()=>addvChange);
+parcelHelpers.export(exports, "addShuffleRowsVirtual", ()=>addShuffleRowsVirtual);
+var _functionsJs = require("./functions.js");
+var _varsJs = require("./vars.js");
+function makeStateSelect({ addRecode = false } = {}) {
+    try {
+        const editor = window.editor;
+        const inputText = (0, _functionsJs.getInputOrLine)().trim();
+        const match = inputText.match(/^([a-zA-Z0-9-_]+)([.:)\s])([\s\S]*)$/);
+        if (!match) {
+            alert("Input should start with a label and punctuation (e.g. 'Q1. Question...')");
+            return;
+        }
+        let label = match[1];
+        let title = match[3].trim().replace(/\n{2,}/g, "\n");
+        if (/^\d/.test(label)) label = "Q" + label;
+        const choicesXml = (0, _varsJs.US_STATES).map(([code, name])=>`  <choice label="${code}">${name}</choice>`).join("\n");
+        let xml = `<select label="${label}" optional="0">
+  <title>${title}</title>
+${choicesXml}
+</select>
+<suspend/>`;
+        if (addRecode) xml += `
+
+<exec>
+if ${label}.choices[${label}.ival].label in ["ME", "NH", "VT", "MA", "RI", "CT", "NY", "NJ", "PA"]:
+\thRegion.val = 0
+elif ${label}.choices[${label}.ival].label in ["WI", "IL", "MI", "IN", "OH", "ND", "SD", "NE", "KS", "MN", "IA", "MO"]:
+\thRegion.val = 1
+elif ${label}.any and ${label}.choices[${label}.ival].label in ["KY", "TN", "MS", "AL", "FL", "GA", "SC", "NC", "VA", "WV", "DC", "MD", "DE", "TX", "OK", "AR", "LA"]:
+\thRegion.val = 2
+elif ${label}.choices[${label}.ival].label in ["MT", "ID", "WY", "NV", "UT", "CO", "AZ", "NM", "WA", "OR", "CA", "AK", "HI"]:
+\thRegion.val = 3
+</exec>
+
+<radio label="hRegion" optional="1" where="execute" sst="0">
+  <title>Hidden Question: Region recode</title>
+  <row label="r1">Northeast (ME, NH, VT, MA, RI, CT, NY, NJ, PA)</row>
+  <row label="r2">Midwest (WI, IL, MI, IN, OH, ND, SD, NE, KS, MN, IA, MO)</row>
+  <row label="r3">South (KY, TN, MS, AL, FL, GA, SC, NC, VA, WV, DC, MD, DE, TX, OK, AR, LA)</row>
+  <row label="r4">West (MT, ID, WY, NV, UT, CO, AZ, NM, WA, OR, CA, AK, HI)</row>
+</radio>
+
+<suspend/>`;
+        editor.replaceSelection(xml);
+    } catch (err) {
+        console.error("makeStateSelect() failed:", err);
+        alert("Error generating select question.");
+    }
+}
+function makeStateOnly() {
+    makeStateSelect({
+        addRecode: false
+    });
+}
+function makeStateWithRecode() {
+    makeStateSelect({
+        addRecode: true
+    });
+}
+function makeStateCheckbox() {
+    try {
+        const editor = window.editor;
+        const inputText = (0, _functionsJs.getInputOrLine)().trim();
+        const match = inputText.match(/^([a-zA-Z0-9-_]+)([.:)\s])([\s\S]*)$/);
+        if (!match) {
+            alert("Input should start with a label and punctuation (e.g. 'Q1. Select your states...')");
+            return;
+        }
+        let label = match[1];
+        let title = match[3].trim().replace(/\n{2,}/g, "\n");
+        if (/^\d/.test(label)) label = "Q" + label;
+        const rows = (0, _varsJs.US_STATES).map(([code, name])=>`  <row label="${code}">${name}</row>`).join("\n");
+        const xml = `<checkbox label="${label}" optional="0">
+  <title>${title}</title>
+${rows}
+</checkbox>
+<suspend/>`;
+        editor.replaceSelection(xml);
+    } catch (err) {
+        console.error("makeStateCheckbox() failed:", err);
+        alert("Could not generate checkbox state list.");
+    }
+}
+function makeCountrySelectISO() {
+    try {
+        const editor = window.editor;
+        const inputText = (0, _functionsJs.getInputOrLine)().trim();
+        const match = inputText.match(/^([a-zA-Z0-9-_]+)([.:)\s])([\s\S]*)$/);
+        if (!match) {
+            alert("Expected format: Label. Question title...");
+            return;
+        }
+        let label = match[1];
+        let title = match[3].trim().replace(/\n{2,}/g, "\n");
+        if (/^\d/.test(label)) label = "Q" + label;
+        const choices = COUNTRIES.map(([code, name])=>`  <choice label="${code}">${name}</choice>`).join("\n");
+        const xml = `<select label="${label}" optional="0">
+  <title>${title}</title>
+${choices}
+</select>
+<suspend/>`;
+        editor.replaceSelection(xml);
+    } catch (err) {
+        console.error("makeCountrySelectISO() failed:", err);
+        alert("Could not generate country dropdown.");
+    }
+}
+function addCopyProtection() {
+    xmlItems = COPY_PROTECTION;
+    window.editor.replaceSelection(xmlItems);
+}
+function makeUnselectableSpan() {
+    const selectedText = (0, _functionsJs.getInputOrLine)();
+    const html = `<span style="-moz-user-select: none;-webkit-user-select: none;-ms-user-select: none;" unselectable="on" ondragstart="return false" oncontextmenu="return false">${selectedText.trim()}</span>`;
+    window.editor.replaceSelection(html);
+}
+function makeUnselectableDiv() {
+    const selectedText = (0, _functionsJs.getInputOrLine)();
+    const html = `<div style="-moz-user-select: none;-webkit-user-select: none;-ms-user-select: none;" unselectable="on" ondragstart="return false" oncontextmenu="return false">${selectedText.trim()}</div>`;
+    window.editor.replaceSelection(html);
+}
+function addUnselectableAttributes() {
+    const attrs = ` style="-moz-user-select: none;-webkit-user-select: none;-ms-user-select: none;" unselectable="on" ondragstart="return false" oncontextmenu="return false"`;
+    window.editor.replaceSelection(attrs);
+}
+function addMouseoverTemplate() {
+    const attrs = `<span class="self-tooltip">(MOUSE OVER TEXT HERE)</span><span class="tooltip-content">(MOUSEOVER CONTENT HERE)</span>`;
+    window.editor.replaceSelection(attrs);
+}
+function addPopupTemplate() {
+    const attrs = `<span class="self-popup" onclick="Survey.uidialog.make($(this).next('.popup-content'), {width: Math.min(320, $(window).width()), height: Math.min(240, $(window).height()), title: ''} );">(POP-UP TEXT HERE)</span><div class="popup-content">(POP-UP CONTENT HERE)</div>`;
+    window.editor.replaceSelection(attrs);
+}
+function addvStatusVirtual() {
+    window.editor.replaceSelection(VSTATUS);
+}
+function addvChange() {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, "0");
+    const dd = String(today.getDate()).padStart(2, "0");
+    const formattedDate = `${yyyy}-${mm}-${dd}`;
+    window.editor.replaceSelection(vChange(formattedDate).trim());
+}
+function addShuffleRowsVirtual() {
+    window.editor.replaceSelection(SHUFFLE_ROWS_VIRTUAL);
+}
+
+},{"./functions.js":"3Zc1l","./vars.js":"jpcAS","@parcel/transformer-js/src/esmodule-helpers.js":"jnFvT"}]},["6W9dp","kaqeV"], "kaqeV", "parcelRequire8bb2", {})
 
 //# sourceMappingURL=survey3.d0b205b3.js.map

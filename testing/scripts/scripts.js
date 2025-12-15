@@ -1,19 +1,18 @@
-import { EditorView, keymap } from "@codemirror/view";
+import { EditorView, keymap, lineNumbers } from "@codemirror/view";
 import { EditorState } from "@codemirror/state";
 import { basicSetup } from "codemirror";
 import { xml } from "@codemirror/lang-xml";
 import { python } from "@codemirror/lang-python";
-import { keymap } from "@codemirror/view";
+import { javascript } from "@codemirror/lang-javascript";
+import { css } from "@codemirror/lang-css";
 import { defaultKeymap } from "@codemirror/commands";
 import { Compartment } from "@codemirror/state";
+import { autocompletion, completionKeymap, closeBrackets } from "@codemirror/autocomplete";
 
 import { oneDark } from "@codemirror/theme-one-dark";
-import { indentUnit } from "@codemirror/language";
-import { bracketMatching } from "@codemirror/autocomplete";
-import { closeBrackets } from "@codemirror/autocomplete";
-import { lineNumbers } from "@codemirror/view";
+import { githubLight } from "@uiw/codemirror-theme-github";
 
-import { foldGutter, foldEffect, unfoldEffect, foldService } from "@codemirror/language";
+import { indentUnit, foldGutter, foldEffect, unfoldEffect, foldService, bracketMatching } from "@codemirror/language";
 
 const myFoldExtension = foldGutter({
     openText: "▼",
@@ -24,26 +23,47 @@ const savedDoc = localStorage.getItem("lastEditorContent");
 const startDoc = savedDoc ?? "";
 
 import * as fx from "./functions.js";
+import * as qx from "./questionfunctions.js";
+import * as sx from "./standards.js";
+import * as stx from "./styles.js";
 import * as tab from "./tabs.js";
 import * as cv from "./vars.js";
 import * as s from "./styles.js";
+import { openModal, validateFormAndGenerateXML } from "./modals.js";
+
+// Expose for legacy/global callers
+if (typeof window !== 'undefined') {
+    window.openModal = openModal;
+    window.validateFormAndGenerateXML = validateFormAndGenerateXML;
+}
 
 let savedTheme;
 let savedWordWrap;
 let savedFontSize
 let savedLanguage
-function getActiveEditor() {
-    return tabs[activeTab]?.editor;
+export function getActiveEditor() {
+    return tab.getActiveEditor();
 }
+// Expose for legacy/global callers
+if (typeof window !== 'undefined') window.getActiveEditor = getActiveEditor;
 
 let lastCommand = "";
 
 let activeTab = "default";
+let tabPendingDeletion = null;
+
+// Expose tabPendingDeletion to modals.js
+if (typeof window !== 'undefined') {
+    Object.defineProperty(window, 'tabPendingDeletion', {
+        get: () => tabPendingDeletion,
+        set: (val) => { tabPendingDeletion = val; }
+    });
+}
 
 document.addEventListener("DOMContentLoaded", () => {
     const editorArea = document.getElementById("editorArea");
 
-    savedTheme = localStorage.getItem("editorTheme") || "default";
+    savedTheme = localStorage.getItem("editorTheme") || "light";
     savedWordWrap = localStorage.getItem("wordWrap") === "true";
     savedLanguage = localStorage.getItem("surveyLanguage") || "english";
     savedFontSize = localStorage.getItem("fontSize") || 14;
@@ -74,164 +94,194 @@ document.addEventListener("DOMContentLoaded", () => {
     const increaseFontButton = document.getElementById("increaseFont");
     const decreaseFontButton = document.getElementById("decreaseFont");
 
+    // Position command palette at the end of selection (below cursor)
+    function positionCommandBox() {
+        const editor = window.editorView || getActiveEditor?.();
+        if (!editor) {
+            console.warn('No editor found for command palette positioning');
+            return;
+        }
+        const pos = editor.state.selection.main.to; // Use selection end
+        const coords = editor.coordsAtPos(pos);
+        if (coords) {
+            // Position below the cursor line with proper viewport awareness
+            let left = coords.left;
+            let top = coords.bottom + 5;
+            
+            // Ensure the command box stays within viewport
+            const boxWidth = 320; // Approximate width of command box
+            const boxHeight = 350; // Approximate max height
+            
+            if (left + boxWidth > window.innerWidth) {
+                left = window.innerWidth - boxWidth - 10;
+            }
+            if (top + boxHeight > window.innerHeight) {
+                // Position above cursor if not enough space below
+                top = coords.top - boxHeight - 5;
+            }
+            
+            commandBox.style.left = `${Math.max(10, left)}px`;
+            commandBox.style.top = `${Math.max(10, top)}px`;
+            commandBox.style.display = 'block';
+        }
+    }
+
     const commandGroups = {
         newsurvey: {
             "new sago survey": () => openModal("new-survey"),
             "new sago ihut survey": () => openModal('new-ihut'),
         },
         control: {
-            /*
-            "add term": () => fx.addTerm(editorView),
-            "add quota": () => fx.addQuota(editorView),
-            "validate tag": () => validateTag(editorView),
-            "exec tag": () => execTag(editorView),
-            "resource tag": () => makeRes(editorView),
-            "block tag": () => wrapInBlock(editorView),
-            "block tag (randomize children)": () => wrapInBlockRandomize(editorView),
-            "loop tag": () => addLoopBlock(editorView),
-            "make looprows": () => makeLooprows(editorView),
-            "make markers": () => makeMarker(editorView),
-            "make condition": () => makeCondition(editorView),*/
+            
+            "add term": () => fx.addTerm(getActiveEditor()),
+            "add quota": () => fx.addQuota(getActiveEditor()),
+            "validate tag": () => fx.validateTag(getActiveEditor()),
+            "exec tag": () => fx.execTag(getActiveEditor()),
+            "resource tag": () => fx.makeRes(getActiveEditor()),
+            "block tag": () => wrapInBlock(getActiveEditor()),
+            "block tag (randomize children)": () => wrapInBlockRandomize(getActiveEditor()),
+            "loop tag": () => addLoopBlock(getActiveEditor()),
+            "make looprows": () => makeLooprows(getActiveEditor()),
+            "make markers": () => makeMarker(getActiveEditor()),
+            "make condition": () => makeCondition(getActiveEditor()),
         },
         elements: {
-            "make rows": () => fx.makeRows(editorView),
-            "make rows (rating l-h)": () => fx.makeRows(editorView, 'low'),
-            "make rows (rating h-l)": () => fx.makeRows(editorView, 'high'),
-            "make columns": () => fx.makeCols(editorView),
-            "make columns (rating l-h)": () => fx.makeCols(editorView, 'low'),
-            "make columns (rating h-l)": () => fx.makeCols(editorView, 'high'),
-            "make choices": () => fx.makeChoices(editorView),
-            "make choices (rating l-h)": () => fx.makeChoices(editorView, 'low'),
-            "make choices (rating h-l)": () => fx.makeChoices(editorView, 'high'),
-            "make noanswer": () => fx.makeNoAnswer(editorView),
-            "make groups": () => fx.makeGroups(editorView),
-            "make question comment": () => fx.addCommentQuestion(editorView),
-            "make case": () => fx.makeCase(editorView),
-            "make autofill rows": () => fx.makeAutoFillRows(editorView),
+            "make rows": () => fx.makeRows(getActiveEditor()),
+            "make rows (rating l-h)": () => fx.makeRows(getActiveEditor(), 'low'),
+            "make rows (rating h-l)": () => fx.makeRows(getActiveEditor(), 'high'),
+            "make columns": () => fx.makeCols(getActiveEditor()),
+            "make columns (rating l-h)": () => fx.makeCols(getActiveEditor(), 'low'),
+            "make columns (rating h-l)": () => fx.makeCols(getActiveEditor(), 'high'),
+            "make choices": () => fx.makeChoices(getActiveEditor()),
+            "make choices (rating l-h)": () => fx.makeChoices(getActiveEditor(), 'low'),
+            "make choices (rating h-l)": () => fx.makeChoices(getActiveEditor(), 'high'),
+            "make noanswer": () => fx.makeNoAnswer(getActiveEditor()),
+            "make groups": () => fx.makeGroups(getActiveEditor()),
+            "make question comment": () => fx.addCommentQuestion(getActiveEditor()),
+            "make case": () => fx.makeCase(getActiveEditor()),
+            "make autofill rows": () => fx.makeAutoFillRows(getActiveEditor()),
         },
         types: {
-            /*
-            "make radio": () => makeRadio(editorView),
-            "make rating": () => makeRating(editorView),
-            "make starrating": () => makeStarrating(editorView),
-            "make checkbox": () => makeCheckbox(editorView),
-            "make select": () => makeSelect(editorView),
-            "make sliderpoints": () => makeSliderpoints(editorView),
-            "make text": () => makeText(editorView),
-            "make textarea": () => makeTextarea(editorView),
-            "make number": () => makeNumber(editorView),
-            "make slidernumber": () => makeSlidernumber(editorView),
-            "make float": () => makeFloat(editorView),
-            "make autosum": () => makeAutosum(editorView),
-            "make autosum (percent)": () => makeAutosumPercent(editorView),
-            "make survey comment": () => makeSurveyComment(editorView),
-            "make pipe": () => makePipe(editorView),*/
+            
+            "make radio": () => qx.makeRadio(getActiveEditor()),
+            "make rating": () => qx.makeRating(getActiveEditor()),
+            "make starrating": () => qx.makeStarrating(getActiveEditor()),
+            "make checkbox": () => qx.makeCheckbox(getActiveEditor()),
+            "make select": () => qx.makeSelect(getActiveEditor()),
+            "make sliderpoints": () => qx.makeSliderpoints(getActiveEditor()),
+            "make text": () => qx.makeText(getActiveEditor()),
+            "make textarea": () => qx.makeTextarea(getActiveEditor()),
+            "make number": () => qx.makeNumber(getActiveEditor()),
+            "make slidernumber": () => qx.makeSlidernumber(getActiveEditor()),
+            "make float": () => qx.makeFloat(getActiveEditor()),
+            "make autosum": () => qx.makeAutosum(getActiveEditor()),
+            "make autosum (percent)": () => qx.makeAutosumPercent(getActiveEditor()),
+            "make survey comment": () => qx.makeSurveyComment(getActiveEditor()),
+            "make pipe": () => qx.makePipe(getActiveEditor()),
         },
         attr: {
-            /*
-            "open-end": () => addOpen(editorView),
-            "add exclusive": () => addExclusive(editorView),
-            "add aggregate": () => addAggregate(editorView),
-            "add randomize='0'": () => addRandomize0(editorView),
-            "add optional": () => addOptional(editorView),
-            "add shuffle rows": () => addShuffleRows(editorView),
-            "add shuffle cols": () => addShuffleCols(editorView),
-            "add shuffle rows/cols": () => addShuffleRowsCols(editorView),
-            "add where='execute'": () => addExecute(editorView),
-            "add grouping/adim cols": () => addGroupingCols(editorView),
-            "add grouping/adim rows": () => addGroupingRows(editorView),
-            "add groups": () => addGroups(editorView),
-            "add values": () => addValues(editorView),
-            "add values l-h": () => addValuesLow(editorView),
-            "add values h-l": () => addValuesHigh(editorView),
-            "add alt label": () => addAltlabel(editorView),
-            "add rating direction reversed": () => addRatingDirection(editorView),
-            "add row class": () => addRowClassNames(editorView),
-            "add col class": () => addColClassNames(editorView),
-            "add choice class": () => addChoiceClassNames(editorView),
-            "swap rows and cols": () => swapRowCol(editorView),*/
+            
+            "open-end": () => fx.addOpen(getActiveEditor()),
+            "add exclusive": () => fx.addExclusive(getActiveEditor()),
+            "add aggregate": () => fx.addAggregate(getActiveEditor()),
+            "add randomize='0'": () => fx.addRandomize0(getActiveEditor()),
+            "add optional": () => fx.addOptional(getActiveEditor()),
+            "add shuffle rows": () => fx.addShuffleRows(getActiveEditor()),
+            "add shuffle cols": () => fx.addShuffleCols(getActiveEditor()),
+            "add shuffle rows/cols": () => fx.addShuffleRowsCols(getActiveEditor()),
+            "add where='execute'": () => fx.addExecute(getActiveEditor()),
+            "add grouping/adim cols": () => fx.addGroupingCols(getActiveEditor()),
+            "add grouping/adim rows": () => fx.addGroupingRows(getActiveEditor()),
+            "add groups": () => fx.addGroups(getActiveEditor()),
+            "add values": () => fx.addValues(getActiveEditor()),
+            "add values l-h": () => fx.addValuesLow(getActiveEditor()),
+            "add values h-l": () => fx.addValuesHigh(getActiveEditor()),
+            "add alt label": () => fx.addAltlabel(getActiveEditor()),
+            "add rating direction reversed": () => fx.addRatingDirection(getActiveEditor()),
+            "add row class": () => fx.addRowClassNames(getActiveEditor()),
+            "add col class": () => fx.addColClassNames(getActiveEditor()),
+            "add choice class": () => fx.addChoiceClassNames(getActiveEditor()),
+            "swap rows and cols": () => fx.swapRowCol(getActiveEditor()),
 
         },
         preposttext: {
-            /*
-            "add pretext": () => addPreText(editorView),
-            "add pretext (internal)": () => addPreTextInternal(editorView),
-            "make pretext res (internal)": () => makePreTextResInternal(editorView),
-            "add posttext": () => addPostText(editorView),
-            "add posttext (internal)": () => addPostTextInternal(editorView),
-            "make posttext res (internal)": () => makePostTextResInternal(editorView),*/
+            "add pretext": () => fx.addPreText(getActiveEditor()),
+            "add pretext (internal)": () => fx.addPreTextInternal(getActiveEditor()),
+            "make pretext res (internal)": () => fx.makePreTextResInternal(getActiveEditor()),
+            "add posttext": () => fx.addPostText(getActiveEditor()),
+            "add posttext (internal)": () => fx.addPostTextInternal(getActiveEditor()),
+            "make posttext res (internal)": () => fx.makePostTextResInternal(getActiveEditor()),
         },
         misc: {
-            /*
-            "make note": () => makeNote(editorView),
-            "brbr": () => brbr(editorView),
-            "br": () => br(editorView),
-            "lis": () => lis(editorView),
-            "ol": () => makeOl(editorView),
-            "ul": () => makeUl(editorView),
-            "make link href": () => makeHref(editorView),
-            "add contact question": () => addContactQuestion(editorView),
-            "add ihut contact question": () => addContactQuestionIHUT(editorView),*/
+            "make note": () => qx.makeNote(getActiveEditor()),
+            "brbr": () => fx.brbr(getActiveEditor()),
+            "br": () => fx.br(getActiveEditor()),
+            "lis": () => fx.lis(getActiveEditor()),
+            "ol": () => fx.makeOl(getActiveEditor()),
+            "ul": () => fx.makeUl(getActiveEditor()),
+            "make link href": () => fx.makeHref(getActiveEditor()),
+            "add contact question": () => fx.addContactQuestion(getActiveEditor()),
+            "add ihut contact question": () => fx.addContactQuestionIHUT(getActiveEditor()),
         },
         standards: {
-            /*
-            "us states": () => makeStateOnly(editorView),
-            "us states + region recode": () => makeStateWithRecode(editorView),
-            "us states checkbox": () => makeStateCheckbox(editorView),
-            "countries": () => makeCountrySelectISO(editorView),*/
+            
+            "us states": () => sx.makeStateOnly(getActiveEditor()),
+            "us states + region recode": () => sx.makeStateWithRecode(getActiveEditor()),
+            "us states checkbox": () => sx.makeStateCheckbox(getActiveEditor()),
+            "countries": () => sx.makeCountrySelectISO(getActiveEditor()),
 
         },
         copyprotection: {
-            /*
-            "add survey copy protection": () => addCopyProtection(editorView),
-            "make unselectable (span)": () => makeUnselectableSpan(editorView),
-            "make unselectable (div)": () => makeUnselectableDiv(editorView),
-            "add unselectable attributes": () => addUnselectableAttribute(editorView),*/
+            
+            "add survey copy protection": () => sx.addCopyProtection(getActiveEditor()),
+            "make unselectable (span)": () => sx.makeUnselectableSpan(getActiveEditor()),
+            "make unselectable (div)": () => sx.makeUnselectableDiv(getActiveEditor()),
+            "add unselectable attributes": () => sx.addUnselectableAttributes(getActiveEditor()),
 
         },
         mouseoverpopup: {
-            /*
+            
             "mouseover": () => openModal("new-mouseover"),
-            "mouseover (template)": () => addMouseoverTemplate(editorView),
+            "mouseover (template)": () => sx.addMouseoverTemplate(getActiveEditor()),
             "popup": () => openModal("new-popup"),
-            "popup (template)": () => addPopupTemplate(editorView),*/
+            "popup (template)": () => addPopupTemplate(getActiveEditor()),
         },
         standardsmisc: {
-            /*
-            "add status virtual": () => addvStatusVirtual(editorView),
-            "add change virtual": () => addvChange(editorView),
-            "shuffle rows virtual": () => addShuffleRowsVirtual(editorView),
+            
+            "add status virtual": () => sx.addvStatusVirtual(getActiveEditor()),
+            "add change virtual": () => sx.addvChange(getActiveEditor()),
+            "shuffle rows virtual": () => sx.addShuffleRowsVirtual(getActiveEditor()),
             "random order tracker": () => openModal("random-order-tracker"),
-            "dupe check by variable": () => openModal("dupe-check"),*/
+            "dupe check by variable": () => openModal("dupe-check"),
         },
         styles: {
-            /*
+            
             "new style": () => openModal("new-style"),
-            "new style (blank)": () => addNewStyleBlank(editorView),*/
+            "new style (blank)": () => stx.addNewStyleBlank(getActiveEditor()),
         },
         stylesxml: {
-            /*
-            "new style wtih label": () => addNewStyleBlankwithLabel(editorView),
-            "style copy/call": () => addStyleCopy(editorView),
-            "survey wide css": () => addSurveyWideCSS(editorView),
-            "survey wide js": () => addSurveyWideJS(editorView),
-            "question specific css": () => addQuestionSpecificCSS(editorView),
-            "question specific js (after question)": () => addQuestionSpecificJSAfterQ(editorView),
-            "question specific js (in <head>)": () => addQuestionSpecificJSInHead(editorView),*/
+            
+            "new style wtih label": () => stx.addNewStyleBlankwithLabel(getActiveEditor()),
+            "style copy/call": () => stx.addStyleCopy(getActiveEditor()),
+            "survey wide css": () => stx.addSurveyWideCSS(getActiveEditor()),
+            "survey wide js": () => stx.addSurveyWideJS(getActiveEditor()),
+            "question specific css": () => stx.addQuestionSpecificCSS(getActiveEditor()),
+            "question specific js (after question)": () => stx.addQuestionSpecificJSAfterQ(getActiveEditor()),
+            "question specific js (in <head>)": () => stx.addQuestionSpecificJSInHead(getActiveEditor()),
         },
         stylesreadytouse: {
-            /*
+            
             "pipe number question in table": () => openModal("pipe-in-number"),
-            "left-blank legend": () => addLeftBlankLegend(editorView),
+            "left-blank legend": () => stx.addLeftBlankLegend(getActiveEditor()),
             "disable continue button": () => openModal("disable-continue"),
-            "add max diff style": () => addMaxDiff(editorView),
-            "add element labels display": () => addPretestLabelsDisplay(editorView),*/
+            "add max diff style": () => stx.addMaxDiff(getActiveEditor()),
+            "add element labels display": () => stx.addPretestLabelsDisplay(getActiveEditor()),
 
         },
         stylescomponents: {
-            /*
-            "add colfix declaration": () => addColFixDeclaration,
-            "add colfix call": () => addColFixCall,*/
+            
+            "add colfix declaration": () => addColFixDeclaration(getActiveEditor()),
+            "add colfix call": () => addColFixCall(getActiveEditor()),
         }
 
     };
@@ -278,107 +328,9 @@ document.addEventListener("DOMContentLoaded", () => {
         // Fallback: return last open tag
         return openTags[openTags.length - 1][1];
     }
-    function conditionalPython() {
-        return EditorState.transactionFilter.of(tr => {
-            const code = tr.newDoc.sliceString(tr.newSelection.main.from, tr.newSelection.main.to);
-            const parentTag = getSurroundingTag(code);
-            if (["exec", "validate", "virtual"].includes(parentTag)) {
-                return [tr, {
-                        effects: EditorView.updateListener.of(() => editorView.dispatch({
-                                effects: python()
-                            }))
-                    }
-                ];
-            }
-            return [tr];
-        });
-    }
-    const autoSaveListener = EditorView.updateListener.of(update => {
-        if (update.docChanged) {
-            const content = update.state.doc.toString();
-            localStorage.setItem("lastEditorContent", content);
-        }
-    });
-    const themeCompartment = new Compartment();
-    const wrapCompartment = new Compartment();
-
-    const editorView = new EditorView({
-        doc: startDoc,
-        extensions: [
-            basicSetup,
-            xml(),
-            oneDark,
-            conditionalPython(),
-            themeCompartment.of(oneDark),
-            wrapCompartment.of(EditorView.lineWrapping),
-
-            autoSaveListener,
-            foldService.of(customTagFold),
-            keymap.of([
-                    ...defaultKeymap, // include CM6's default commands
-                    {
-                        key: "Tab",
-                        run: view => {
-                            const tab = "\t";
-                            view.dispatch(view.state.replaceSelection(tab));
-                            return true;
-                        }
-                    }, {
-                        key: "Enter",
-                        run: view => {
-                            const { state } = view;
-                            const { from } = state.selection.main;
-                            const line = state.doc.lineAt(from);
-                            const match = line.text.match(/^([ \t]+)/);
-                            const indent = match ? match[1] : "";
-                            view.dispatch(state.replaceSelection("\n" + indent));
-                            return true;
-                        }
-                    }, {
-                        key: "Ctrl-b",
-                        run: view => {
-                            fx.wrapSelection(view, "b");
-                            return true;
-                        }
-                    }, {
-                        key: "Ctrl-i",
-                        run: view => {
-                            fx.wrapSelection(view, "i");
-                            return true;
-                        }
-                    }, {
-                        key: "Ctrl-u",
-                        run: view => {
-                            fx.wrapSelection(view, "u");
-                            return true;
-                        }
-                    }, {
-                        key: "Esc",
-                        run: () => {
-                            const isBoxVisible = commandBox.style.display !== "none";
-
-                            if (isBoxVisible) {
-                                commandBox.style.display = "none";
-                                commandInput.value = "";
-                                selectedIndex = -1;
-                                editorView.focus(); ;
-                            } else {
-                                positionCommandBox();
-                                commandBox.style.display = "block";
-                                commandInput.value = lastCommand || "";
-                                updateSuggestions(commandInput.value);
-                                commandInput.focus();
-                                commandInput.select();
-                                updateSuggestions(commandInput.value);
-                            }
-                        },
-                    }
-
-                    // ... other shortcuts like Ctrl-B, Ctrl-I, etc.
-                ])
-        ],
-        parent: editorArea
-    });
+    // (conditionalPython removed; per-tab editors handle language switching internally)
+    // Initialize tabs system; editors are created per tab and only the active one is mounted
+    tab.initTabs(editorArea);
 
     function customTagFold(state, lineStart) {
         const line = state.doc.lineAt(lineStart);
@@ -402,37 +354,45 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // Assuming you have access to the EditorView instance as `editorView`
-    document.getElementById("boldBtn").addEventListener("click", () => fx.wrapSelection(editorView, "b"));
-    document.getElementById("italicBtn").addEventListener("click", () => fx.wrapSelection(editorView, "i"));
-    document.getElementById("underlineBtn").addEventListener("click", () => fx.wrapSelection(editorView, "u"));
-    document.getElementById("superscriptBtn").addEventListener("click", () => fx.wrapSelection(editorView, "sup"));
-    document.getElementById("subscriptBtn").addEventListener("click", () => fx.wrapSelection(editorView, "sub"));
+    document.getElementById("boldBtn").addEventListener("click", () => fx.wrapSelection(getActiveEditor(), "b"));
+    document.getElementById("italicBtn").addEventListener("click", () => fx.wrapSelection(getActiveEditor(), "i"));
+    document.getElementById("underlineBtn").addEventListener("click", () => fx.wrapSelection(getActiveEditor(), "u"));
+    document.getElementById("superscriptBtn").addEventListener("click", () => fx.wrapSelection(getActiveEditor(), "sup"));
+    document.getElementById("subscriptBtn").addEventListener("click", () => fx.wrapSelection(getActiveEditor(), "sub"));
 
-    document.getElementById("toggleFoldBtn").addEventListener("click", () => {
-        const transaction = editorView.state.update({
-            effects: foldAllEffect.of(isFolded ? "unfold" : "fold")
-        });
-        editorView.dispatch(transaction);
-        isFolded = !isFolded;
-    });
+    // Fold button handler moved below to use getActiveEditor
     document.getElementById("addTabButton").addEventListener("click", () => tab.addTab());
 
-    tabs["default"] = {
-        editor: editorView // uses global CM6 EditorView
+    // Expose toggleCommandPalette for Esc keymap in per-tab editors
+    window.toggleCommandPalette = function toggleCommandPalette(){
+        const editor = getActiveEditor();
+        const sel = editor.state.selection.main;
+        const selectedText = editor.state.doc.slice(sel.from, sel.to).toString();
+        if (sel.from !== sel.to && selectedText.includes("\n")) {
+            editor.dispatch({ selection: { anchor: sel.to } });
+            return;
+        }
+        const isBoxVisible = commandBox.style.display !== "none";
+        if (isBoxVisible) {
+            commandBox.style.display = "none";
+            commandInput.value = "";
+            selectedIndex = -1;
+            editor?.focus();
+        } else {
+            positionCommandBox();
+            commandBox.style.display = "block";
+            commandInput.value = lastCommand || "";
+            updateSuggestions(commandInput.value);
+            commandInput.focus();
+            commandInput.select();
+            updateSuggestions(commandInput.value);
+        }
     };
 
-    //configureEditor(editorView);
-    //initTabs(editorArea);
-
-
-    const myUpdateListener = EditorView.updateListener.of(update => {
-        if (update.docChanged) {
-            tab.saveEditorContent();
-            tab.saveAllTabs();
-        }
-    });
-
-    editorView.focus();
+    // Manual save support (if a button exists) and global function
+    const manualBtn = document.getElementById("manualSaveBtn");
+    if (manualBtn) manualBtn.addEventListener("click", () => tab.saveAllTabs());
+    window.manualSave = () => tab.saveAllTabs();
 
     // fold all button
     let isFolded = false;
@@ -587,14 +547,14 @@ document.addEventListener("DOMContentLoaded", () => {
             commandBox.style.display = "none";
             commandInput.value = "";
             selectedIndex = -1;
-            editorView.focus(); ;
+            getActiveEditor()?.focus(); ;
             break;
         case "Escape":
             event.preventDefault();
             commandBox.style.display = "none";
             commandInput.value = "";
             selectedIndex = -1;
-            editorView.focus(); ;
+            getActiveEditor()?.focus(); ;
             break;
         case "Tab":
             event.preventDefault();
@@ -623,9 +583,8 @@ document.addEventListener("DOMContentLoaded", () => {
             commandInput.value = "";
             selectedIndex = -1;
 
-            if (typeof editorView !== "undefined") {
-                editorView.focus();
-            }
+            const ed = getActiveEditor?.();
+            ed?.focus();
         }
     });
 
@@ -634,16 +593,15 @@ document.addEventListener("DOMContentLoaded", () => {
     // auto loads and sets the values for theme and wordwrap
     document.getElementById("themeSelector").value = savedTheme;
     document.getElementById("wordWrapToggle").checked = savedWordWrap;
+    // apply persisted settings globally
+    tab.setTheme(savedTheme || 'light');
+    tab.setWordWrap(!!savedWordWrap);
 
     // define the editor theme and save it in the localstorage
     document.getElementById("themeSelector").addEventListener("change", function () {
-        const selectedTheme = this.value;
+        const selectedTheme = this.value; // light, light2, dark, dark2
         localStorage.setItem("editorTheme", selectedTheme);
-        const newTheme = selectedTheme === "dark" ? oneDark : oneLight;
-
-        editorView.dispatch({
-            effects: themeCompartment.reconfigure(newTheme)
-        });
+        tab.setTheme(selectedTheme);
     });
 
     // toggle word wrap and save it in the localstorage
@@ -651,10 +609,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const isChecked = this.checked;
         localStorage.setItem("wordWrap", isChecked);
 
-        editorView.dispatch({
-            effects: wrapCompartment.reconfigure(
-                isChecked ? EditorView.lineWrapping : [])
-        });
+        tab.setWordWrap(isChecked);
 
     });
     // when creating new tab or survey, and enter is pressed, call error if something's wrong, else continue
@@ -667,7 +622,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
             const actions = [{
                     selector: ".new-tab",
-                    action: confirmTabCreation
+                    action: tab.confirmTabCreation
                 }, {
                     selector: ".new-survey",
                     action: () => validateFormAndGenerateXML("survey")
@@ -792,20 +747,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
             });
         }
-        // positioning of the command pallette box
-        function positionCommandBox() {
-            const editor = window.editorView || getActiveEditor?.();
-            if (!editor)
-                return;
-
-            const pos = editor.state.selection.main.head;
-            const coords = editor.coordsAtPos(pos);
-
-            if (coords) {
-                commandBox.style.left = `${coords.left}px`;
-                commandBox.style.top = `${coords.top - 30}px`;
-            }
-        }
         // if command is valid, execute it
         // fail if not
         function validateAndExecuteCommand(command) {
@@ -837,7 +778,7 @@ document.addEventListener("DOMContentLoaded", () => {
         //confirm delete tab
         document.getElementById("confirmDeleteTabBtn").onclick = () => {
             if (tabPendingDeletion) {
-                closeTab(tabPendingDeletion);
+                tab.closeTab(tabPendingDeletion);
                 tabPendingDeletion = null;
                 bootstrap.Modal.getInstance(document.getElementById("surveyModal")).hide();
             }
@@ -846,7 +787,7 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById("downloadTabBtn").onclick = () => {
             editor = getActiveEditor();
             const content = editor.getValue();
-            const rawName = activeTab || "untitled";
+            const rawName = tab.getActiveTabName?.() || "untitled";
             const safeName = sanitizeFilename(rawName) || "untitled";
             const filename = `${safeName}.xml`;
 
@@ -894,10 +835,8 @@ document.addEventListener("DOMContentLoaded", () => {
             e.preventDefault();
             const action = e.target.dataset.action;
             const tabName = contextTabName;
-            if (!tabName || !tabs[tabName])
-                return;
-
-            const { editor } = tabs[tabName];
+            const editor = tab.getEditorByName(tabName);
+            if (!tabName || !editor) return;
 
             switch (action) {
             case "save": {
@@ -929,7 +868,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     break;
                 }
             case "close":
-                requestTabDeletion(tabName);
+                tab.requestTabDeletion(tabName);
                 break;
             }
 

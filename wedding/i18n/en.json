@@ -8,6 +8,7 @@
         "travel": "Travel",
         "accommodation": "Accommodation",
         "attractions": "Attractions",
+        "gifts": "Gifts & Playlist",
         "language": "Language"
     },
     "title": {
@@ -76,5 +77,16 @@
         "day_trip_3": "Downpatrick & St. Patrick sites",
         "day_trip_4": "Scrabo Tower & Country Park"
         ,"mapLabel": "View on Google Maps"
+    },
+    "gifts": {
+        "heading": "Gifts & Playlist Requests",
+        "intro": "Your presence is the best gift.",
+        "details": "As we don't yet live together or have a home setup, we aren't in need of big household items. If you feel obliged to give, smaller items, vouchers, or a card are warmly appreciated - but absolutely not expected.",
+        "postbox": "We'll have a small postbox at the venue for cards and vouchers at your convenience during the celebrations."
+    },
+    "playlist": {
+        "heading": "Song Suggestions",
+        "details": "To keep things simple, we're making our own evening playlist. We'd love each of you to suggest 5-10 songs you'd enjoy dancing or vibing to.",
+        "how": "Please send your picks to Amy or Constantine anytime before the big day."
     }
 }

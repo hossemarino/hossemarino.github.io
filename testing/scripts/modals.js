@@ -1,3 +1,8 @@
+import * as cv from './vars.js';
+import { getActiveEditor } from './tabs.js';
+import { setCursorAfterLine } from './functions.js';
+import { getSurveyStyles } from './styles.js';
+
 //Modal handling
 const modalDefinitions = {
     "tab": {
@@ -12,7 +17,7 @@ const modalDefinitions = {
         section: ".delete-tab",
         init: (tabName) => {
             document.getElementById("tabToDeleteName").textContent = tabName;
-            tabPendingDeletion = tabName;
+            window.tabPendingDeletion = tabName;
         }
     },
     "delete-all-data": {
@@ -128,7 +133,7 @@ document.getElementById("genXML").onclick = () => validateFormAndGenerateXML("su
 title.textContent = "Confirm Tab Deletion";
 document.querySelector(".delete-tab").style.display = "block";
 document.getElementById("tabToDeleteName").textContent = tabName;
-tabPendingDeletion = tabName;
+window.tabPendingDeletion = tabName;
 } else if (purpose === "new-ihut") {
 title.textContent = "Create a New IHUT";
 document.querySelector(".new-ihut").style.display = "block";
@@ -242,13 +247,13 @@ function generateXML() {
         logos = LILLY[1]
     }
     if (portal === "Schlesinger") {
-        portalLinks = SAGO[0];
-        logos = SAGO[1];
+        portalLinks = cv.SAGO[0];
+        logos = cv.SAGO[1];
     }
 
-    let s2sText = s2s === "No" ? "" : `${S2S_TEXT}`;
+    let s2sText = s2s === "No" ? "" : `${cv.S2S_TEXT}`;
 
-    let stlwftext = stl_wf === "No" ? "" : `${STL_WF_TEXT}`;
+    let stlwftext = stl_wf === "No" ? "" : `${cv.STL_WF_TEXT}`;
 
     let xmlContent = `<?xml version="1.0" encoding="UTF-8"?>
 <survey 
@@ -262,7 +267,7 @@ function generateXML() {
   watermark:fontSize="16"
   displayOnError="all"
   extraVariables="record,decLang,list,userAgent,flashDetected,api,dupe"
-  featurephoneNotAllowedMessage="${SURVEY_SETUP[langCode].featurephoneNotAllowedMessage}"
+  featurephoneNotAllowedMessage="${cv.SURVEY_SETUP[langCode].featurephoneNotAllowedMessage}"
   fir="on"
   html:showNumber="0"
   mobile="compat"
@@ -277,13 +282,12 @@ function generateXML() {
   state="testing">
   
 <res label="sys_surveyCompleted">&amp;nbsp;</res>
-<res label="privacy">${SURVEY_SETUP[langCode].privacyText}</res>
-<res label="helpText">${SURVEY_SETUP[langCode].helpText}</res>
-<res label="dialogClose">${SURVEY_SETUP[langCode].dialogClose}</res>
+<res label="privacy">${cv.SURVEY_SETUP[langCode].privacyText}</res>
+<res label="helpText">${cv.SURVEY_SETUP[langCode].helpText}</res>
+<res label="dialogClose">${cv.SURVEY_SETUP[langCode].dialogClose}</res>
 
 <samplesources default="1">
-${SURVEY_SETUP[langCode].testRedirects}
-
+${cv.SURVEY_SETUP[langCode].testRedirects}
   <samplesource list="2">
     <title>SAGO Live</title>
     <invalid>You are missing information in the URL. Please verify the URL with the original invite.</invalid>
@@ -313,18 +317,17 @@ bucketize(vendorid)
   <row label="other">Other</row>
 </radio>
 
-${SAGO_CSS}
+${cv.SAGO_CSS}
 
-${UI_DIALOG_CLOSE}
-${GROUP_SHUFFLE}
+${cv.UI_DIALOG_CLOSE}
+${cv.GROUP_SHUFFLE}
 
 ${logos}
-${SURVEY_SETUP[langCode].privacyPolicy(surveyNumber)}
+${cv.SURVEY_SETUP[langCode].privacyPolicy(surveyNumber)}
 <style cond="list not in ['0','1'] or (list in ['2'] and vendorid not in ['1234','1235'])" name="survey.logo"/>
 <style cond="list not in ['0','1'] or (list in ['2'] and vendorid not in ['1234','1235'])" name="survey.respview.footer.support"/>
-${COPY_PROTECTION}
-${PRETEST_LABELS_DISPLAY}
-
+${cv.COPY_PROTECTION}
+${cv.PRETEST_LABELS_DISPLAY}
 <style cond="list!='0'" name="button.goback"/>
 
 <suspend/>
@@ -335,8 +338,8 @@ ${PRETEST_LABELS_DISPLAY}
 
 <label label="template_point_1" />
 
-${CONSENT_QUESTION}
-${RESDEF}
+${cv.CONSENT_QUESTION}
+${cv.RESDEF}
 
 <note>Second screen: Rest of survey</note>
 
@@ -351,13 +354,14 @@ ${RESDEF}
 
 
 
-${REVIEW_QUESTION}
+${cv.REVIEW_QUESTION}
 ${s2sText}
 ${stlwftext}
 </survey>`;
     editor = getActiveEditor();
     if (editor) {
-        editor.setValue(xmlContent);
+        const fullLen = editor.state.doc.length;
+        editor.dispatch({ changes: { from: 0, to: fullLen, insert: xmlContent } });
         setTimeout(() => {
             editor.focus();
             setCursorAfterLine(517);
@@ -400,7 +404,7 @@ function generateIHUTXML() {
         extraVariables = `  extraVariables="record,decLang,list,userAgent,flashDetected,api,dupe"`
     }
 
-    let qbres = xmlData.setupType !== "QualBoard - user creation API" ? "" : `${QUALBOARD_USER_CREATION_API_RES}`;
+    let qbres = xmlData.setupType !== "QualBoard - user creation API" ? "" : `${cv.QUALBOARD_USER_CREATION_API_RES}`;
 
     let redirects = ``;
 
@@ -506,19 +510,19 @@ function generateIHUTXML() {
     let ihutCSS = ``;
 
     if (xmlData.surveyType !== "Screener" && OTS) {
-        ihutCSS = IHUT_OTS_CSS;
+        ihutCSS = cv.IHUT_OTS_CSS;
     }
 
     let consentQ = '';
     if (xmlData.surveyType !== "CLT") {
-        consentQ = CONSENT_QUESTION
+        consentQ = cv.CONSENT_QUESTION
             if (xmlData.surveyType !== "Screener")
                 suspend = '<suspend/>'
     }
 
     let cltNote = ``;
     if (xmlData.surveyType === "CLT") {
-        cltNote = CLTNOTE;
+        cltNote = cv.CLTNOTE;
     }
     let ots_api = ``;
     let restOfSurvey_1 = ``;
@@ -554,7 +558,7 @@ print response.encode('utf-8-sig')
         }
 
         if (xmlData.setupType === 'QualBoard - user creation API') {
-            restOfSurvey_1 = CONTACT_QUESTION_IHUT;
+            restOfSurvey_1 = cv.CONTACT_QUESTION_IHUT;
             restOfSurvey_1 += `<textarea
   label="QUALBOARD_DATA"
   where="execute,survey,report">
@@ -641,12 +645,12 @@ print QualBoard.status
         }
 
         if (xmlData.surveyType === "Questionnaire/Diary" && OTS) {
-            ots_api = OTS_API
+            ots_api = cv.OTS_API
         }
 
         if (xmlData.surveyType === "Screener" && OTS) {
-            restOfSurvey_2 = CONTACT_QUESTION_IHUT;
-            restOfSurvey_2 += OTS_SCREENER_PART_1;
+            restOfSurvey_2 = cv.CONTACT_QUESTION_IHUT;
+            restOfSurvey_2 += cv.OTS_SCREENER_PART_1;
 
             if (xmlData.verity === "Yes") {
                 restOfSurvey_2 += VERITY_API;
@@ -656,9 +660,9 @@ print QualBoard.status
         }
 
         if (xmlData.verity === "Yes" && xmlData.setupType !== "QualBoard - user creation API" && xmlData.contactQuestion === "Yes") {
-            restOfSurvey_3 = CONTACT_QUESTION_IHUT;
-            if (!restOfSurvey_2.includes(VERITY_API)) {
-                restOfSurvey_3 += VERITY_API;
+            restOfSurvey_3 = cv.CONTACT_QUESTION_IHUT;
+            if (!restOfSurvey_2.includes(cv.VERITY_API)) {
+                restOfSurvey_3 += cv.VERITY_API;
             }
 
         }
@@ -709,25 +713,25 @@ ${redirects}
 ${redirecrts_contd}
 </samplesources>
 
-${IHUT_CSS}
+${cv.IHUT_CSS}
 
 ${ihutCSS}
 
-${UI_DIALOG_CLOSE}
+${cv.UI_DIALOG_CLOSE}
 
-${GROUP_SHUFFLE}
+${cv.GROUP_SHUFFLE}
 
-${CHECKBOX_RECODE}
+${cv.CHECKBOX_RECODE}
 
-${IHUT_LOGO}
+${cv.IHUT_LOGO}
 
 <style name="survey.respview.footer.support"><![CDATA[
 <a href="https://www.focusgroup.com/Page/PrivacyPolicy" target="_blank">\${res.privacy}</a> - <a href="mailto:help@focusgroup.com?Subject=${xmlData.hutNumber}" target="_blank">\${res.helpText}</a>
 ]]></style>
 
-${COPY_PROTECTION}
+${cv.COPY_PROTECTION}
 
-${PRETEST_LABELS_DISPLAY}
+${cv.PRETEST_LABELS_DISPLAY}
 
 <style cond="list!='0'" name="button.goback"/>
 
@@ -764,7 +768,13 @@ ${restOfSurvey_3}
 ${QualBoardAPI}
 </survey>`.trim();
     editor = getActiveEditor();
-    editor.setValue(xml);
+    if (editor) {
+        const fullLen = editor.state.doc.length;
+        editor.dispatch({ changes: { from: 0, to: fullLen, insert: xml } });
+    } else {
+        console.error("CodeMirror editor not initialized!");
+        return;
+    }
     let modal = bootstrap.Modal.getInstance(document.getElementById("surveyModal"));
     if (modal) {
         modal.hide();
@@ -988,4 +998,11 @@ setTimeout(function() {
     if (modal)
         modal.hide();
 
+}
+
+// Export for module usage and attach to window for legacy callers
+export { openModal, validateFormAndGenerateXML };
+if (typeof window !== 'undefined') {
+    window.openModal = openModal;
+    window.validateFormAndGenerateXML = validateFormAndGenerateXML;
 }
