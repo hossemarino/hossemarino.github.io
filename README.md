@@ -1,2 +1,25 @@
-﻿# BNR-news-reading
-Used to be that lol
+# Constantine Survey Helper (CSH)
+
+## What it is
+Constantine Survey Helper (CSH) is a browser-based, CodeMirror-powered workbench for building Forsta/Decipher surveys. It pairs a command palette with a clickable toolbox and a set of modal wizards so you can generate entire survey shells, IHUT setups, and question blocks without hand-writing the boilerplate XML. The app keeps your state in `localStorage`, remembers tabs, themes, wrapping and font choices, and gives you a fast way to move between editing, previewing snippets, and downloading XML.
+
+## Core features
+- **Command palette and toolbox:** Press Esc to summon the palette or click the toolbox links to trigger any builder action. Commands span new survey/IHUT scaffolds; control tags like term, quota, validate/exec/virtual, block/loop wrappers; element builders for rows, cols, choices, noanswer, groups, cases, and autofill rows; question type generators (radio, rating, starrating, checkbox, select, sliderpoints, text, textarea, number, slidernumber, float, autosum, survey comment, pipe, autofill, image upload, reusable lists); attribute helpers (exclusive, open-end, aggregate, randomize/optional flags, row/col/choice shuffling, grouping, values, altlabel, reverse rating direction, swap rows/cols); pre/post text helpers; style commands; miscellaneous inserts (notes, br/ol/ul, links, images, HTML table, contact questions); standards (US states and countries); copy protection; mouseover/popup builders; standards-misc utilities (status/change virtuals, random-order tracker, URL dupe-check); style creation/copy, survey-wide CSS/JS, ready-to-use style snippets, and style components like colfix.
+- **Modals and wizards:** Dedicated dialogs generate new survey or IHUT XML (with portal assets, redirects, consent, copy protection, s2s/STL toggles), mouseover and popup snippets, random-order tracker, URL dupe-check, disable-continue snippet, pipe-number-in-table helper, HTML table generator, and new style inserts. IHUT flows include options for QualBoard APIs, OTS, SAMS/CS, Esearch redirects, and checkbox recoding.
+- **Tabs and file handling:** Open multiple tabs, rename them, close via middle-click (non-default), and use the context menu to save/download, copy, or close. Each tab auto-saves, tracks the active tab, and offers one-click XML download plus clipboard copy with notification. Drag-and-drop a file onto the editor to insert its text at the cursor.
+- **Editing helpers:** One-click wrappers for blocks and loops, automatic looprow/marker/condition generation, builders for rows/cols/choices/groups/noanswer/cases, filename sanitizing for safe exports, custom XML folding, and an XML formatter for tidy output.
+- **Question generators:** Rich helpers for radio, rating, checkbox (with optional IHUT recode block), select, text/textarea, number/float, sliderpoints, slidernumber, autosum, survey comment, pipe, autofill, starrating, image upload, and reusable lists (create/call). These handle auto-labeling (with numeric labels prefixed to “Q”), altlabel parsing, default language-based comments, NOTA exclusives, shuffle hints, and suspend tags to separate blocks cleanly.
+- **Styling:** Style dropdown grouped by prefix from `SURVEY_STYLE_DEFINITIONS`, reusable style components, and ready-to-use style snippets so you can quickly layer presentation on top of generated questions.
+- **Preferences:** Theme selector, word-wrap toggle, and font size increase/decrease with persistence. Per-user survey language drives default comments. A per-language comment editor (with reset) lets you tune helper text. An IHUT checkbox recode toggle determines whether checkbox questions emit a recode helper block.
+- **Data management:** A clear-all-data control wipes `localStorage` and reloads, returning the workspace to its defaults when you need a clean slate.
+
+## Hotkeys
+- **Editor essentials:** `Ctrl-Q` folds or unfolds at the cursor; `Ctrl-B` wraps selection in bold; `Ctrl-I` italics; `Ctrl-U` underline; `Ctrl-Alt-S` superscript; `Ctrl-Alt-B` subscript; `Esc` toggles the command palette; `Tab` inserts a literal tab; `Enter` preserves the current indent; `Ctrl-Space` opens schema-aware autocomplete; `Shift-Alt-F` runs the XML formatter.
+- **Palette navigation:** Arrow Up/Down move through suggestions; Tab / Shift-Tab cycle; Enter executes the highlighted or typed command; Esc closes the palette.
+- **Modal shortcuts:** While a modal is open, Enter triggers the active action—covering new tab, new survey, new IHUT, rename tab, mouseover/popup generation, random-order tracker, dupe-check, new style, pipe-number, disable-continue, or new table—depending on which section is visible.
+- **Tabs:** Middle-click closes non-default tabs. The tab context menu exposes save/download, copy, and close operations.
+
+## Notes
+- Persistence lives in `localStorage`: tabs and their contents, active tab, theme, wrap setting, font size, chosen survey language, per-language comments, IHUT recode toggle, and the last command used in the palette.
+- Drag-and-drop support lets you drop a file onto the editor and immediately insert its text where your cursor sits.
+- There is a lighthearted easter egg.
